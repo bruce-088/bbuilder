@@ -107,6 +107,37 @@ export default function Chat() {
     }
   };
 
+  const generateConversationTitle = async (content: string) => {
+    if (!id) return;
+
+    try {
+      // Extract business name from the content using regex patterns
+      const businessNameMatch = content.match(/\*\*(?:Business Name|Name):\*\*\s*([^\n*]+)/i) 
+        || content.match(/(?:Business Name|Name):\s*([^\n]+)/i)
+        || content.match(/^#+\s*(.+)/m);
+      
+      let title = "New Business Idea";
+      
+      if (businessNameMatch && businessNameMatch[1]) {
+        title = businessNameMatch[1].trim().replace(/\*+/g, '').substring(0, 50);
+      } else {
+        // Try to extract from niche
+        const nicheMatch = content.match(/\*\*(?:Niche|Industry):\*\*\s*([^\n*]+)/i)
+          || content.match(/(?:Niche|Industry):\s*([^\n]+)/i);
+        if (nicheMatch && nicheMatch[1]) {
+          title = `${nicheMatch[1].trim().replace(/\*+/g, '').substring(0, 40)} Idea`;
+        }
+      }
+
+      await supabase
+        .from("conversations")
+        .update({ title })
+        .eq("id", id);
+    } catch (error) {
+      console.error("Error generating conversation title:", error);
+    }
+  };
+
   const handleGenerateIdeas = async () => {
     if (!user) return;
 
@@ -140,6 +171,9 @@ export default function Chat() {
       onDone: async () => {
         setIsStreaming(false);
         await saveMessage("assistant", assistantContent);
+
+        // Auto-generate conversation title from the business idea
+        await generateConversationTitle(assistantContent);
 
         // Add to Mem0 memory
         if (user) {
