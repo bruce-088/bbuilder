@@ -14,8 +14,10 @@ import {
   Bot,
   Lightbulb,
   Bookmark,
-  BookmarkCheck
+  BookmarkCheck,
+  Workflow
 } from "lucide-react";
+import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -41,6 +43,7 @@ export default function Chat() {
   const [loading, setLoading] = useState(true);
   const [savingIdeaId, setSavingIdeaId] = useState<string | null>(null);
   const [savedIdeaMessageIds, setSavedIdeaMessageIds] = useState<Set<string>>(new Set());
+  const [savedBusinessIdea, setSavedBusinessIdea] = useState<{ id: string; business_name: string } | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasGeneratedRef = useRef(false);
@@ -48,6 +51,7 @@ export default function Chat() {
   useEffect(() => {
     if (user && id) {
       loadMessages();
+      checkForSavedBusinessIdea();
     }
   }, [user, id]);
 
@@ -89,6 +93,25 @@ export default function Chat() {
       toast.error("Failed to load messages");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const checkForSavedBusinessIdea = async () => {
+    if (!id) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("business_ideas")
+        .select("id, business_name")
+        .eq("conversation_id", id)
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        setSavedBusinessIdea(data);
+      }
+    } catch (error) {
+      console.error("Error checking for saved business idea:", error);
     }
   };
 
@@ -199,7 +222,7 @@ export default function Chat() {
     try {
       const parsed = parseBusinessIdea(content);
 
-      const { error } = await supabase.from("business_ideas").insert({
+      const { data, error } = await supabase.from("business_ideas").insert({
         user_id: user.id,
         conversation_id: id,
         business_name: parsed.businessName,
@@ -210,11 +233,14 @@ export default function Chat() {
         revenue_math: parsed.revenueMath,
         validation_path: parsed.validationPath,
         ai_automation_strategy: { summary: parsed.aiAutomation },
-      });
+      }).select("id, business_name").single();
 
       if (error) throw error;
 
       setSavedIdeaMessageIds(prev => new Set(prev).add(messageId));
+      if (data) {
+        setSavedBusinessIdea(data);
+      }
       toast.success("Business idea saved! You can now compare it with others.");
     } catch (error) {
       console.error("Error saving business idea:", error);
@@ -505,23 +531,37 @@ export default function Chat() {
                      message.content && 
                      isBusinessIdeaMessage(message.content) && 
                      !isStreaming && (
-                      <div className="flex justify-start">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className={`gap-2 ${savedIdeaMessageIds.has(message.id) ? "text-green-500 border-green-500/50" : ""}`}
-                          onClick={() => saveAsBusinessIdea(message.id, message.content)}
-                          disabled={savingIdeaId === message.id || savedIdeaMessageIds.has(message.id)}
-                        >
-                          {savingIdeaId === message.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : savedIdeaMessageIds.has(message.id) ? (
-                            <BookmarkCheck className="w-4 h-4" />
-                          ) : (
-                            <Bookmark className="w-4 h-4" />
-                          )}
-                          {savedIdeaMessageIds.has(message.id) ? "Saved to Ideas" : "Save as Business Idea"}
-                        </Button>
+                      <div className="flex flex-wrap gap-2 justify-start">
+                        {!savedBusinessIdea && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className={`gap-2 ${savedIdeaMessageIds.has(message.id) ? "text-green-500 border-green-500/50" : ""}`}
+                            onClick={() => saveAsBusinessIdea(message.id, message.content)}
+                            disabled={savingIdeaId === message.id || savedIdeaMessageIds.has(message.id)}
+                          >
+                            {savingIdeaId === message.id ? (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            ) : savedIdeaMessageIds.has(message.id) ? (
+                              <BookmarkCheck className="w-4 h-4" />
+                            ) : (
+                              <Bookmark className="w-4 h-4" />
+                            )}
+                            {savedIdeaMessageIds.has(message.id) ? "Saved to Ideas" : "Save as Business Idea"}
+                          </Button>
+                        )}
+                        {savedBusinessIdea && (
+                          <N8nWorkflowDialog
+                            businessIdeaId={savedBusinessIdea.id}
+                            businessName={savedBusinessIdea.business_name}
+                            trigger={
+                              <Button variant="outline" size="sm" className="gap-2">
+                                <Workflow className="w-4 h-4" />
+                                Generate n8n Workflow
+                              </Button>
+                            }
+                          />
+                        )}
                       </div>
                     )}
                   </div>
