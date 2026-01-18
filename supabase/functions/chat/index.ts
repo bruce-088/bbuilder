@@ -59,51 +59,95 @@ serve(async (req) => {
       stream: true,
     };
 
-    // For business idea generation, we could use structured output
+    // For business idea generation - one detailed idea at a time
     if (type === "generate_ideas") {
       requestBody.messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: `Generate 5 unique, turn-key online business concepts that can realistically achieve $10,000 net profit per month. Each idea should be perfect for solopreneurs and introverts.
+          content: `Generate ONE unique, highly detailed turn-key online business concept that can realistically achieve $10,000 net profit per month. This idea should be perfect for solopreneurs and introverts.
 
-For EACH of the 5 business ideas, provide:
+# 💡 [Creative Business Name]
 
-## Business Idea [Number]: [Business Name]
+## 🎯 The Niche
+Provide a specific, underserved niche with clear market opportunity. Explain why this niche is ideal right now.
 
-### Niche
-[Specific niche/industry]
+## 👥 Target Audience
+Create a detailed customer avatar:
+- Demographics (age, location, profession)
+- Psychographics (pain points, desires, fears)
+- Where they hang out online
+- What keeps them up at night
 
-### Target Audience
-[Detailed description of ideal customers]
+## ✨ Value Proposition
+A compelling one-liner that makes prospects say "I need this!" followed by 3-4 key benefits.
 
-### Value Proposition
-[The unique value you provide]
+## 📦 Service/Product Offering
+Detailed breakdown of exactly what you deliver:
+- Core deliverables
+- Timeline and process
+- What's included vs. add-ons
+- Specific outcomes clients can expect
 
-### Service Offering
-[Detailed description of what you sell/deliver]
+## 💰 Revenue Math (Path to $10K/month)
+Show the exact numbers:
+- **Pricing:** $X per [unit/package/retainer]
+- **Clients needed:** X clients/month
+- **Average client lifetime value:** $X
+- **Estimated monthly costs:** $X (tools, ads, contractors)
+- **Net profit calculation:** Revenue - Costs = $10K+
+- **Scaling path:** How to grow beyond $10K
 
-### Revenue Math
-[Clear breakdown showing path to $10K/month profit]
-- Pricing: $X per [unit]
-- Clients needed: X
-- Estimated costs: $X
-- Net profit calculation
+## 🚀 Fast Validation Path (Get First Customer in 2-4 Weeks)
+Week-by-week action plan:
+- **Week 1:** [Specific actions]
+- **Week 2:** [Specific actions]
+- **Week 3-4:** [Specific actions]
+- First customer acquisition strategy
+- How to get testimonials quickly
 
-### Fast Validation Path (2-4 weeks)
-[Step-by-step plan to get first paying customer]
+## 🤖 AI Automation Strategy
+Detailed prompts and tools for each sales stage:
 
-### AI Automation Strategy
-- **Prospecting:** How AI finds leads
-- **Qualification:** How AI qualifies prospects
-- **Presentation:** How AI delivers pitches
-- **Objection Handling:** How AI addresses concerns
-- **Closing:** How AI facilitates sales
-- **Follow-up:** How AI nurtures relationships
+### Prospecting
+- AI tools to use (with specific examples)
+- Sample AI prompt for finding leads
+- Automation workflow
+
+### Qualification & Discovery
+- AI-powered qualification questions
+- How to automate initial outreach
+- Sample scripts
+
+### Presentation & Proposal
+- AI-generated proposal templates
+- Personalization at scale
+- Video/demo automation
+
+### Objection Handling
+- Common objections for this niche
+- AI response frameworks
+- FAQ automation
+
+### Closing
+- AI-assisted follow-up sequences
+- Payment and onboarding automation
+- Contract generation
+
+### Client Success & Follow-up
+- Automated check-ins
+- Upsell/cross-sell sequences
+- Referral request automation
+
+## 🛠️ Tech Stack Recommendation
+Specific tools needed to run this business (keep it simple and affordable).
+
+## ⚠️ Potential Challenges & Solutions
+3 likely obstacles and how to overcome them.
 
 ---
 
-Make each idea distinct, practical, and achievable. Focus on high-value services that introverts can deliver effectively.`,
+Make this idea unique, creative, and immediately actionable. Be specific with examples, not generic. The reader should be able to start TODAY.`,
         },
         ...(messages || []),
       ];

@@ -168,15 +168,15 @@ export default function Dashboard() {
                 <div className="w-12 h-12 rounded-lg bg-gradient-accent flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
                   <Sparkles className="w-6 h-6 text-accent-foreground" />
                 </div>
-                <CardTitle className="font-display">Generate Business Ideas</CardTitle>
+                <CardTitle className="font-display">Generate Business Idea</CardTitle>
                 <CardDescription>
-                  Get 5 AI-powered, turn-key business concepts with revenue math and automation strategies
+                  Get one detailed, AI-powered business concept with revenue math, validation path, and automation strategies
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <Button className="w-full bg-gradient-accent text-accent-foreground hover:opacity-90 btn-glow">
                   <Lightbulb className="w-4 h-4 mr-2" />
-                  Generate Ideas
+                  Generate Idea
                   <ArrowRight className="w-4 h-4 ml-auto" />
                 </Button>
               </CardContent>

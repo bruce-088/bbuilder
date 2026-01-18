@@ -116,7 +116,7 @@ export default function Chat() {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: "Generate 5 unique $10K/month business ideas for solopreneurs and introverts.",
+      content: "Generate a unique, detailed $10K/month business idea for solopreneurs and introverts.",
     };
     setMessages([userMessage]);
     await saveMessage("user", userMessage.content);
@@ -307,7 +307,7 @@ export default function Chat() {
                 className="bg-gradient-accent text-accent-foreground hover:opacity-90 btn-glow"
               >
                 <Lightbulb className="w-4 h-4 mr-2" />
-                Generate 5 Business Ideas
+                Generate Business Idea
               </Button>
             </motion.div>
           ) : (
