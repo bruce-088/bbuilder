@@ -14,7 +14,183 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      ai_prompts: {
+        Row: {
+          business_idea_id: string
+          created_at: string
+          id: string
+          prompt_content: string
+          prompt_type: string
+          user_id: string
+        }
+        Insert: {
+          business_idea_id: string
+          created_at?: string
+          id?: string
+          prompt_content: string
+          prompt_type: string
+          user_id: string
+        }
+        Update: {
+          business_idea_id?: string
+          created_at?: string
+          id?: string
+          prompt_content?: string
+          prompt_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ai_prompts_business_idea_id_fkey"
+            columns: ["business_idea_id"]
+            isOneToOne: false
+            referencedRelation: "business_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_ideas: {
+        Row: {
+          ai_automation_strategy: Json
+          business_name: string
+          conversation_id: string | null
+          created_at: string
+          id: string
+          niche: string
+          revenue_math: string
+          service_offering: string
+          target_audience: string
+          updated_at: string
+          user_id: string
+          validation_path: string
+          value_proposition: string
+        }
+        Insert: {
+          ai_automation_strategy?: Json
+          business_name: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          niche: string
+          revenue_math: string
+          service_offering: string
+          target_audience: string
+          updated_at?: string
+          user_id: string
+          validation_path: string
+          value_proposition: string
+        }
+        Update: {
+          ai_automation_strategy?: Json
+          business_name?: string
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          niche?: string
+          revenue_math?: string
+          service_offering?: string
+          target_audience?: string
+          updated_at?: string
+          user_id?: string
+          validation_path?: string
+          value_proposition?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_ideas_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chat_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          role: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chat_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          id: string
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          email: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
