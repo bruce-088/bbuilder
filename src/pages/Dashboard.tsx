@@ -55,6 +55,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
+import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 
 interface BusinessIdea {
   id: string;
@@ -92,6 +93,7 @@ export default function Dashboard() {
   const [savedConversationIds, setSavedConversationIds] = useState<Set<string>>(new Set());
   const [ideaToDelete, setIdeaToDelete] = useState<string | null>(null);
   const [ideaSearch, setIdeaSearch] = useState("");
+  const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const editIdeaInputRef = useRef<HTMLInputElement>(null);
 
@@ -738,7 +740,7 @@ export default function Dashboard() {
                           if (compareMode) {
                             toggleCompareSelection(idea.id);
                           } else {
-                            navigate(`/idea/${idea.id}`);
+                            setSelectedIdeaId(idea.id);
                           }
                         }
                       }}
@@ -1086,6 +1088,20 @@ export default function Dashboard() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Business Idea Detail Dialog */}
+      <BusinessIdeaDialog
+        ideaId={selectedIdeaId}
+        open={!!selectedIdeaId}
+        onOpenChange={(open) => !open && setSelectedIdeaId(null)}
+        onFavoriteToggle={(id, isFavorite) => {
+          setBusinessIdeas(prev =>
+            prev.map(idea =>
+              idea.id === id ? { ...idea, is_favorite: isFavorite } : idea
+            )
+          );
+        }}
+      />
     </div>
   );
 }
