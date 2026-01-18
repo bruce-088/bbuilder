@@ -5,6 +5,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { 
   Sparkles, 
   MessageSquare, 
@@ -52,6 +62,7 @@ export default function Dashboard() {
   const [filter, setFilter] = useState<"all" | "favorites">("all");
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -214,29 +225,36 @@ export default function Dashboard() {
     }
   };
 
-  const deleteConversation = async (id: string, e: React.MouseEvent) => {
+  const confirmDeleteConversation = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
+    setConversationToDelete(id);
+  };
+
+  const deleteConversation = async () => {
+    if (!conversationToDelete) return;
     
     try {
       // First delete all messages in the conversation
       await supabase
         .from("chat_messages")
         .delete()
-        .eq("conversation_id", id);
+        .eq("conversation_id", conversationToDelete);
 
       // Then delete the conversation
       const { error } = await supabase
         .from("conversations")
         .delete()
-        .eq("id", id);
+        .eq("id", conversationToDelete);
 
       if (error) throw error;
 
-      setConversations(prev => prev.filter(conv => conv.id !== id));
+      setConversations(prev => prev.filter(conv => conv.id !== conversationToDelete));
       toast.success("Conversation deleted");
     } catch (error) {
       console.error("Error deleting conversation:", error);
       toast.error("Failed to delete conversation");
+    } finally {
+      setConversationToDelete(null);
     }
   };
 
@@ -548,7 +566,7 @@ export default function Dashboard() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              onClick={(e) => deleteConversation(conv.id, e)}
+                              onClick={(e) => confirmDeleteConversation(conv.id, e)}
                             >
                               <Trash2 className="w-4 h-4" />
                             </Button>
@@ -577,6 +595,27 @@ export default function Dashboard() {
           </div>
         </motion.div>
       </main>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!conversationToDelete} onOpenChange={(open) => !open && setConversationToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Conversation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this conversation? This action cannot be undone and all messages will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteConversation}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
