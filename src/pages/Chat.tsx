@@ -28,6 +28,7 @@ export default function Chat() {
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const shouldGenerate = searchParams.get("generate") === "true";
+  const industry = searchParams.get("industry") || "";
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   
@@ -143,11 +144,16 @@ export default function Chat() {
 
     setIsStreaming(true);
 
+    // Build the user message based on industry selection
+    const industryText = industry 
+      ? `Generate a unique, detailed $10K/month business idea in the ${decodeURIComponent(industry).replace(/-/g, ' ')} industry for solopreneurs and introverts.`
+      : "Generate a unique, detailed $10K/month business idea for solopreneurs and introverts.";
+
     // Add a user message
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: "Generate a unique, detailed $10K/month business idea for solopreneurs and introverts.",
+      content: industryText,
     };
     setMessages([userMessage]);
     await saveMessage("user", userMessage.content);
@@ -160,6 +166,7 @@ export default function Chat() {
     await streamChat({
       messages: [],
       type: "generate_ideas",
+      industry: industry ? decodeURIComponent(industry) : undefined,
       onDelta: (chunk) => {
         assistantContent += chunk;
         setMessages((prev) =>

@@ -15,6 +15,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import { 
   Sparkles, 
   MessageSquare, 
@@ -63,7 +79,27 @@ export default function Dashboard() {
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
+  const [showIndustryDialog, setShowIndustryDialog] = useState(false);
+  const [selectedIndustry, setSelectedIndustry] = useState<string>("");
   const editInputRef = useRef<HTMLInputElement>(null);
+
+  const industries = [
+    { value: "any", label: "Any Industry (Surprise me!)" },
+    { value: "health-wellness", label: "Health & Wellness" },
+    { value: "finance", label: "Finance & Investing" },
+    { value: "technology", label: "Technology & SaaS" },
+    { value: "education", label: "Education & Coaching" },
+    { value: "ecommerce", label: "E-commerce & Retail" },
+    { value: "real-estate", label: "Real Estate" },
+    { value: "marketing", label: "Marketing & Advertising" },
+    { value: "creative", label: "Creative & Design" },
+    { value: "food-beverage", label: "Food & Beverage" },
+    { value: "travel", label: "Travel & Hospitality" },
+    { value: "legal", label: "Legal Services" },
+    { value: "hr", label: "HR & Recruiting" },
+    { value: "sustainability", label: "Sustainability & Green Tech" },
+    { value: "ai-automation", label: "AI & Automation" },
+  ];
 
   useEffect(() => {
     if (user) {
@@ -140,8 +176,14 @@ export default function Dashboard() {
     }
   };
 
+  const openIndustryDialog = () => {
+    setSelectedIndustry("");
+    setShowIndustryDialog(true);
+  };
+
   const handleGenerateIdeas = async () => {
     if (!user) return;
+    setShowIndustryDialog(false);
 
     try {
       const { data, error } = await supabase
@@ -151,7 +193,11 @@ export default function Dashboard() {
         .single();
 
       if (error) throw error;
-      navigate(`/chat/${data.id}?generate=true`);
+      
+      const industryParam = selectedIndustry && selectedIndustry !== "any" 
+        ? `&industry=${encodeURIComponent(selectedIndustry)}` 
+        : "";
+      navigate(`/chat/${data.id}?generate=true${industryParam}`);
     } catch (error) {
       console.error("Error creating conversation:", error);
       toast.error("Failed to start idea generation");
@@ -311,7 +357,7 @@ export default function Dashboard() {
           <div className="grid md:grid-cols-2 gap-6 mb-12">
             <Card 
               className="glass card-hover cursor-pointer group" 
-              onClick={handleGenerateIdeas}
+              onClick={openIndustryDialog}
             >
               <CardHeader>
                 <div className="w-12 h-12 rounded-lg bg-gradient-accent flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
@@ -325,7 +371,7 @@ export default function Dashboard() {
               <CardContent>
                 <Button className="w-full bg-gradient-accent text-accent-foreground hover:opacity-90 btn-glow">
                   <Lightbulb className="w-4 h-4 mr-2" />
-                  Generate Idea
+                  Choose Industry & Generate
                   <ArrowRight className="w-4 h-4 ml-auto" />
                 </Button>
               </CardContent>
@@ -616,6 +662,46 @@ export default function Dashboard() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Industry Selection Dialog */}
+      <Dialog open={showIndustryDialog} onOpenChange={setShowIndustryDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-display">Choose an Industry</DialogTitle>
+            <DialogDescription>
+              Select an industry to focus your business idea, or let us surprise you with any industry.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="industry" className="mb-2 block">Industry</Label>
+            <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
+              <SelectTrigger id="industry">
+                <SelectValue placeholder="Select an industry..." />
+              </SelectTrigger>
+              <SelectContent>
+                {industries.map((industry) => (
+                  <SelectItem key={industry.value} value={industry.value}>
+                    {industry.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowIndustryDialog(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleGenerateIdeas}
+              disabled={!selectedIndustry}
+              className="bg-gradient-accent text-accent-foreground hover:opacity-90"
+            >
+              <Sparkles className="w-4 h-4 mr-2" />
+              Generate Idea
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
