@@ -19,7 +19,8 @@ import {
   Star,
   Filter,
   Pencil,
-  X as XIcon
+  X as XIcon,
+  Trash2
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -210,6 +211,32 @@ export default function Dashboard() {
       saveConversationTitle(id);
     } else if (e.key === "Escape") {
       cancelEditing();
+    }
+  };
+
+  const deleteConversation = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    
+    try {
+      // First delete all messages in the conversation
+      await supabase
+        .from("chat_messages")
+        .delete()
+        .eq("conversation_id", id);
+
+      // Then delete the conversation
+      const { error } = await supabase
+        .from("conversations")
+        .delete()
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setConversations(prev => prev.filter(conv => conv.id !== id));
+      toast.success("Conversation deleted");
+    } catch (error) {
+      console.error("Error deleting conversation:", error);
+      toast.error("Failed to delete conversation");
     }
   };
 
@@ -508,14 +535,24 @@ export default function Dashboard() {
                           </p>
                         </div>
                         {editingConversationId !== conv.id && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 flex-shrink-0"
-                            onClick={(e) => startEditingConversation(conv, e)}
-                          >
-                            <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                          </Button>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => startEditingConversation(conv, e)}
+                            >
+                              <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={(e) => deleteConversation(conv.id, e)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
                         )}
                       </CardContent>
                     </Card>
