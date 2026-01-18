@@ -46,7 +46,9 @@ import {
   Filter,
   Pencil,
   X as XIcon,
-  Trash2
+  Trash2,
+  Bookmark,
+  BookmarkCheck
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -83,6 +85,8 @@ export default function Dashboard() {
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [showIndustryDialog, setShowIndustryDialog] = useState(false);
   const [selectedIndustry, setSelectedIndustry] = useState<string>("");
+  const [savingIdeaFromConv, setSavingIdeaFromConv] = useState<string | null>(null);
+  const [savedConversationIds, setSavedConversationIds] = useState<Set<string>>(new Set());
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const industries = [
@@ -328,6 +332,132 @@ export default function Dashboard() {
       toast.error("Failed to delete conversation");
     } finally {
       setConversationToDelete(null);
+    }
+  };
+
+  // Parse business idea from message content
+  const parseBusinessIdea = (content: string) => {
+    const extractField = (patterns: RegExp[]): string => {
+      for (const pattern of patterns) {
+        const match = content.match(pattern);
+        if (match && match[1]) {
+          return match[1].trim().replace(/\*+/g, '').substring(0, 500);
+        }
+      }
+      return "";
+    };
+
+    const businessName = extractField([
+      /#+\s*💡?\s*([^\n]+)/,
+      /\*\*(?:Business Name|Name):\*\*\s*([^\n*]+)/i,
+      /(?:Business Name|Name):\s*([^\n]+)/i,
+    ]) || "Untitled Business Idea";
+
+    const niche = extractField([
+      /##\s*🎯?\s*(?:The )?Niche[^\n]*\n+([^\n#]+)/i,
+      /\*\*(?:Niche|The Niche):\*\*\s*([^\n*]+)/i,
+      /(?:Niche|Industry):\s*([^\n]+)/i,
+    ]);
+
+    const targetAudience = extractField([
+      /##\s*👥?\s*Target Audience[^\n]*\n+([\s\S]*?)(?=##|\n\n\*\*|$)/i,
+      /\*\*Target Audience:\*\*\s*([^\n*]+)/i,
+    ]);
+
+    const valueProposition = extractField([
+      /##\s*✨?\s*Value Proposition[^\n]*\n+([\s\S]*?)(?=##|\n\n\*\*|$)/i,
+      /\*\*Value Proposition:\*\*\s*([^\n*]+)/i,
+    ]);
+
+    const serviceOffering = extractField([
+      /##\s*📦?\s*Service.*Offering[^\n]*\n+([\s\S]*?)(?=##|\n\n\*\*|$)/i,
+      /\*\*Service.*Offering:\*\*\s*([^\n*]+)/i,
+    ]);
+
+    const revenueMath = extractField([
+      /##\s*💰?\s*Revenue Math[^\n]*\n+([\s\S]*?)(?=##|\n\n\*\*|$)/i,
+      /\*\*Revenue Math.*:\*\*\s*([\s\S]*?)(?=\*\*[A-Z]|\n\n##|$)/i,
+    ]);
+
+    const validationPath = extractField([
+      /##\s*🚀?\s*(?:Fast )?Validation Path[^\n]*\n+([\s\S]*?)(?=##|\n\n\*\*|$)/i,
+      /\*\*Validation Path:\*\*\s*([^\n*]+)/i,
+    ]);
+
+    const aiAutomation = extractField([
+      /##\s*🤖?\s*AI Automation[^\n]*\n+([\s\S]*?)(?=##\s*🛠️|##\s*⚠️|$)/i,
+    ]);
+
+    return {
+      businessName,
+      niche,
+      targetAudience,
+      valueProposition,
+      serviceOffering,
+      revenueMath,
+      validationPath,
+      aiAutomation,
+    };
+  };
+
+  const saveIdeaFromConversation = async (convId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+
+    setSavingIdeaFromConv(convId);
+
+    try {
+      // Fetch the first assistant message from this conversation
+      const { data: messages, error: fetchError } = await supabase
+        .from("chat_messages")
+        .select("content")
+        .eq("conversation_id", convId)
+        .eq("role", "assistant")
+        .order("created_at", { ascending: true })
+        .limit(1);
+
+      if (fetchError) throw fetchError;
+
+      if (!messages || messages.length === 0) {
+        toast.error("No business idea found in this conversation");
+        return;
+      }
+
+      const content = messages[0].content;
+      const parsed = parseBusinessIdea(content);
+
+      const { error } = await supabase.from("business_ideas").insert({
+        user_id: user.id,
+        conversation_id: convId,
+        business_name: parsed.businessName,
+        niche: parsed.niche,
+        target_audience: parsed.targetAudience,
+        value_proposition: parsed.valueProposition,
+        service_offering: parsed.serviceOffering,
+        revenue_math: parsed.revenueMath,
+        validation_path: parsed.validationPath,
+        ai_automation_strategy: { summary: parsed.aiAutomation },
+      });
+
+      if (error) throw error;
+
+      setSavedConversationIds(prev => new Set(prev).add(convId));
+      
+      // Refresh business ideas list
+      const { data: ideasData } = await supabase
+        .from("business_ideas")
+        .select("id, business_name, niche, created_at, is_favorite")
+        .order("created_at", { ascending: false })
+        .limit(20);
+      
+      if (ideasData) setBusinessIdeas(ideasData);
+      
+      toast.success("Business idea saved! You can now compare it with others.");
+    } catch (error) {
+      console.error("Error saving business idea:", error);
+      toast.error("Failed to save business idea");
+    } finally {
+      setSavingIdeaFromConv(null);
     }
   };
 
@@ -638,6 +768,22 @@ export default function Dashboard() {
                         </div>
                         {editingConversationId !== conv.id && (
                           <div className="flex items-center gap-1 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className={`h-8 w-8 ${savedConversationIds.has(conv.id) ? "text-green-500" : ""}`}
+                              onClick={(e) => saveIdeaFromConversation(conv.id, e)}
+                              disabled={savingIdeaFromConv === conv.id || savedConversationIds.has(conv.id)}
+                              title={savedConversationIds.has(conv.id) ? "Already saved" : "Save as Business Idea"}
+                            >
+                              {savingIdeaFromConv === conv.id ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : savedConversationIds.has(conv.id) ? (
+                                <BookmarkCheck className="w-4 h-4" />
+                              ) : (
+                                <Bookmark className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                              )}
+                            </Button>
                             <Button
                               variant="ghost"
                               size="icon"
