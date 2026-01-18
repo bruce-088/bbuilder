@@ -10,7 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Workflow, Copy, Check, RefreshCw } from "lucide-react";
+import { Loader2, Workflow, Copy, Check, RefreshCw, ExternalLink, Info } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -126,6 +126,23 @@ export default function N8nWorkflowDialog({
           </div>
         ) : prompt ? (
           <>
+            {/* Instructions Card */}
+            <div className="rounded-lg border border-primary/20 bg-primary/5 p-4 mb-4">
+              <div className="flex items-start gap-3">
+                <Info className="w-5 h-5 text-primary flex-shrink-0 mt-0.5" />
+                <div className="space-y-2 text-sm">
+                  <p className="font-medium text-foreground">How to use this in n8n:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-muted-foreground">
+                    <li>Click <strong>"Copy to Clipboard"</strong> below to copy the workflow prompt</li>
+                    <li>Open <a href="https://n8n.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">n8n <ExternalLink className="w-3 h-3" /></a> and create a new workflow</li>
+                    <li>Add an <strong>AI Agent</strong> or <strong>Chat</strong> node</li>
+                    <li>Paste the prompt into the system message or instructions field</li>
+                    <li>Configure your triggers and connections as described in the workflow</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
             <div className="flex items-center gap-2 mb-2">
               <Button
                 variant="outline"
@@ -150,7 +167,7 @@ export default function N8nWorkflowDialog({
                 Regenerate
               </Button>
             </div>
-            <ScrollArea className="flex-1 max-h-[60vh] rounded-lg border bg-muted/50 p-4">
+            <ScrollArea className="flex-1 max-h-[50vh] rounded-lg border bg-muted/50 p-4">
               <div className="prose prose-sm dark:prose-invert max-w-none">
                 <ReactMarkdown
                   components={{
