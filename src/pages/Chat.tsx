@@ -12,7 +12,9 @@ import {
   Loader2,
   User,
   Bot,
-  Lightbulb
+  Lightbulb,
+  Bookmark,
+  BookmarkCheck
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -22,6 +24,7 @@ interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
+  savedAsIdea?: boolean;
 }
 
 export default function Chat() {
@@ -36,6 +39,8 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [savingIdeaId, setSavingIdeaId] = useState<string | null>(null);
+  const [savedIdeaMessageIds, setSavedIdeaMessageIds] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasGeneratedRef = useRef(false);
@@ -105,6 +110,117 @@ export default function Chat() {
         .eq("id", id);
     } catch (error) {
       console.error("Error saving message:", error);
+    }
+  };
+
+  // Check if a message looks like a business idea
+  const isBusinessIdeaMessage = (content: string): boolean => {
+    const indicators = [
+      /business name/i,
+      /target audience/i,
+      /value proposition/i,
+      /revenue math/i,
+      /validation path/i,
+      /\$10[,]?000|10k/i,
+    ];
+    return indicators.filter(regex => regex.test(content)).length >= 3;
+  };
+
+  // Parse business idea from message content
+  const parseBusinessIdea = (content: string) => {
+    const extractField = (patterns: RegExp[]): string => {
+      for (const pattern of patterns) {
+        const match = content.match(pattern);
+        if (match && match[1]) {
+          return match[1].trim().replace(/\*+/g, '').substring(0, 500);
+        }
+      }
+      return "";
+    };
+
+    const businessName = extractField([
+      /#+\s*💡?\s*([^\n]+)/,
+      /\*\*(?:Business Name|Name):\*\*\s*([^\n*]+)/i,
+      /(?:Business Name|Name):\s*([^\n]+)/i,
+    ]) || "Untitled Business Idea";
+
+    const niche = extractField([
+      /##\s*🎯?\s*(?:The )?Niche[^\n]*\n+([^\n#]+)/i,
+      /\*\*(?:Niche|The Niche):\*\*\s*([^\n*]+)/i,
+      /(?:Niche|Industry):\s*([^\n]+)/i,
+    ]);
+
+    const targetAudience = extractField([
+      /##\s*👥?\s*Target Audience[^\n]*\n+([\s\S]*?)(?=##|\n\n\*\*|$)/i,
+      /\*\*Target Audience:\*\*\s*([^\n*]+)/i,
+    ]);
+
+    const valueProposition = extractField([
+      /##\s*✨?\s*Value Proposition[^\n]*\n+([\s\S]*?)(?=##|\n\n\*\*|$)/i,
+      /\*\*Value Proposition:\*\*\s*([^\n*]+)/i,
+    ]);
+
+    const serviceOffering = extractField([
+      /##\s*📦?\s*Service.*Offering[^\n]*\n+([\s\S]*?)(?=##|\n\n\*\*|$)/i,
+      /\*\*Service.*Offering:\*\*\s*([^\n*]+)/i,
+    ]);
+
+    const revenueMath = extractField([
+      /##\s*💰?\s*Revenue Math[^\n]*\n+([\s\S]*?)(?=##|\n\n\*\*|$)/i,
+      /\*\*Revenue Math.*:\*\*\s*([\s\S]*?)(?=\*\*[A-Z]|\n\n##|$)/i,
+    ]);
+
+    const validationPath = extractField([
+      /##\s*🚀?\s*(?:Fast )?Validation Path[^\n]*\n+([\s\S]*?)(?=##|\n\n\*\*|$)/i,
+      /\*\*Validation Path:\*\*\s*([^\n*]+)/i,
+    ]);
+
+    const aiAutomation = extractField([
+      /##\s*🤖?\s*AI Automation[^\n]*\n+([\s\S]*?)(?=##\s*🛠️|##\s*⚠️|$)/i,
+    ]);
+
+    return {
+      businessName,
+      niche,
+      targetAudience,
+      valueProposition,
+      serviceOffering,
+      revenueMath,
+      validationPath,
+      aiAutomation,
+    };
+  };
+
+  const saveAsBusinessIdea = async (messageId: string, content: string) => {
+    if (!user || !id) return;
+
+    setSavingIdeaId(messageId);
+
+    try {
+      const parsed = parseBusinessIdea(content);
+
+      const { error } = await supabase.from("business_ideas").insert({
+        user_id: user.id,
+        conversation_id: id,
+        business_name: parsed.businessName,
+        niche: parsed.niche,
+        target_audience: parsed.targetAudience,
+        value_proposition: parsed.valueProposition,
+        service_offering: parsed.serviceOffering,
+        revenue_math: parsed.revenueMath,
+        validation_path: parsed.validationPath,
+        ai_automation_strategy: { summary: parsed.aiAutomation },
+      });
+
+      if (error) throw error;
+
+      setSavedIdeaMessageIds(prev => new Set(prev).add(messageId));
+      toast.success("Business idea saved! You can now compare it with others.");
+    } catch (error) {
+      console.error("Error saving business idea:", error);
+      toast.error("Failed to save business idea");
+    } finally {
+      setSavingIdeaId(null);
     }
   };
 
@@ -364,27 +480,53 @@ export default function Chat() {
                   }`}
                 >
                   {message.role === "assistant" && (
-                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0 mt-1">
                       <Bot className="w-4 h-4 text-primary" />
                     </div>
                   )}
-                  <div
-                    className={`max-w-[80%] px-4 py-3 ${
-                      message.role === "user"
-                        ? "message-user"
-                        : "message-assistant"
-                    }`}
-                  >
-                    {message.role === "assistant" ? (
-                      <div className="prose prose-invert prose-sm max-w-none">
-                        <ReactMarkdown>{message.content || "..."}</ReactMarkdown>
+                  <div className="flex flex-col gap-2 max-w-[80%]">
+                    <div
+                      className={`px-4 py-3 ${
+                        message.role === "user"
+                          ? "message-user"
+                          : "message-assistant"
+                      }`}
+                    >
+                      {message.role === "assistant" ? (
+                        <div className="prose prose-invert prose-sm max-w-none">
+                          <ReactMarkdown>{message.content || "..."}</ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap">{message.content}</p>
+                      )}
+                    </div>
+                    {/* Save as Business Idea button for assistant messages with business ideas */}
+                    {message.role === "assistant" && 
+                     message.content && 
+                     isBusinessIdeaMessage(message.content) && 
+                     !isStreaming && (
+                      <div className="flex justify-start">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className={`gap-2 ${savedIdeaMessageIds.has(message.id) ? "text-green-500 border-green-500/50" : ""}`}
+                          onClick={() => saveAsBusinessIdea(message.id, message.content)}
+                          disabled={savingIdeaId === message.id || savedIdeaMessageIds.has(message.id)}
+                        >
+                          {savingIdeaId === message.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : savedIdeaMessageIds.has(message.id) ? (
+                            <BookmarkCheck className="w-4 h-4" />
+                          ) : (
+                            <Bookmark className="w-4 h-4" />
+                          )}
+                          {savedIdeaMessageIds.has(message.id) ? "Saved to Ideas" : "Save as Business Idea"}
+                        </Button>
                       </div>
-                    ) : (
-                      <p className="whitespace-pre-wrap">{message.content}</p>
                     )}
                   </div>
                   {message.role === "user" && (
-                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
+                    <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0 mt-1">
                       <User className="w-4 h-4 text-primary-foreground" />
                     </div>
                   )}
