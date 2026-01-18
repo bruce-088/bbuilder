@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { 
   Sparkles, 
   MessageSquare, 
@@ -16,7 +17,9 @@ import {
   Scale,
   Check,
   Star,
-  Filter
+  Filter,
+  Pencil,
+  X as XIcon
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -46,6 +49,9 @@ export default function Dashboard() {
   const [compareMode, setCompareMode] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
+  const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState("");
+  const editInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (user) {
@@ -157,6 +163,55 @@ export default function Dashboard() {
   const filteredIdeas = filter === "favorites" 
     ? businessIdeas.filter(idea => idea.is_favorite) 
     : businessIdeas;
+
+  const startEditingConversation = (conv: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingConversationId(conv.id);
+    setEditingTitle(conv.title || "");
+    setTimeout(() => editInputRef.current?.focus(), 0);
+  };
+
+  const cancelEditing = () => {
+    setEditingConversationId(null);
+    setEditingTitle("");
+  };
+
+  const saveConversationTitle = async (id: string) => {
+    if (!editingTitle.trim()) {
+      cancelEditing();
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ title: editingTitle.trim() })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setConversations(prev =>
+        prev.map(conv =>
+          conv.id === id ? { ...conv, title: editingTitle.trim() } : conv
+        )
+      );
+      toast.success("Conversation renamed");
+    } catch (error) {
+      console.error("Error updating conversation title:", error);
+      toast.error("Failed to rename conversation");
+    } finally {
+      cancelEditing();
+    }
+  };
+
+  const handleEditKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveConversationTitle(id);
+    } else if (e.key === "Escape") {
+      cancelEditing();
+    }
+  };
 
   if (authLoading) {
     return (
@@ -416,14 +471,52 @@ export default function Dashboard() {
                     <Card 
                       key={conv.id} 
                       className="glass card-hover cursor-pointer"
-                      onClick={() => navigate(`/chat/${conv.id}`)}
+                      onClick={() => {
+                        if (editingConversationId !== conv.id) {
+                          navigate(`/chat/${conv.id}`);
+                        }
+                      }}
                     >
-                      <CardContent className="p-4">
-                        <h3 className="font-medium mb-1">{conv.title}</h3>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {new Date(conv.updated_at).toLocaleDateString()}
-                        </p>
+                      <CardContent className="p-4 flex items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          {editingConversationId === conv.id ? (
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <Input
+                                ref={editInputRef}
+                                value={editingTitle}
+                                onChange={(e) => setEditingTitle(e.target.value)}
+                                onKeyDown={(e) => handleEditKeyDown(e, conv.id)}
+                                onBlur={() => saveConversationTitle(conv.id)}
+                                className="h-7 text-sm"
+                                placeholder="Conversation title"
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 flex-shrink-0"
+                                onClick={() => cancelEditing()}
+                              >
+                                <XIcon className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <h3 className="font-medium mb-1">{conv.title}</h3>
+                          )}
+                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(conv.updated_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        {editingConversationId !== conv.id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 flex-shrink-0"
+                            onClick={(e) => startEditingConversation(conv, e)}
+                          >
+                            <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
