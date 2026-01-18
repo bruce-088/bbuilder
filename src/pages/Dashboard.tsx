@@ -87,6 +87,7 @@ export default function Dashboard() {
   const [selectedIndustry, setSelectedIndustry] = useState<string>("");
   const [savingIdeaFromConv, setSavingIdeaFromConv] = useState<string | null>(null);
   const [savedConversationIds, setSavedConversationIds] = useState<Set<string>>(new Set());
+  const [ideaToDelete, setIdeaToDelete] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
 
   const industries = [
@@ -461,6 +462,33 @@ export default function Dashboard() {
     }
   };
 
+  const confirmDeleteIdea = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIdeaToDelete(id);
+  };
+
+  const deleteBusinessIdea = async () => {
+    if (!ideaToDelete) return;
+    
+    try {
+      const { error } = await supabase
+        .from("business_ideas")
+        .delete()
+        .eq("id", ideaToDelete);
+
+      if (error) throw error;
+
+      setBusinessIdeas(prev => prev.filter(idea => idea.id !== ideaToDelete));
+      setSelectedForCompare(prev => prev.filter(id => id !== ideaToDelete));
+      toast.success("Business idea deleted");
+    } catch (error) {
+      console.error("Error deleting business idea:", error);
+      toast.error("Failed to delete business idea");
+    } finally {
+      setIdeaToDelete(null);
+    }
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -650,23 +678,33 @@ export default function Dashboard() {
                             {new Date(idea.created_at).toLocaleDateString()}
                           </p>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 flex-shrink-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            toggleFavorite(idea.id, idea.is_favorite);
-                          }}
-                        >
-                          <Star 
-                            className={`w-4 h-4 transition-colors ${
-                              idea.is_favorite 
-                                ? "fill-yellow-400 text-yellow-400" 
-                                : "text-muted-foreground hover:text-yellow-400"
-                            }`} 
-                          />
-                        </Button>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleFavorite(idea.id, idea.is_favorite);
+                            }}
+                          >
+                            <Star 
+                              className={`w-4 h-4 transition-colors ${
+                                idea.is_favorite 
+                                  ? "fill-yellow-400 text-yellow-400" 
+                                  : "text-muted-foreground hover:text-yellow-400"
+                              }`} 
+                            />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={(e) => confirmDeleteIdea(idea.id, e)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
                         {compareMode && selectedForCompare.includes(idea.id) && (
                           <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                             <Check className="w-4 h-4 text-primary-foreground" />
@@ -853,7 +891,28 @@ export default function Dashboard() {
         </motion.div>
       </main>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Business Idea Confirmation Dialog */}
+      <AlertDialog open={!!ideaToDelete} onOpenChange={(open) => !open && setIdeaToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Business Idea</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this business idea? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={deleteBusinessIdea}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Conversation Confirmation Dialog */}
       <AlertDialog open={!!conversationToDelete} onOpenChange={(open) => !open && setConversationToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
