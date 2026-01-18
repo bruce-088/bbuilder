@@ -8,6 +8,7 @@ export interface Message {
 export interface StreamChatOptions {
   messages: Message[];
   type?: "chat" | "generate_ideas";
+  industry?: string;
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   onError?: (error: Error) => void;
@@ -16,6 +17,7 @@ export interface StreamChatOptions {
 export async function streamChat({
   messages,
   type = "chat",
+  industry,
   onDelta,
   onDone,
   onError,
@@ -29,7 +31,7 @@ export async function streamChat({
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages, type }),
+      body: JSON.stringify({ messages, type, industry }),
     });
 
     if (!response.ok) {

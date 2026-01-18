@@ -39,7 +39,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, type } = await req.json();
+    const { messages, type, industry } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -47,7 +47,7 @@ serve(async (req) => {
       throw new Error("AI service is not configured");
     }
 
-    console.log(`Processing ${type || 'chat'} request with ${messages?.length || 0} messages`);
+    console.log(`Processing ${type || 'chat'} request with ${messages?.length || 0} messages, industry: ${industry || 'any'}`);
 
     // Build the request body
     const requestBody: Record<string, unknown> = {
@@ -61,11 +61,15 @@ serve(async (req) => {
 
     // For business idea generation - one detailed idea at a time
     if (type === "generate_ideas") {
+      const industryContext = industry && industry !== "any" 
+        ? `specifically in the **${industry.replace(/-/g, ' ').toUpperCase()}** industry. Focus on opportunities, trends, and target customers unique to this sector.`
+        : `in any promising industry. Choose an underserved niche with high potential.`;
+
       requestBody.messages = [
         { role: "system", content: SYSTEM_PROMPT },
         {
           role: "user",
-          content: `Generate ONE unique, highly detailed turn-key online business concept that can realistically achieve $10,000 net profit per month. This idea should be perfect for solopreneurs and introverts.
+          content: `Generate ONE unique, highly detailed turn-key online business concept ${industryContext} This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
 
 # 💡 [Creative Business Name]
 
