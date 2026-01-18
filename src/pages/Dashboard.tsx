@@ -12,8 +12,11 @@ import {
   LogOut, 
   Clock,
   ArrowRight,
-  Loader2
+  Loader2,
+  Scale,
+  Check
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
@@ -36,6 +39,8 @@ export default function Dashboard() {
   const [businessIdeas, setBusinessIdeas] = useState<BusinessIdea[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [compareMode, setCompareMode] = useState(false);
+  const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
 
   useEffect(() => {
     if (user) {
@@ -106,6 +111,20 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Error creating conversation:", error);
       toast.error("Failed to start idea generation");
+    }
+  };
+
+  const toggleCompareSelection = (id: string) => {
+    setSelectedForCompare(prev => 
+      prev.includes(id) 
+        ? prev.filter(i => i !== id)
+        : prev.length < 4 ? [...prev, id] : prev
+    );
+  };
+
+  const handleCompare = () => {
+    if (selectedForCompare.length >= 2) {
+      navigate(`/compare?ids=${selectedForCompare.join(",")}`);
     }
   };
 
@@ -209,10 +228,48 @@ export default function Dashboard() {
           <div className="grid md:grid-cols-2 gap-8">
             {/* Recent Ideas */}
             <div>
-              <h2 className="font-display text-xl font-semibold mb-4 flex items-center gap-2">
-                <Lightbulb className="w-5 h-5 text-primary" />
-                Recent Business Ideas
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-display text-xl font-semibold flex items-center gap-2">
+                  <Lightbulb className="w-5 h-5 text-primary" />
+                  Recent Business Ideas
+                </h2>
+                {businessIdeas.length >= 2 && (
+                  <div className="flex items-center gap-2">
+                    {compareMode ? (
+                      <>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => {
+                            setCompareMode(false);
+                            setSelectedForCompare([]);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={handleCompare}
+                          disabled={selectedForCompare.length < 2}
+                          className="bg-gradient-primary"
+                        >
+                          <Scale className="w-4 h-4 mr-1" />
+                          Compare ({selectedForCompare.length})
+                        </Button>
+                      </>
+                    ) : (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCompareMode(true)}
+                      >
+                        <Scale className="w-4 h-4 mr-1" />
+                        Compare
+                      </Button>
+                    )}
+                  </div>
+                )}
+              </div>
               {loading ? (
                 <div className="glass rounded-lg p-8 text-center">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
@@ -222,16 +279,41 @@ export default function Dashboard() {
                   {businessIdeas.map((idea) => (
                     <Card 
                       key={idea.id} 
-                      className="glass card-hover cursor-pointer"
-                      onClick={() => navigate(`/idea/${idea.id}`)}
+                      className={`glass card-hover cursor-pointer transition-all ${
+                        compareMode && selectedForCompare.includes(idea.id) 
+                          ? "ring-2 ring-primary" 
+                          : ""
+                      }`}
+                      onClick={() => {
+                        if (compareMode) {
+                          toggleCompareSelection(idea.id);
+                        } else {
+                          navigate(`/idea/${idea.id}`);
+                        }
+                      }}
                     >
-                      <CardContent className="p-4">
-                        <h3 className="font-medium mb-1">{idea.business_name}</h3>
-                        <p className="text-sm text-muted-foreground">{idea.niche}</p>
-                        <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          {new Date(idea.created_at).toLocaleDateString()}
-                        </p>
+                      <CardContent className="p-4 flex items-start gap-3">
+                        {compareMode && (
+                          <div className="pt-0.5">
+                            <Checkbox
+                              checked={selectedForCompare.includes(idea.id)}
+                              onCheckedChange={() => toggleCompareSelection(idea.id)}
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <h3 className="font-medium mb-1">{idea.business_name}</h3>
+                          <p className="text-sm text-muted-foreground">{idea.niche}</p>
+                          <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(idea.created_at).toLocaleDateString()}
+                          </p>
+                        </div>
+                        {compareMode && selectedForCompare.includes(idea.id) && (
+                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                            <Check className="w-4 h-4 text-primary-foreground" />
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   ))}
