@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Chat from "./pages/Chat";
 import Compare from "./pages/Compare";
+import ExportPrompt from "./pages/ExportPrompt";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -26,6 +27,7 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/chat/:id" element={<Chat />} />
             <Route path="/compare" element={<Compare />} />
+            <Route path="/export-prompt" element={<ExportPrompt />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
