@@ -65,6 +65,7 @@ interface Conversation {
   id: string;
   title: string;
   updated_at: string;
+  is_favorite: boolean;
 }
 
 export default function Dashboard() {
@@ -76,6 +77,7 @@ export default function Dashboard() {
   const [compareMode, setCompareMode] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
+  const [conversationFilter, setConversationFilter] = useState<"all" | "favorites">("all");
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
@@ -117,9 +119,9 @@ export default function Dashboard() {
           .limit(20),
         supabase
           .from("conversations")
-          .select("id, title, updated_at")
+          .select("id, title, updated_at, is_favorite")
           .order("updated_at", { ascending: false })
-          .limit(5),
+          .limit(10),
       ]);
 
       if (ideasResult.data) setBusinessIdeas(ideasResult.data);
@@ -148,6 +150,27 @@ export default function Dashboard() {
       toast.success(currentStatus ? "Removed from favorites" : "Added to favorites");
     } catch (error) {
       console.error("Error toggling favorite:", error);
+      toast.error("Failed to update favorite");
+    }
+  };
+
+  const toggleConversationFavorite = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("conversations")
+        .update({ is_favorite: !currentStatus })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setConversations(prev => 
+        prev.map(conv => 
+          conv.id === id ? { ...conv, is_favorite: !currentStatus } : conv
+        )
+      );
+      toast.success(currentStatus ? "Removed from favorites" : "Added to favorites");
+    } catch (error) {
+      console.error("Error toggling conversation favorite:", error);
       toast.error("Failed to update favorite");
     }
   };
@@ -221,6 +244,10 @@ export default function Dashboard() {
   const filteredIdeas = filter === "favorites" 
     ? businessIdeas.filter(idea => idea.is_favorite) 
     : businessIdeas;
+
+  const filteredConversations = conversationFilter === "favorites"
+    ? conversations.filter(conv => conv.is_favorite)
+    : conversations;
 
   const startEditingConversation = (conv: Conversation, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -548,17 +575,28 @@ export default function Dashboard() {
 
             {/* Recent Conversations */}
             <div>
-              <h2 className="font-display text-xl font-semibold mb-4 flex items-center gap-2">
-                <MessageSquare className="w-5 h-5 text-primary" />
-                Recent Conversations
-              </h2>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h2 className="font-display text-xl font-semibold flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-primary" />
+                  Conversations
+                </h2>
+                <Tabs value={conversationFilter} onValueChange={(v) => setConversationFilter(v as "all" | "favorites")}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="all" className="text-xs px-3 h-6">All</TabsTrigger>
+                    <TabsTrigger value="favorites" className="text-xs px-3 h-6">
+                      <Star className="w-3 h-3 mr-1" />
+                      Favorites
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
               {loading ? (
                 <div className="glass rounded-lg p-8 text-center">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                 </div>
-              ) : conversations.length > 0 ? (
+              ) : filteredConversations.length > 0 ? (
                 <div className="space-y-3">
-                  {conversations.map((conv) => (
+                  {filteredConversations.map((conv) => (
                     <Card 
                       key={conv.id} 
                       className="glass card-hover cursor-pointer"
@@ -604,6 +642,23 @@ export default function Dashboard() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleConversationFavorite(conv.id, conv.is_favorite);
+                              }}
+                            >
+                              <Star 
+                                className={`w-4 h-4 transition-colors ${
+                                  conv.is_favorite 
+                                    ? "fill-yellow-400 text-yellow-400" 
+                                    : "text-muted-foreground hover:text-yellow-400"
+                                }`} 
+                              />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
                               onClick={(e) => startEditingConversation(conv, e)}
                             >
                               <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
@@ -622,6 +677,16 @@ export default function Dashboard() {
                     </Card>
                   ))}
                 </div>
+              ) : conversationFilter === "favorites" ? (
+                <Card className="glass">
+                  <CardContent className="p-8 text-center">
+                    <Star className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">No favorite conversations yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Click the star icon on any conversation to add it to favorites
+                    </p>
+                  </CardContent>
+                </Card>
               ) : (
                 <Card className="glass">
                   <CardContent className="p-8 text-center">
