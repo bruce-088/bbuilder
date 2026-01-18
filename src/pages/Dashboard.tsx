@@ -48,7 +48,8 @@ import {
   X as XIcon,
   Trash2,
   Bookmark,
-  BookmarkCheck
+  BookmarkCheck,
+  Search
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -90,6 +91,7 @@ export default function Dashboard() {
   const [savingIdeaFromConv, setSavingIdeaFromConv] = useState<string | null>(null);
   const [savedConversationIds, setSavedConversationIds] = useState<Set<string>>(new Set());
   const [ideaToDelete, setIdeaToDelete] = useState<string | null>(null);
+  const [ideaSearch, setIdeaSearch] = useState("");
   const editInputRef = useRef<HTMLInputElement>(null);
   const editIdeaInputRef = useRef<HTMLInputElement>(null);
 
@@ -249,9 +251,14 @@ export default function Dashboard() {
     }
   };
 
-  const filteredIdeas = filter === "favorites" 
-    ? businessIdeas.filter(idea => idea.is_favorite) 
-    : businessIdeas;
+  const filteredIdeas = businessIdeas.filter(idea => {
+    const matchesFilter = filter === "favorites" ? idea.is_favorite : true;
+    const searchLower = ideaSearch.toLowerCase();
+    const matchesSearch = ideaSearch === "" || 
+      idea.business_name.toLowerCase().includes(searchLower) ||
+      idea.niche.toLowerCase().includes(searchLower);
+    return matchesFilter && matchesSearch;
+  });
 
   const filteredConversations = conversationFilter === "favorites"
     ? conversations.filter(conv => conv.is_favorite)
@@ -656,40 +663,61 @@ export default function Dashboard() {
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
-                  {businessIdeas.length >= 2 && !compareMode && (
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by name or niche..."
+                    value={ideaSearch}
+                    onChange={(e) => setIdeaSearch(e.target.value)}
+                    className="pl-9 h-9"
+                  />
+                  {ideaSearch && (
                     <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setCompareMode(true)}
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                      onClick={() => setIdeaSearch("")}
                     >
-                      <Scale className="w-4 h-4 mr-1" />
-                      Compare
+                      <XIcon className="w-3 h-3" />
                     </Button>
                   )}
-                  {compareMode && (
-                    <>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => {
-                          setCompareMode(false);
-                          setSelectedForCompare([]);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={handleCompare}
-                        disabled={selectedForCompare.length < 2}
-                        className="bg-gradient-primary"
-                      >
-                        <Scale className="w-4 h-4 mr-1" />
-                        Compare ({selectedForCompare.length})
-                      </Button>
-                    </>
-                  )}
                 </div>
+                {businessIdeas.length >= 2 && !compareMode && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setCompareMode(true)}
+                  >
+                    <Scale className="w-4 h-4 mr-1" />
+                    Compare
+                  </Button>
+                )}
+                {compareMode && (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setCompareMode(false);
+                        setSelectedForCompare([]);
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleCompare}
+                      disabled={selectedForCompare.length < 2}
+                      className="bg-gradient-primary"
+                    >
+                      <Scale className="w-4 h-4 mr-1" />
+                      Compare ({selectedForCompare.length})
+                    </Button>
+                  </>
+                )}
               </div>
               {loading ? (
                 <div className="glass rounded-lg p-8 text-center">
