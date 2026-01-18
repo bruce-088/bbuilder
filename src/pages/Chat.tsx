@@ -44,6 +44,7 @@ export default function Chat() {
   const [savingIdeaId, setSavingIdeaId] = useState<string | null>(null);
   const [savedIdeaMessageIds, setSavedIdeaMessageIds] = useState<Set<string>>(new Set());
   const [savedBusinessIdea, setSavedBusinessIdea] = useState<{ id: string; business_name: string } | null>(null);
+  const [hasExistingWorkflow, setHasExistingWorkflow] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasGeneratedRef = useRef(false);
@@ -109,6 +110,17 @@ export default function Chat() {
       if (error) throw error;
       if (data) {
         setSavedBusinessIdea(data);
+        // Check if there's an existing n8n workflow for this idea
+        const { data: workflowData } = await supabase
+          .from("ai_prompts")
+          .select("id")
+          .eq("business_idea_id", data.id)
+          .eq("prompt_type", "n8n_workflow")
+          .maybeSingle();
+        
+        if (workflowData) {
+          setHasExistingWorkflow(true);
+        }
       }
     } catch (error) {
       console.error("Error checking for saved business idea:", error);
@@ -557,7 +569,7 @@ export default function Chat() {
                             trigger={
                               <Button variant="outline" size="sm" className="gap-2">
                                 <Workflow className="w-4 h-4" />
-                                Generate n8n Workflow
+                                {hasExistingWorkflow ? "View n8n Workflow" : "Generate n8n Workflow"}
                               </Button>
                             }
                           />
