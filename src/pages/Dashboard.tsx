@@ -14,9 +14,12 @@ import {
   ArrowRight,
   Loader2,
   Scale,
-  Check
+  Check,
+  Star,
+  Filter
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 
@@ -25,6 +28,7 @@ interface BusinessIdea {
   business_name: string;
   niche: string;
   created_at: string;
+  is_favorite: boolean;
 }
 
 interface Conversation {
@@ -41,6 +45,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [compareMode, setCompareMode] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
+  const [filter, setFilter] = useState<"all" | "favorites">("all");
 
   useEffect(() => {
     if (user) {
@@ -53,9 +58,9 @@ export default function Dashboard() {
       const [ideasResult, convsResult] = await Promise.all([
         supabase
           .from("business_ideas")
-          .select("id, business_name, niche, created_at")
+          .select("id, business_name, niche, created_at, is_favorite")
           .order("created_at", { ascending: false })
-          .limit(5),
+          .limit(20),
         supabase
           .from("conversations")
           .select("id, title, updated_at")
@@ -69,6 +74,27 @@ export default function Dashboard() {
       console.error("Error fetching data:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const toggleFavorite = async (id: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from("business_ideas")
+        .update({ is_favorite: !currentStatus })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setBusinessIdeas(prev => 
+        prev.map(idea => 
+          idea.id === id ? { ...idea, is_favorite: !currentStatus } : idea
+        )
+      );
+      toast.success(currentStatus ? "Removed from favorites" : "Added to favorites");
+    } catch (error) {
+      console.error("Error toggling favorite:", error);
+      toast.error("Failed to update favorite");
     }
   };
 
@@ -127,6 +153,10 @@ export default function Dashboard() {
       navigate(`/compare?ids=${selectedForCompare.join(",")}`);
     }
   };
+
+  const filteredIdeas = filter === "favorites" 
+    ? businessIdeas.filter(idea => idea.is_favorite) 
+    : businessIdeas;
 
   if (authLoading) {
     return (
@@ -228,55 +258,63 @@ export default function Dashboard() {
           <div className="grid md:grid-cols-2 gap-8">
             {/* Recent Ideas */}
             <div>
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h2 className="font-display text-xl font-semibold flex items-center gap-2">
                   <Lightbulb className="w-5 h-5 text-primary" />
-                  Recent Business Ideas
+                  Business Ideas
                 </h2>
-                {businessIdeas.length >= 2 && (
-                  <div className="flex items-center gap-2">
-                    {compareMode ? (
-                      <>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => {
-                            setCompareMode(false);
-                            setSelectedForCompare([]);
-                          }}
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={handleCompare}
-                          disabled={selectedForCompare.length < 2}
-                          className="bg-gradient-primary"
-                        >
-                          <Scale className="w-4 h-4 mr-1" />
-                          Compare ({selectedForCompare.length})
-                        </Button>
-                      </>
-                    ) : (
+                <div className="flex items-center gap-2">
+                  <Tabs value={filter} onValueChange={(v) => setFilter(v as "all" | "favorites")}>
+                    <TabsList className="h-8">
+                      <TabsTrigger value="all" className="text-xs px-3 h-6">All</TabsTrigger>
+                      <TabsTrigger value="favorites" className="text-xs px-3 h-6">
+                        <Star className="w-3 h-3 mr-1" />
+                        Favorites
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                  {businessIdeas.length >= 2 && !compareMode && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setCompareMode(true)}
+                    >
+                      <Scale className="w-4 h-4 mr-1" />
+                      Compare
+                    </Button>
+                  )}
+                  {compareMode && (
+                    <>
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => setCompareMode(true)}
+                        variant="ghost"
+                        onClick={() => {
+                          setCompareMode(false);
+                          setSelectedForCompare([]);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={handleCompare}
+                        disabled={selectedForCompare.length < 2}
+                        className="bg-gradient-primary"
                       >
                         <Scale className="w-4 h-4 mr-1" />
-                        Compare
+                        Compare ({selectedForCompare.length})
                       </Button>
-                    )}
-                  </div>
-                )}
+                    </>
+                  )}
+                </div>
               </div>
               {loading ? (
                 <div className="glass rounded-lg p-8 text-center">
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                 </div>
-              ) : businessIdeas.length > 0 ? (
+              ) : filteredIdeas.length > 0 ? (
                 <div className="space-y-3">
-                  {businessIdeas.map((idea) => (
+                  {filteredIdeas.map((idea) => (
                     <Card 
                       key={idea.id} 
                       className={`glass card-hover cursor-pointer transition-all ${
@@ -301,16 +339,33 @@ export default function Dashboard() {
                             />
                           </div>
                         )}
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <h3 className="font-medium mb-1">{idea.business_name}</h3>
-                          <p className="text-sm text-muted-foreground">{idea.niche}</p>
+                          <p className="text-sm text-muted-foreground truncate">{idea.niche}</p>
                           <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {new Date(idea.created_at).toLocaleDateString()}
                           </p>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 flex-shrink-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleFavorite(idea.id, idea.is_favorite);
+                          }}
+                        >
+                          <Star 
+                            className={`w-4 h-4 transition-colors ${
+                              idea.is_favorite 
+                                ? "fill-yellow-400 text-yellow-400" 
+                                : "text-muted-foreground hover:text-yellow-400"
+                            }`} 
+                          />
+                        </Button>
                         {compareMode && selectedForCompare.includes(idea.id) && (
-                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
+                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                             <Check className="w-4 h-4 text-primary-foreground" />
                           </div>
                         )}
@@ -318,6 +373,16 @@ export default function Dashboard() {
                     </Card>
                   ))}
                 </div>
+              ) : filter === "favorites" ? (
+                <Card className="glass">
+                  <CardContent className="p-8 text-center">
+                    <Star className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">No favorite ideas yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Click the star icon on any idea to add it to favorites
+                    </p>
+                  </CardContent>
+                </Card>
               ) : (
                 <Card className="glass">
                   <CardContent className="p-8 text-center">
