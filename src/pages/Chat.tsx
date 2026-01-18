@@ -599,6 +599,14 @@ export default function Chat() {
       <footer className="relative z-10 border-t border-border/50 backdrop-blur-xl">
         <div className="container mx-auto max-w-3xl px-4 py-4">
           <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => navigate("/dashboard")}
+              className="h-12 px-4"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Dashboard
+            </Button>
             <Textarea
               ref={textareaRef}
               value={input}
