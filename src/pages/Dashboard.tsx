@@ -82,6 +82,8 @@ export default function Dashboard() {
   const [conversationFilter, setConversationFilter] = useState<"all" | "favorites">("all");
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
+  const [editingIdeaId, setEditingIdeaId] = useState<string | null>(null);
+  const [editingIdeaName, setEditingIdeaName] = useState("");
   const [conversationToDelete, setConversationToDelete] = useState<string | null>(null);
   const [showIndustryDialog, setShowIndustryDialog] = useState(false);
   const [selectedIndustry, setSelectedIndustry] = useState<string>("");
@@ -89,6 +91,7 @@ export default function Dashboard() {
   const [savedConversationIds, setSavedConversationIds] = useState<Set<string>>(new Set());
   const [ideaToDelete, setIdeaToDelete] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
+  const editIdeaInputRef = useRef<HTMLInputElement>(null);
 
   const industries = [
     { value: "any", label: "Any Industry (Surprise me!)" },
@@ -266,6 +269,18 @@ export default function Dashboard() {
     setEditingTitle("");
   };
 
+  const startEditingIdea = (idea: BusinessIdea, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingIdeaId(idea.id);
+    setEditingIdeaName(idea.business_name || "");
+    setTimeout(() => editIdeaInputRef.current?.focus(), 0);
+  };
+
+  const cancelEditingIdea = () => {
+    setEditingIdeaId(null);
+    setEditingIdeaName("");
+  };
+
   const saveConversationTitle = async (id: string) => {
     if (!editingTitle.trim()) {
       cancelEditing();
@@ -300,6 +315,43 @@ export default function Dashboard() {
       saveConversationTitle(id);
     } else if (e.key === "Escape") {
       cancelEditing();
+    }
+  };
+
+  const saveIdeaName = async (id: string) => {
+    if (!editingIdeaName.trim()) {
+      cancelEditingIdea();
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("business_ideas")
+        .update({ business_name: editingIdeaName.trim() })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      setBusinessIdeas(prev =>
+        prev.map(idea =>
+          idea.id === id ? { ...idea, business_name: editingIdeaName.trim() } : idea
+        )
+      );
+      toast.success("Business idea renamed");
+    } catch (error) {
+      console.error("Error updating business idea name:", error);
+      toast.error("Failed to rename business idea");
+    } finally {
+      cancelEditingIdea();
+    }
+  };
+
+  const handleIdeaEditKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      saveIdeaName(id);
+    } else if (e.key === "Escape") {
+      cancelEditingIdea();
     }
   };
 
@@ -654,10 +706,12 @@ export default function Dashboard() {
                           : ""
                       }`}
                       onClick={() => {
-                        if (compareMode) {
-                          toggleCompareSelection(idea.id);
-                        } else {
-                          navigate(`/idea/${idea.id}`);
+                        if (editingIdeaId !== idea.id) {
+                          if (compareMode) {
+                            toggleCompareSelection(idea.id);
+                          } else {
+                            navigate(`/idea/${idea.id}`);
+                          }
                         }
                       }}
                     >
@@ -671,40 +725,72 @@ export default function Dashboard() {
                           </div>
                         )}
                         <div className="flex-1 min-w-0">
-                          <h3 className="font-medium mb-1">{idea.business_name}</h3>
+                          {editingIdeaId === idea.id ? (
+                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                              <Input
+                                ref={editIdeaInputRef}
+                                value={editingIdeaName}
+                                onChange={(e) => setEditingIdeaName(e.target.value)}
+                                onKeyDown={(e) => handleIdeaEditKeyDown(e, idea.id)}
+                                onBlur={() => saveIdeaName(idea.id)}
+                                className="h-7 text-sm"
+                                placeholder="Business idea name"
+                              />
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-7 w-7 flex-shrink-0"
+                                onClick={() => cancelEditingIdea()}
+                              >
+                                <XIcon className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <h3 className="font-medium mb-1">{idea.business_name}</h3>
+                          )}
                           <p className="text-sm text-muted-foreground truncate">{idea.niche}</p>
                           <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
                             <Clock className="w-3 h-3" />
                             {new Date(idea.created_at).toLocaleDateString()}
                           </p>
                         </div>
-                        <div className="flex items-center gap-1 flex-shrink-0">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleFavorite(idea.id, idea.is_favorite);
-                            }}
-                          >
-                            <Star 
-                              className={`w-4 h-4 transition-colors ${
-                                idea.is_favorite 
-                                  ? "fill-yellow-400 text-yellow-400" 
-                                  : "text-muted-foreground hover:text-yellow-400"
-                              }`} 
-                            />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            onClick={(e) => confirmDeleteIdea(idea.id, e)}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
+                        {editingIdeaId !== idea.id && (
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleFavorite(idea.id, idea.is_favorite);
+                              }}
+                            >
+                              <Star 
+                                className={`w-4 h-4 transition-colors ${
+                                  idea.is_favorite 
+                                    ? "fill-yellow-400 text-yellow-400" 
+                                    : "text-muted-foreground hover:text-yellow-400"
+                                }`} 
+                              />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={(e) => startEditingIdea(idea, e)}
+                            >
+                              <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                              onClick={(e) => confirmDeleteIdea(idea.id, e)}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        )}
                         {compareMode && selectedForCompare.includes(idea.id) && (
                           <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                             <Check className="w-4 h-4 text-primary-foreground" />
