@@ -17,11 +17,13 @@ import {
   Users,
   DollarSign,
   Zap,
-  CheckCircle2
+  CheckCircle2,
+  Workflow
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { Tables } from "@/integrations/supabase/types";
+import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 
 type BusinessIdea = Tables<"business_ideas">;
 
@@ -231,11 +233,23 @@ export default function Compare() {
                         >
                           <X className="w-3 h-3" />
                         </Button>
-                        <CardHeader className="p-4">
+                        <CardHeader className="p-4 pb-2">
                           <CardTitle className="text-lg font-display">
                             {idea.business_name}
                           </CardTitle>
                         </CardHeader>
+                        <CardContent className="px-4 pb-4 pt-0">
+                          <N8nWorkflowDialog
+                            businessIdeaId={idea.id}
+                            businessName={idea.business_name}
+                            trigger={
+                              <Button variant="outline" size="sm" className="w-full gap-2 text-xs">
+                                <Workflow className="w-3 h-3" />
+                                n8n Workflow
+                              </Button>
+                            }
+                          />
+                        </CardContent>
                       </Card>
                     </motion.div>
                   ))}
