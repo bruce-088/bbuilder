@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,6 +21,7 @@ import {
   Bot,
   Workflow,
   Star,
+  MessageSquare,
 } from "lucide-react";
 import N8nWorkflowDialog from "./N8nWorkflowDialog";
 import { Json } from "@/integrations/supabase/types";
@@ -36,6 +38,7 @@ interface BusinessIdea {
   ai_automation_strategy: Json;
   is_favorite: boolean;
   created_at: string;
+  conversation_id: string | null;
 }
 
 interface BusinessIdeaDialogProps {
@@ -73,6 +76,7 @@ export default function BusinessIdeaDialog({
   onOpenChange,
   onFavoriteToggle,
 }: BusinessIdeaDialogProps) {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [idea, setIdea] = useState<BusinessIdea | null>(null);
 
@@ -189,8 +193,21 @@ export default function BusinessIdeaDialog({
               </div>
             </ScrollArea>
 
-            {/* Generate n8n Workflow Button */}
-            <div className="pt-4 border-t border-border">
+            {/* Action Buttons */}
+            <div className="pt-4 border-t border-border space-y-2">
+              {idea.conversation_id && (
+                <Button
+                  variant="outline"
+                  className="w-full gap-2"
+                  onClick={() => {
+                    onOpenChange(false);
+                    navigate(`/chat/${idea.conversation_id}`);
+                  }}
+                >
+                  <MessageSquare className="w-4 h-4" />
+                  View Original Conversation
+                </Button>
+              )}
               <N8nWorkflowDialog
                 businessIdeaId={idea.id}
                 businessName={idea.business_name}
