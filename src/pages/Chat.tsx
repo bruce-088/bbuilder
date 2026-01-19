@@ -15,9 +15,11 @@ import {
   Lightbulb,
   Bookmark,
   BookmarkCheck,
-  Workflow
+  Workflow,
+  Wrench
 } from "lucide-react";
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
+import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -619,6 +621,14 @@ export default function Chat() {
               <ArrowLeft className="w-4 h-4 mr-2" />
               Dashboard
             </Button>
+            <ImplementationGuideDialog
+              trigger={
+                <Button variant="outline" className="h-12 px-4 gap-2">
+                  <Wrench className="w-4 h-4" />
+                  <span className="hidden sm:inline">Implementation Guide</span>
+                </Button>
+              }
+            />
             <Textarea
               ref={textareaRef}
               value={input}
