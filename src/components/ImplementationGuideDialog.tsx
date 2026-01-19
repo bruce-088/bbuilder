@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -16,11 +16,15 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ExternalLink, Wrench, Target, Users, Presentation, Shield, Handshake, Heart } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
+import { ExternalLink, Wrench, Target, Users, Presentation, Shield, Handshake, Heart, CheckCircle2 } from "lucide-react";
 
 interface ImplementationGuideDialogProps {
   trigger?: React.ReactNode;
 }
+
+type CompletedSteps = Record<string, Set<string>>;
 
 interface Tool {
   name: string;
@@ -197,8 +201,87 @@ const implementationSections: Section[] = [
   },
 ];
 
+const STORAGE_KEY = "implementation-guide-progress";
+
+const loadProgress = (): CompletedSteps => {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      const result: CompletedSteps = {};
+      for (const [key, value] of Object.entries(parsed)) {
+        result[key] = new Set(value as string[]);
+      }
+      return result;
+    }
+  } catch (e) {
+    console.error("Error loading progress:", e);
+  }
+  return {};
+};
+
+const saveProgress = (progress: CompletedSteps) => {
+  try {
+    const toSave: Record<string, string[]> = {};
+    for (const [key, value] of Object.entries(progress)) {
+      toSave[key] = Array.from(value);
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+  } catch (e) {
+    console.error("Error saving progress:", e);
+  }
+};
+
 export default function ImplementationGuideDialog({ trigger }: ImplementationGuideDialogProps) {
   const [open, setOpen] = useState(false);
+  const [completedSteps, setCompletedSteps] = useState<CompletedSteps>({});
+
+  useEffect(() => {
+    setCompletedSteps(loadProgress());
+  }, []);
+
+  const toggleStep = (sectionId: string, stepIndex: number) => {
+    setCompletedSteps((prev) => {
+      const newProgress = { ...prev };
+      const stepKey = `step-${stepIndex}`;
+      
+      if (!newProgress[sectionId]) {
+        newProgress[sectionId] = new Set();
+      } else {
+        newProgress[sectionId] = new Set(prev[sectionId]);
+      }
+
+      if (newProgress[sectionId].has(stepKey)) {
+        newProgress[sectionId].delete(stepKey);
+      } else {
+        newProgress[sectionId].add(stepKey);
+      }
+
+      saveProgress(newProgress);
+      return newProgress;
+    });
+  };
+
+  const getSectionProgress = (sectionId: string, totalSteps: number) => {
+    const completed = completedSteps[sectionId]?.size || 0;
+    return { completed, total: totalSteps, percentage: totalSteps > 0 ? (completed / totalSteps) * 100 : 0 };
+  };
+
+  const getTotalProgress = () => {
+    let totalCompleted = 0;
+    let totalSteps = 0;
+    implementationSections.forEach((section) => {
+      totalCompleted += completedSteps[section.id]?.size || 0;
+      totalSteps += section.setupSteps.length;
+    });
+    return { completed: totalCompleted, total: totalSteps, percentage: totalSteps > 0 ? (totalCompleted / totalSteps) * 100 : 0 };
+  };
+
+  const isStepCompleted = (sectionId: string, stepIndex: number) => {
+    return completedSteps[sectionId]?.has(`step-${stepIndex}`) || false;
+  };
+
+  const totalProgress = getTotalProgress();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -221,85 +304,137 @@ export default function ImplementationGuideDialog({ trigger }: ImplementationGui
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="h-[65vh] pr-4">
-          <Accordion type="single" collapsible className="w-full">
-            {implementationSections.map((section) => (
-              <AccordionItem key={section.id} value={section.id}>
-                <AccordionTrigger className="hover:no-underline">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
-                      {section.icon}
-                    </div>
-                    <span className="font-semibold">{section.title}</span>
-                  </div>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="pl-11 space-y-6">
-                    <p className="text-muted-foreground">{section.description}</p>
+        {/* Overall Progress */}
+        <div className="border border-border/50 rounded-lg p-4 bg-muted/30">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Overall Progress</span>
+            <span className="text-sm text-muted-foreground">
+              {totalProgress.completed} / {totalProgress.total} steps completed
+            </span>
+          </div>
+          <Progress value={totalProgress.percentage} className="h-2" />
+          {totalProgress.percentage === 100 && (
+            <div className="flex items-center gap-2 mt-2 text-green-500 text-sm">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>All steps completed! 🎉</span>
+            </div>
+          )}
+        </div>
 
-                    {/* Tools */}
-                    <div>
-                      <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide text-primary">
-                        Recommended Tools
-                      </h4>
-                      <div className="grid gap-2">
-                        {section.tools.map((tool) => (
-                          <a
-                            key={tool.name}
-                            href={tool.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-colors group"
-                          >
-                            <div className="flex items-center gap-3">
-                              <Badge variant="secondary" className="font-medium">
-                                {tool.name}
-                              </Badge>
-                              <span className="text-sm text-muted-foreground">
-                                {tool.description}
-                              </span>
-                            </div>
-                            <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                          </a>
-                        ))}
+        <ScrollArea className="h-[55vh] pr-4">
+          <Accordion type="single" collapsible className="w-full">
+            {implementationSections.map((section) => {
+              const progress = getSectionProgress(section.id, section.setupSteps.length);
+              
+              return (
+                <AccordionItem key={section.id} value={section.id}>
+                  <AccordionTrigger className="hover:no-underline">
+                    <div className="flex items-center gap-3 flex-1">
+                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                        progress.percentage === 100 
+                          ? "bg-green-500/20 text-green-500" 
+                          : "bg-primary/10 text-primary"
+                      }`}>
+                        {progress.percentage === 100 ? (
+                          <CheckCircle2 className="w-5 h-5" />
+                        ) : (
+                          section.icon
+                        )}
+                      </div>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className="font-semibold">{section.title}</span>
+                        <div className="flex items-center gap-2">
+                          <Progress value={progress.percentage} className="h-1.5 w-24" />
+                          <span className="text-xs text-muted-foreground">
+                            {progress.completed}/{progress.total}
+                          </span>
+                        </div>
                       </div>
                     </div>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <div className="pl-11 space-y-6">
+                      <p className="text-muted-foreground">{section.description}</p>
 
-                    {/* Setup Steps */}
-                    <div>
-                      <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide text-primary">
-                        Setup Steps
-                      </h4>
-                      <ol className="space-y-2">
-                        {section.setupSteps.map((step, index) => (
-                          <li key={index} className="flex gap-3 text-sm">
-                            <span className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-semibold">
-                              {index + 1}
-                            </span>
-                            <span className="text-muted-foreground">{step}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    </div>
+                      {/* Tools */}
+                      <div>
+                        <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide text-primary">
+                          Recommended Tools
+                        </h4>
+                        <div className="grid gap-2">
+                          {section.tools.map((tool) => (
+                            <a
+                              key={tool.name}
+                              href={tool.url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex items-center justify-between p-3 rounded-lg border border-border/50 hover:border-primary/50 hover:bg-primary/5 transition-colors group"
+                            >
+                              <div className="flex items-center gap-3">
+                                <Badge variant="secondary" className="font-medium">
+                                  {tool.name}
+                                </Badge>
+                                <span className="text-sm text-muted-foreground">
+                                  {tool.description}
+                                </span>
+                              </div>
+                              <ExternalLink className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
+                            </a>
+                          ))}
+                        </div>
+                      </div>
 
-                    {/* Automation Tips */}
-                    <div>
-                      <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide text-primary">
-                        Automation Tips
-                      </h4>
-                      <ul className="space-y-2">
-                        {section.automationTips.map((tip, index) => (
-                          <li key={index} className="flex gap-3 text-sm">
-                            <span className="text-primary">•</span>
-                            <span className="text-muted-foreground">{tip}</span>
-                          </li>
-                        ))}
-                      </ul>
+                      {/* Setup Steps with Checkboxes */}
+                      <div>
+                        <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide text-primary">
+                          Setup Steps
+                        </h4>
+                        <ol className="space-y-3">
+                          {section.setupSteps.map((step, index) => {
+                            const completed = isStepCompleted(section.id, index);
+                            return (
+                              <li 
+                                key={index} 
+                                className={`flex gap-3 text-sm p-2 rounded-lg transition-colors cursor-pointer hover:bg-muted/50 ${
+                                  completed ? "bg-green-500/10" : ""
+                                }`}
+                                onClick={() => toggleStep(section.id, index)}
+                              >
+                                <Checkbox
+                                  checked={completed}
+                                  onCheckedChange={() => toggleStep(section.id, index)}
+                                  className="mt-0.5"
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <span className={`flex-1 ${completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                  <span className="font-medium text-primary mr-2">{index + 1}.</span>
+                                  {step}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ol>
+                      </div>
+
+                      {/* Automation Tips */}
+                      <div>
+                        <h4 className="font-semibold mb-3 text-sm uppercase tracking-wide text-primary">
+                          Automation Tips
+                        </h4>
+                        <ul className="space-y-2">
+                          {section.automationTips.map((tip, index) => (
+                            <li key={index} className="flex gap-3 text-sm">
+                              <span className="text-primary">•</span>
+                              <span className="text-muted-foreground">{tip}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
                     </div>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
+                  </AccordionContent>
+                </AccordionItem>
+              );
+            })}
           </Accordion>
         </ScrollArea>
       </DialogContent>
