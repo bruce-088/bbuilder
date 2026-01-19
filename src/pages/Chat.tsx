@@ -477,7 +477,7 @@ export default function Chat() {
 
       {/* Messages */}
       <main className="relative z-10 flex-1 overflow-y-auto">
-        <div className="container mx-auto max-w-3xl px-4 py-6">
+        <div className="container mx-auto max-w-5xl px-4 py-6">
           {loading ? (
             <div className="flex items-center justify-center h-64">
               <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -522,7 +522,7 @@ export default function Chat() {
                       <Bot className="w-4 h-4 text-primary" />
                     </div>
                   )}
-                  <div className="flex flex-col gap-2 max-w-[80%]">
+                  <div className="flex flex-col gap-2 max-w-[90%]">
                     <div
                       className={`px-4 py-3 ${
                         message.role === "user"
@@ -609,7 +609,7 @@ export default function Chat() {
 
       {/* Input */}
       <footer className="relative z-10 border-t border-border/50 backdrop-blur-xl">
-        <div className="container mx-auto max-w-3xl px-4 py-4">
+        <div className="container mx-auto max-w-5xl px-4 py-4">
           <div className="flex gap-3">
             <Button
               variant="outline"
