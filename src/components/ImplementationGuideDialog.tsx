@@ -18,13 +18,20 @@ import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
-import { ExternalLink, Wrench, Target, Users, Presentation, Shield, Handshake, Heart, CheckCircle2, Cloud, Loader2 } from "lucide-react";
+import { ExternalLink, Wrench, Target, Users, Presentation, Shield, Handshake, Heart, CheckCircle2, Cloud, Loader2, FileText } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Json } from "@/integrations/supabase/types";
 
 interface ImplementationGuideDialogProps {
   trigger?: React.ReactNode;
+  aiAutomationStrategy?: Json;
 }
 
 type CompletedSteps = Record<string, Set<string>>;
@@ -206,7 +213,25 @@ const implementationSections: Section[] = [
   },
 ];
 
-export default function ImplementationGuideDialog({ trigger }: ImplementationGuideDialogProps) {
+// Extract prospecting prompt from AI automation strategy
+const extractProspectingPrompt = (strategy: Json): string | null => {
+  if (!strategy) return null;
+  if (typeof strategy === "object" && strategy !== null) {
+    const obj = strategy as Record<string, unknown>;
+    if ("summary" in obj && typeof obj.summary === "string") {
+      const summary = obj.summary;
+      // Extract the Prospecting section
+      const prospectingMatch = summary.match(/### Prospecting[\s\S]*?(?=###|$)/i);
+      if (prospectingMatch) {
+        return prospectingMatch[0].trim();
+      }
+    }
+  }
+  return null;
+};
+
+export default function ImplementationGuideDialog({ trigger, aiAutomationStrategy }: ImplementationGuideDialogProps) {
+  const prospectingPrompt = extractProspectingPrompt(aiAutomationStrategy || null);
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<CompletedSteps>({});
@@ -490,6 +515,7 @@ export default function ImplementationGuideDialog({ trigger }: ImplementationGui
                         <ol className="space-y-3">
                           {section.setupSteps.map((step, index) => {
                             const completed = isStepCompleted(section.id, index);
+                            const showIcpButton = section.id === "prospecting" && index === 0 && prospectingPrompt;
                             return (
                               <li 
                                 key={index} 
@@ -504,10 +530,37 @@ export default function ImplementationGuideDialog({ trigger }: ImplementationGui
                                   className="mt-0.5"
                                   onClick={(e) => e.stopPropagation()}
                                 />
-                                <span className={`flex-1 ${completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
-                                  <span className="font-medium text-primary mr-2">{index + 1}.</span>
-                                  {step}
-                                </span>
+                                <div className="flex-1 flex flex-col gap-2">
+                                  <span className={`${completed ? "line-through text-muted-foreground" : "text-foreground"}`}>
+                                    <span className="font-medium text-primary mr-2">{index + 1}.</span>
+                                    {step}
+                                  </span>
+                                  {showIcpButton && (
+                                    <Popover>
+                                      <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          className="w-fit gap-2 text-xs"
+                                        >
+                                          <FileText className="w-3 h-3" />
+                                          View Your ICP Prompt
+                                        </Button>
+                                      </PopoverTrigger>
+                                      <PopoverContent 
+                                        className="w-96 max-h-64 overflow-auto" 
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <div className="space-y-2">
+                                          <h4 className="font-semibold text-sm">Your Ideal Customer Profile</h4>
+                                          <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                            {prospectingPrompt}
+                                          </p>
+                                        </div>
+                                      </PopoverContent>
+                                    </Popover>
+                                  )}
+                                </div>
                               </li>
                             );
                           })}
