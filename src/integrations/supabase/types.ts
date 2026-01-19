@@ -170,6 +170,33 @@ export type Database = {
         }
         Relationships: []
       }
+      implementation_progress: {
+        Row: {
+          completed_steps: string[]
+          created_at: string
+          id: string
+          section_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_steps?: string[]
+          created_at?: string
+          id?: string
+          section_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_steps?: string[]
+          created_at?: string
+          id?: string
+          section_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
