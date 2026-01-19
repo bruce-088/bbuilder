@@ -213,25 +213,46 @@ const implementationSections: Section[] = [
   },
 ];
 
-// Extract prospecting prompt from AI automation strategy
-const extractProspectingPrompt = (strategy: Json): string | null => {
+// Map section IDs to their header patterns in the AI automation strategy
+const sectionHeaderPatterns: Record<string, RegExp> = {
+  prospecting: /### Prospecting[\s\S]*?(?=###|$)/i,
+  qualification: /### Qualification[\s\S]*?(?=###|$)/i,
+  presentation: /### Presentation[\s\S]*?(?=###|$)/i,
+  "objection-handling": /### Objection[\s\S]*?(?=###|$)/i,
+  closing: /### Closing[\s\S]*?(?=###|$)/i,
+  "client-success": /### Client Success[\s\S]*?(?=###|$)/i,
+};
+
+// Extract prompt for a specific section from AI automation strategy
+const extractSectionPrompt = (strategy: Json, sectionId: string): string | null => {
   if (!strategy) return null;
   if (typeof strategy === "object" && strategy !== null) {
     const obj = strategy as Record<string, unknown>;
     if ("summary" in obj && typeof obj.summary === "string") {
       const summary = obj.summary;
-      // Extract the Prospecting section
-      const prospectingMatch = summary.match(/### Prospecting[\s\S]*?(?=###|$)/i);
-      if (prospectingMatch) {
-        return prospectingMatch[0].trim();
+      const pattern = sectionHeaderPatterns[sectionId];
+      if (pattern) {
+        const match = summary.match(pattern);
+        if (match) {
+          return match[0].trim();
+        }
       }
     }
   }
   return null;
 };
 
+// Section-specific labels for the prompt button
+const sectionPromptLabels: Record<string, string> = {
+  prospecting: "View Your ICP Prompt",
+  qualification: "View Your Qualification Prompt",
+  presentation: "View Your Presentation Prompt",
+  "objection-handling": "View Your Objection Handling Prompt",
+  closing: "View Your Closing Prompt",
+  "client-success": "View Your Client Success Prompt",
+};
+
 export default function ImplementationGuideDialog({ trigger, aiAutomationStrategy }: ImplementationGuideDialogProps) {
-  const prospectingPrompt = extractProspectingPrompt(aiAutomationStrategy || null);
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [completedSteps, setCompletedSteps] = useState<CompletedSteps>({});
@@ -515,7 +536,8 @@ export default function ImplementationGuideDialog({ trigger, aiAutomationStrateg
                         <ol className="space-y-3">
                           {section.setupSteps.map((step, index) => {
                             const completed = isStepCompleted(section.id, index);
-                            const showIcpButton = section.id === "prospecting" && index === 0 && prospectingPrompt;
+                            const sectionPrompt = index === 0 ? extractSectionPrompt(aiAutomationStrategy || null, section.id) : null;
+                            const promptLabel = sectionPromptLabels[section.id] || "View Your Prompt";
                             return (
                               <li 
                                 key={index} 
@@ -535,7 +557,7 @@ export default function ImplementationGuideDialog({ trigger, aiAutomationStrateg
                                     <span className="font-medium text-primary mr-2">{index + 1}.</span>
                                     {step}
                                   </span>
-                                  {showIcpButton && (
+                                  {sectionPrompt && (
                                     <Popover>
                                       <PopoverTrigger asChild onClick={(e) => e.stopPropagation()}>
                                         <Button 
@@ -544,7 +566,7 @@ export default function ImplementationGuideDialog({ trigger, aiAutomationStrateg
                                           className="w-fit gap-2 text-xs"
                                         >
                                           <FileText className="w-3 h-3" />
-                                          View Your ICP Prompt
+                                          {promptLabel}
                                         </Button>
                                       </PopoverTrigger>
                                       <PopoverContent 
@@ -552,9 +574,9 @@ export default function ImplementationGuideDialog({ trigger, aiAutomationStrateg
                                         onClick={(e) => e.stopPropagation()}
                                       >
                                         <div className="space-y-2">
-                                          <h4 className="font-semibold text-sm">Your Ideal Customer Profile</h4>
+                                          <h4 className="font-semibold text-sm">{section.title} Strategy</h4>
                                           <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                            {prospectingPrompt}
+                                            {sectionPrompt}
                                           </p>
                                         </div>
                                       </PopoverContent>
