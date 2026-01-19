@@ -45,7 +45,7 @@ export default function Chat() {
   const [loading, setLoading] = useState(true);
   const [savingIdeaId, setSavingIdeaId] = useState<string | null>(null);
   const [savedIdeaMessageIds, setSavedIdeaMessageIds] = useState<Set<string>>(new Set());
-  const [savedBusinessIdea, setSavedBusinessIdea] = useState<{ id: string; business_name: string } | null>(null);
+  const [savedBusinessIdea, setSavedBusinessIdea] = useState<{ id: string; business_name: string; ai_automation_strategy?: any } | null>(null);
   const [hasExistingWorkflow, setHasExistingWorkflow] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -105,7 +105,7 @@ export default function Chat() {
     try {
       const { data, error } = await supabase
         .from("business_ideas")
-        .select("id, business_name")
+        .select("id, business_name, ai_automation_strategy")
         .eq("conversation_id", id)
         .maybeSingle();
 
@@ -628,6 +628,7 @@ export default function Chat() {
                   <span className="hidden sm:inline">Implementation Guide</span>
                 </Button>
               }
+              aiAutomationStrategy={savedBusinessIdea?.ai_automation_strategy}
             />
             <Textarea
               ref={textareaRef}
