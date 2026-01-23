@@ -70,6 +70,7 @@ interface Conversation {
   title: string;
   updated_at: string;
   is_favorite: boolean;
+  industry?: string;
 }
 
 export default function Dashboard() {
@@ -123,7 +124,7 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const [ideasResult, convsResult] = await Promise.all([
+      const [ideasResult, convsResult, linkedIdeasResult] = await Promise.all([
         supabase
           .from("business_ideas")
           .select("id, business_name, niche, created_at, is_favorite")
@@ -134,10 +135,32 @@ export default function Dashboard() {
           .select("id, title, updated_at, is_favorite")
           .order("updated_at", { ascending: false })
           .limit(10),
+        supabase
+          .from("business_ideas")
+          .select("conversation_id, niche")
+          .not("conversation_id", "is", null),
       ]);
 
       if (ideasResult.data) setBusinessIdeas(ideasResult.data);
-      if (convsResult.data) setConversations(convsResult.data);
+      
+      // Create a map of conversation_id to industry
+      const industryMap = new Map<string, string>();
+      if (linkedIdeasResult.data) {
+        linkedIdeasResult.data.forEach((idea) => {
+          if (idea.conversation_id && idea.niche) {
+            industryMap.set(idea.conversation_id, idea.niche);
+          }
+        });
+      }
+      
+      // Attach industry to conversations
+      if (convsResult.data) {
+        const conversationsWithIndustry = convsResult.data.map((conv) => ({
+          ...conv,
+          industry: industryMap.get(conv.id),
+        }));
+        setConversations(conversationsWithIndustry);
+      }
     } catch (error) {
       console.error("Error fetching data:", error);
     } finally {
@@ -922,9 +945,17 @@ export default function Dashboard() {
                           ) : (
                             <h3 className="font-medium mb-1">{conv.title}</h3>
                           )}
-                          <p className="text-xs text-muted-foreground flex items-center gap-1 mt-1">
-                            <Clock className="w-3 h-3" />
-                            {new Date(conv.updated_at).toLocaleDateString()}
+                          <p className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {new Date(conv.updated_at).toLocaleDateString()}
+                            </span>
+                            {conv.industry && (
+                              <>
+                                <span className="text-muted-foreground/50">•</span>
+                                <span className="truncate">{conv.industry}</span>
+                              </>
+                            )}
                           </p>
                         </div>
                         {editingConversationId !== conv.id && (
