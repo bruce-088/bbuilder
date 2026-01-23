@@ -45,7 +45,15 @@ export default function Chat() {
   const [loading, setLoading] = useState(true);
   const [savingIdeaId, setSavingIdeaId] = useState<string | null>(null);
   const [savedIdeaMessageIds, setSavedIdeaMessageIds] = useState<Set<string>>(new Set());
-  const [savedBusinessIdea, setSavedBusinessIdea] = useState<{ id: string; business_name: string; ai_automation_strategy?: any } | null>(null);
+  const [savedBusinessIdea, setSavedBusinessIdea] = useState<{ 
+    id: string; 
+    business_name: string; 
+    niche?: string;
+    target_audience?: string;
+    value_proposition?: string;
+    service_offering?: string;
+    ai_automation_strategy?: any;
+  } | null>(null);
   const [hasExistingWorkflow, setHasExistingWorkflow] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -105,7 +113,7 @@ export default function Chat() {
     try {
       const { data, error } = await supabase
         .from("business_ideas")
-        .select("id, business_name, ai_automation_strategy")
+        .select("id, business_name, niche, target_audience, value_proposition, service_offering, ai_automation_strategy")
         .eq("conversation_id", id)
         .maybeSingle();
 
@@ -628,7 +636,15 @@ export default function Chat() {
                   <span className="hidden sm:inline">Implementation Guide</span>
                 </Button>
               }
-              aiAutomationStrategy={savedBusinessIdea?.ai_automation_strategy}
+              businessIdea={savedBusinessIdea ? {
+                id: savedBusinessIdea.id,
+                businessName: savedBusinessIdea.business_name,
+                niche: savedBusinessIdea.niche,
+                targetAudience: savedBusinessIdea.target_audience,
+                valueProposition: savedBusinessIdea.value_proposition,
+                serviceOffering: savedBusinessIdea.service_offering,
+                aiAutomationStrategy: savedBusinessIdea.ai_automation_strategy,
+              } : undefined}
             />
             <Textarea
               ref={textareaRef}
