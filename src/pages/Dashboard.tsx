@@ -143,12 +143,61 @@ export default function Dashboard() {
 
       if (ideasResult.data) setBusinessIdeas(ideasResult.data);
       
-      // Create a map of conversation_id to industry
+      // Helper function to extract main industry category from niche
+      const extractIndustryCategory = (niche: string): string => {
+        const nicheUpper = niche.toUpperCase();
+        
+        if (nicheUpper.includes('AI') || nicheUpper.includes('AUTOMATION') || nicheUpper.includes('ARTIFICIAL INTELLIGENCE') || nicheUpper.includes('MACHINE LEARNING')) {
+          return 'AI & Automation';
+        }
+        if (nicheUpper.includes('MARKETING') || nicheUpper.includes('ADVERTISING') || nicheUpper.includes('CONTENT') || nicheUpper.includes('SOCIAL MEDIA') || nicheUpper.includes('SEO')) {
+          return 'Marketing & Advertising';
+        }
+        if (nicheUpper.includes('REAL ESTATE') || nicheUpper.includes('PROPERTY') || nicheUpper.includes('HOUSING')) {
+          return 'Real Estate';
+        }
+        if (nicheUpper.includes('HEALTH') || nicheUpper.includes('FITNESS') || nicheUpper.includes('WELLNESS') || nicheUpper.includes('MEDICAL')) {
+          return 'Health & Wellness';
+        }
+        if (nicheUpper.includes('FINANCE') || nicheUpper.includes('ACCOUNTING') || nicheUpper.includes('INVESTMENT') || nicheUpper.includes('BANKING')) {
+          return 'Finance & Accounting';
+        }
+        if (nicheUpper.includes('E-COMMERCE') || nicheUpper.includes('ECOMMERCE') || nicheUpper.includes('RETAIL') || nicheUpper.includes('SHOP')) {
+          return 'E-Commerce & Retail';
+        }
+        if (nicheUpper.includes('EDUCATION') || nicheUpper.includes('TRAINING') || nicheUpper.includes('COACHING') || nicheUpper.includes('LEARNING')) {
+          return 'Education & Training';
+        }
+        if (nicheUpper.includes('LEGAL') || nicheUpper.includes('LAW') || nicheUpper.includes('ATTORNEY')) {
+          return 'Legal Services';
+        }
+        if (nicheUpper.includes('TECH') || nicheUpper.includes('SOFTWARE') || nicheUpper.includes('SAAS') || nicheUpper.includes('APP')) {
+          return 'Technology & Software';
+        }
+        if (nicheUpper.includes('FOOD') || nicheUpper.includes('RESTAURANT') || nicheUpper.includes('HOSPITALITY') || nicheUpper.includes('CULINARY')) {
+          return 'Food & Hospitality';
+        }
+        if (nicheUpper.includes('CREATIVE') || nicheUpper.includes('DESIGN') || nicheUpper.includes('ART') || nicheUpper.includes('PHOTOGRAPHY') || nicheUpper.includes('VIDEO')) {
+          return 'Creative & Design';
+        }
+        if (nicheUpper.includes('CONSULTING') || nicheUpper.includes('BUSINESS')) {
+          return 'Business Consulting';
+        }
+        if (nicheUpper.includes('SUSTAINABILITY') || nicheUpper.includes('ECO') || nicheUpper.includes('GREEN') || nicheUpper.includes('ENVIRONMENT')) {
+          return 'Sustainability';
+        }
+        
+        // Default: return first few words of niche
+        const words = niche.split(' ').slice(0, 2).join(' ');
+        return words;
+      };
+      
+      // Create a map of conversation_id to industry category
       const industryMap = new Map<string, string>();
       if (linkedIdeasResult.data) {
         linkedIdeasResult.data.forEach((idea) => {
           if (idea.conversation_id && idea.niche) {
-            industryMap.set(idea.conversation_id, idea.niche);
+            industryMap.set(idea.conversation_id, extractIndustryCategory(idea.niche));
           }
         });
       }
