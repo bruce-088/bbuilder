@@ -778,10 +778,17 @@ export default function Dashboard() {
                           ) : (
                             <h3 className="font-medium mb-1">{idea.business_name}</h3>
                           )}
-                          <p className="text-sm text-muted-foreground truncate">{idea.niche}</p>
-                          <p className="text-xs text-muted-foreground mt-2 flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {new Date(idea.created_at).toLocaleDateString()}
+                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                            <span className="flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              {new Date(idea.created_at).toLocaleDateString()}
+                            </span>
+                            {idea.niche && (
+                              <>
+                                <span className="text-muted-foreground/50">•</span>
+                                <span className="truncate">{idea.niche}</span>
+                              </>
+                            )}
                           </p>
                         </div>
                         {editingIdeaId !== idea.id && (
