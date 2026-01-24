@@ -15,10 +15,12 @@ import {
   Bookmark,
   BookmarkCheck,
   Workflow,
-  Wrench
+  Wrench,
+  Eye
 } from "lucide-react";
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
+import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -55,6 +57,7 @@ export default function Chat() {
     ai_automation_strategy?: any;
   } | null>(null);
   const [hasExistingWorkflow, setHasExistingWorkflow] = useState(false);
+  const [businessIdeaDialogOpen, setBusinessIdeaDialogOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasGeneratedRef = useRef(false);
@@ -671,6 +674,16 @@ export default function Chat() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Dashboard
               </Button>
+              {savedBusinessIdea && (
+                <Button
+                  variant="outline"
+                  onClick={() => setBusinessIdeaDialogOpen(true)}
+                  className="h-12 px-4 gap-2"
+                >
+                  <Eye className="w-4 h-4" />
+                  <span className="hidden sm:inline">View Idea</span>
+                </Button>
+              )}
               <ImplementationGuideDialog
                 trigger={
                   <Button variant="outline" className="h-12 px-4 gap-2">
@@ -715,6 +728,15 @@ export default function Chat() {
             </div>
           </div>
         </footer>
+      )}
+
+      {/* Business Idea Dialog */}
+      {savedBusinessIdea && (
+        <BusinessIdeaDialog
+          ideaId={savedBusinessIdea.id}
+          open={businessIdeaDialogOpen}
+          onOpenChange={setBusinessIdeaDialogOpen}
+        />
       )}
     </div>
   );
