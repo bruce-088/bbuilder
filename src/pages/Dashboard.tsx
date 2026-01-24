@@ -80,6 +80,10 @@ interface BusinessIdea {
   conversation_id: string | null;
 }
 
+interface BusinessIdeaWithProgress extends BusinessIdea {
+  completedSteps: string[];
+}
+
 interface Conversation {
   id: string;
   title: string;
@@ -92,6 +96,7 @@ export default function Dashboard() {
   const { user, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const [businessIdeas, setBusinessIdeas] = useState<BusinessIdea[]>([]);
+  const [businessIdeasWithProgress, setBusinessIdeasWithProgress] = useState<BusinessIdeaWithProgress[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [compareMode, setCompareMode] = useState(false);
@@ -155,7 +160,7 @@ export default function Dashboard() {
 
   const fetchData = async () => {
     try {
-      const [ideasResult, convsResult, linkedIdeasResult] = await Promise.all([
+      const [ideasResult, convsResult, linkedIdeasResult, progressResult] = await Promise.all([
         supabase
           .from("business_ideas")
           .select("id, business_name, niche, created_at, is_favorite, conversation_id")
@@ -170,9 +175,33 @@ export default function Dashboard() {
           .from("business_ideas")
           .select("conversation_id, niche")
           .not("conversation_id", "is", null),
+        supabase
+          .from("implementation_progress")
+          .select("business_idea_id, completed_steps")
+          .eq("section_id", "quick-start")
+          .not("business_idea_id", "is", null),
       ]);
 
       if (ideasResult.data) setBusinessIdeas(ideasResult.data);
+      
+      // Build a map of business_idea_id -> completed_steps for quick lookup
+      const progressMap = new Map<string, string[]>();
+      if (progressResult.data) {
+        progressResult.data.forEach((p) => {
+          if (p.business_idea_id) {
+            progressMap.set(p.business_idea_id, p.completed_steps || []);
+          }
+        });
+      }
+      
+      // Build business ideas with progress data
+      if (ideasResult.data) {
+        const ideasWithProgress: BusinessIdeaWithProgress[] = ideasResult.data.map((idea) => ({
+          ...idea,
+          completedSteps: progressMap.get(idea.id) || [],
+        }));
+        setBusinessIdeasWithProgress(ideasWithProgress);
+      }
       
       // Helper function to extract main industry category from niche
       const extractIndustryCategory = (niche: string): string => {
@@ -761,6 +790,8 @@ export default function Dashboard() {
                     openIndustryDialog();
                   }
                 }}
+                businessIdeas={businessIdeasWithProgress}
+                onSelectIdea={(ideaId) => setSelectedIdeaId(ideaId)}
               />
 
               {/* Achievements - below Current Quest */}
