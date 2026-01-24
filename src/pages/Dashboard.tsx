@@ -44,14 +44,15 @@ import {
   Scale,
   Check,
   Star,
-  Filter,
   Pencil,
   X as XIcon,
   Trash2,
   Bookmark,
   BookmarkCheck,
   Search,
-  HelpCircle
+  HelpCircle,
+  Rocket,
+  Trophy
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -59,6 +60,14 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import HowToUseDialog from "@/components/HowToUseDialog";
+import { 
+  CountdownTimer, 
+  XPProgress, 
+  AchievementBadges, 
+  CurrentQuestCard,
+  QuestList 
+} from "@/components/MissionControl";
+import { useMissionProgress } from "@/hooks/useMissionProgress";
 
 interface BusinessIdea {
   id: string;
@@ -101,8 +110,19 @@ export default function Dashboard() {
   const [conversationSearch, setConversationSearch] = useState("");
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
+  const [showQuestList, setShowQuestList] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const editIdeaInputRef = useRef<HTMLInputElement>(null);
+  
+  // Mission Control hook
+  const { 
+    mission, 
+    completedQuests, 
+    currentStage, 
+    xpEarned, 
+    unlockedAchievements,
+    refreshMission 
+  } = useMissionProgress();
 
   const industries = [
     { value: "any", label: "Any Industry (Surprise me!)" },
@@ -691,43 +711,119 @@ export default function Dashboard() {
         </div>
       </nav>
 
-      <main className="relative z-10 container mx-auto px-6 py-12">
+      <main className="relative z-10 container mx-auto px-6 py-8">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          {/* Welcome */}
-          <div className="mb-12">
-            <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">
-              Welcome back
-            </h1>
-            <p className="text-muted-foreground text-lg">
-              Generate AI-powered business ideas and build your $10K/month empire
-            </p>
+          {/* Mission Control Header */}
+          <div className="grid lg:grid-cols-3 gap-6 mb-8">
+            {/* Welcome + Current Quest */}
+            <div className="lg:col-span-2 space-y-6">
+              <div>
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-primary flex items-center justify-center">
+                    <Rocket className="w-5 h-5 text-primary-foreground" />
+                  </div>
+                  <div>
+                    <h1 className="font-display text-2xl md:text-3xl font-bold">
+                      Mission: First Customer
+                    </h1>
+                    <p className="text-muted-foreground text-sm">
+                      Build your $10K/month empire in 14 days
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Current Quest Card */}
+              <CurrentQuestCard 
+                completedQuests={completedQuests}
+                currentStage={currentStage}
+                onAction={() => {
+                  // Navigate based on current quest
+                  const currentQuest = completedQuests.length === 0 ? 'generate_idea' : 
+                    completedQuests.includes('generate_idea') && !completedQuests.includes('save_idea') ? 'save_idea' :
+                    completedQuests.includes('save_idea') && !completedQuests.includes('review_checklist') ? 'review_checklist' :
+                    'generate_idea';
+                  
+                  if (currentQuest === 'generate_idea' || currentQuest === 'save_idea') {
+                    openIndustryDialog();
+                  } else if (currentQuest === 'review_checklist' && businessIdeas.length > 0) {
+                    setSelectedIdeaId(businessIdeas[0].id);
+                  } else {
+                    openIndustryDialog();
+                  }
+                }}
+              />
+            </div>
+            
+            {/* Right Column: Timer + XP */}
+            <div className="space-y-4">
+              {mission && (
+                <CountdownTimer 
+                  targetDate={new Date(mission.target_date)} 
+                  label="to First Customer Goal"
+                />
+              )}
+              <XPProgress currentXP={xpEarned} />
+            </div>
           </div>
 
-          {/* Quick Actions */}
-          <div className="grid md:grid-cols-2 gap-6 mb-12">
+          {/* Achievements Row */}
+          <div className="mb-8">
+            <AchievementBadges unlockedAchievements={unlockedAchievements} />
+          </div>
+
+          {/* Quest List Toggle */}
+          <div className="mb-6">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowQuestList(!showQuestList)}
+              className="gap-2"
+            >
+              <Trophy className="w-4 h-4" />
+              {showQuestList ? "Hide Quest Line" : "View Full Quest Line"}
+            </Button>
+          </div>
+          
+          {showQuestList && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="mb-8"
+            >
+              <QuestList 
+                completedQuests={completedQuests}
+                currentStage={currentStage}
+                onQuestAction={(questId) => {
+                  if (questId === 'generate_idea') openIndustryDialog();
+                  else if (questId === 'save_idea') openIndustryDialog();
+                  else if (questId === 'review_checklist' && businessIdeas.length > 0) {
+                    setSelectedIdeaId(businessIdeas[0].id);
+                  }
+                }}
+              />
+            </motion.div>
+          )}
+
+          {/* Quick Actions - More Compact */}
+          <div className="grid md:grid-cols-2 gap-4 mb-8">
             <Card 
-              className="glass card-hover cursor-pointer group" 
+              className="glass card-hover cursor-pointer group border-accent/30" 
               onClick={openIndustryDialog}
             >
-              <CardHeader>
-                <div className="w-12 h-12 rounded-lg bg-gradient-accent flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-gradient-accent flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
                   <Sparkles className="w-6 h-6 text-accent-foreground" />
                 </div>
-                <CardTitle className="font-display">Generate Business Idea</CardTitle>
-                <CardDescription>
-                  Get one detailed, AI-powered business concept with revenue math, validation path, and automation strategies
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button className="w-full bg-gradient-accent text-accent-foreground hover:opacity-90 btn-glow">
-                  <Lightbulb className="w-4 h-4 mr-2" />
-                  Choose Industry & Generate
-                  <ArrowRight className="w-4 h-4 ml-auto" />
-                </Button>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-display font-semibold">Generate Business Idea</h3>
+                  <p className="text-sm text-muted-foreground truncate">AI-powered concept with revenue math</p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-accent transition-colors flex-shrink-0" />
               </CardContent>
             </Card>
 
@@ -735,21 +831,15 @@ export default function Dashboard() {
               className="glass card-hover cursor-pointer group" 
               onClick={handleNewChat}
             >
-              <CardHeader>
-                <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center mb-2 group-hover:scale-105 transition-transform">
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
                   <MessageSquare className="w-6 h-6 text-primary" />
                 </div>
-                <CardTitle className="font-display">Chat with AI Consultant</CardTitle>
-                <CardDescription>
-                  Ask questions, refine ideas, and get personalized business advice from your AI consultant
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button variant="outline" className="w-full">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Start New Chat
-                  <ArrowRight className="w-4 h-4 ml-auto" />
-                </Button>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-display font-semibold">Chat with Mya</h3>
+                  <p className="text-sm text-muted-foreground truncate">Refine ideas & get personalized advice</p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
               </CardContent>
             </Card>
           </div>
