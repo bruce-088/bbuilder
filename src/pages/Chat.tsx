@@ -684,6 +684,26 @@ export default function Chat() {
         </div>
       </main>
 
+      {/* Floating View Idea Button */}
+      <AnimatePresence>
+        {savedBusinessIdea && messages.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.8, y: 20 }}
+            className="fixed bottom-24 right-6 z-20"
+          >
+            <Button
+              onClick={() => setBusinessIdeaDialogOpen(true)}
+              className="h-12 px-4 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all"
+            >
+              <Eye className="w-4 h-4" />
+              <span className="hidden sm:inline">View Idea</span>
+            </Button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Input - only show in footer when there are messages */}
       {messages.length > 0 && (
         <footer className="relative z-10 border-t border-border/50 backdrop-blur-xl">
@@ -697,16 +717,6 @@ export default function Chat() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Dashboard
               </Button>
-              {savedBusinessIdea && (
-                <Button
-                  variant="outline"
-                  onClick={() => setBusinessIdeaDialogOpen(true)}
-                  className="h-12 px-4 gap-2"
-                >
-                  <Eye className="w-4 h-4" />
-                  <span className="hidden sm:inline">View Idea</span>
-                </Button>
-              )}
               <ImplementationGuideDialog
                 trigger={
                   <Button variant="outline" className="h-12 px-4 gap-2">
