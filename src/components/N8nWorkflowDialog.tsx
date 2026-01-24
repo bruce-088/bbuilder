@@ -136,7 +136,17 @@ export default function N8nWorkflowDialog({
                     <li>Click <strong>"Copy to Clipboard"</strong> below to copy the workflow prompt</li>
                     <li>Open <a href="https://n8n.io" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">n8n <ExternalLink className="w-3 h-3" /></a> and create a new workflow</li>
                     <li>Add an <strong>AI Agent</strong> or <strong>Chat</strong> node</li>
-                    <li>Paste the prompt into the system message or instructions field</li>
+                    <li>Paste the prompt into the{" "}
+                      <a 
+                        href="https://docs.n8n.io/integrations/builtin/cluster-nodes/root-nodes/n8n-nodes-langchain.agent/" 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-primary hover:underline inline-flex items-center gap-1"
+                      >
+                        system message or instructions field
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    </li>
                     <li>Configure your triggers and connections as described in the workflow</li>
                   </ol>
                 </div>
