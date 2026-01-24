@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, Rocket, Target, Zap, Lightbulb, CheckCircle2, Circle } from "lucide-react";
+import { ChevronRight, ChevronLeft, Rocket, Target, Zap, Lightbulb, CheckCircle2, Circle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QUEST_STAGES } from "./types";
 import { cn } from "@/lib/utils";
@@ -36,6 +36,7 @@ export default function CurrentQuestCard({
   onSelectIdea
 }: CurrentQuestCardProps) {
   const [activeView, setActiveView] = useState<'quest' | 'ideas'>('quest');
+  const [selectedIdeaIndex, setSelectedIdeaIndex] = useState(0);
   
   // Find the next incomplete quest
   const currentStageData = QUEST_STAGES.find(s => s.stage === currentStage);
@@ -54,6 +55,16 @@ export default function CurrentQuestCard({
     return (matchedMilestones.length / QUICK_START_MILESTONES.length) * 100;
   };
 
+  const selectedIdea = businessIdeas[selectedIdeaIndex];
+  
+  const navigateIdea = (direction: 'prev' | 'next') => {
+    if (direction === 'prev') {
+      setSelectedIdeaIndex((prev) => (prev > 0 ? prev - 1 : businessIdeas.length - 1));
+    } else {
+      setSelectedIdeaIndex((prev) => (prev < businessIdeas.length - 1 ? prev + 1 : 0));
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -63,15 +74,32 @@ export default function CurrentQuestCard({
       {/* Header with Toggle */}
       <div className="px-4 py-3 bg-gradient-to-r from-primary/20 to-transparent border-b border-primary/20">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Rocket className="w-5 h-5 text-primary" />
-            <span className="font-display font-semibold">
-              {activeView === 'quest' ? 'Current Quest' : 'Business Ideas Progress'}
-            </span>
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <Rocket className="w-5 h-5 text-primary flex-shrink-0" />
+            <span className="font-display font-semibold flex-shrink-0">Current Quest</span>
+            
+            {/* Idea Navigator - shows when in Ideas view */}
+            {activeView === 'ideas' && businessIdeas.length > 0 && (
+              <div className="flex items-center gap-2 ml-2 min-w-0">
+                <span className="text-muted-foreground">·</span>
+                <div className="flex items-center gap-1 min-w-0">
+                  <span className="text-sm font-medium text-primary truncate max-w-[180px]">
+                    {selectedIdea?.business_name || 'No ideas'}
+                  </span>
+                  <button
+                    onClick={() => navigateIdea('next')}
+                    className="p-1 rounded-md hover:bg-muted/30 text-primary transition-colors"
+                    title="Next idea"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
           
           {/* Toggle Buttons */}
-          <div className="flex items-center bg-muted/30 rounded-lg p-0.5">
+          <div className="flex items-center bg-muted/30 rounded-lg p-0.5 flex-shrink-0">
             <button
               onClick={() => setActiveView('quest')}
               className={cn(
@@ -201,89 +229,108 @@ export default function CurrentQuestCard({
                   Generate Your First Idea
                 </Button>
               </div>
-            ) : (
-              <div className="space-y-3 max-h-[280px] overflow-y-auto pr-1">
-                {businessIdeas.map((idea) => {
-                  const progress = calculateIdeaProgress(idea.completedSteps);
-                  const completedCount = QUICK_START_MILESTONES.filter(m => 
-                    idea.completedSteps?.some(s => s.toLowerCase().includes(m.id))
-                  ).length;
+            ) : selectedIdea ? (
+              <div className="space-y-4">
+                {/* Selected Idea Details */}
+                <motion.div
+                  key={selectedIdea.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="p-4 rounded-lg border border-border/50 bg-muted/10"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex-1 min-w-0">
+                      <h5 className="font-medium text-base truncate">
+                        {selectedIdea.business_name}
+                      </h5>
+                      <p className="text-xs text-muted-foreground truncate">{selectedIdea.niche}</p>
+                    </div>
+                    <div className="flex items-center gap-1 text-sm">
+                      <span className={cn(
+                        "font-semibold",
+                        calculateIdeaProgress(selectedIdea.completedSteps) >= 100 
+                          ? "text-success" 
+                          : calculateIdeaProgress(selectedIdea.completedSteps) > 0 
+                            ? "text-accent" 
+                            : "text-muted-foreground"
+                      )}>
+                        {Math.round(calculateIdeaProgress(selectedIdea.completedSteps))}%
+                      </span>
+                    </div>
+                  </div>
                   
-                  return (
-                    <motion.div
-                      key={idea.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="p-3 rounded-lg border border-border/50 bg-muted/10 hover:bg-muted/20 transition-colors cursor-pointer group"
-                      onClick={() => onSelectIdea?.(idea.id)}
-                    >
-                      <div className="flex items-start justify-between gap-3 mb-2">
-                        <div className="flex-1 min-w-0">
-                          <h5 className="font-medium text-sm truncate group-hover:text-primary transition-colors">
-                            {idea.business_name}
-                          </h5>
-                          <p className="text-xs text-muted-foreground truncate">{idea.niche}</p>
-                        </div>
-                        <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                          <span className={cn(
-                            "font-semibold",
-                            progress >= 100 ? "text-success" : progress > 0 ? "text-accent" : ""
+                  {/* Progress Bar */}
+                  <div className="h-2 bg-muted rounded-full overflow-hidden mb-3">
+                    <motion.div 
+                      initial={{ width: 0 }}
+                      animate={{ width: `${calculateIdeaProgress(selectedIdea.completedSteps)}%` }}
+                      transition={{ duration: 0.5, ease: "easeOut" }}
+                      className={cn(
+                        "h-full rounded-full",
+                        calculateIdeaProgress(selectedIdea.completedSteps) >= 100 
+                          ? "bg-success" 
+                          : "bg-gradient-primary"
+                      )}
+                    />
+                  </div>
+                  
+                  {/* Milestone Icons */}
+                  <div className="flex items-center justify-between gap-2">
+                    {QUICK_START_MILESTONES.map((milestone) => {
+                      const isCompleted = selectedIdea.completedSteps?.some(s => 
+                        s.toLowerCase().includes(milestone.id)
+                      );
+                      return (
+                        <div 
+                          key={milestone.id} 
+                          className={cn(
+                            "flex-1 flex flex-col items-center gap-1 p-2 rounded-lg transition-all",
+                            isCompleted 
+                              ? "bg-success/10 border border-success/20" 
+                              : "bg-muted/20 border border-border/30"
+                          )}
+                          title={`${milestone.label}: ${isCompleted ? 'Complete' : 'Incomplete'}`}
+                        >
+                          <div className={cn(
+                            "w-6 h-6 rounded-full flex items-center justify-center text-xs",
+                            isCompleted 
+                              ? "bg-success/20" 
+                              : "bg-muted/30"
                           )}>
-                            {Math.round(progress)}%
+                            {isCompleted ? (
+                              <CheckCircle2 className="w-4 h-4 text-success" />
+                            ) : (
+                              <span className="opacity-50">{milestone.icon}</span>
+                            )}
+                          </div>
+                          <span className={cn(
+                            "text-[10px] font-medium",
+                            isCompleted ? "text-success" : "text-muted-foreground"
+                          )}>
+                            {milestone.label}
                           </span>
                         </div>
-                      </div>
-                      
-                      {/* Progress Bar */}
-                      <div className="h-1.5 bg-muted rounded-full overflow-hidden mb-2">
-                        <div 
-                          className={cn(
-                            "h-full rounded-full transition-all",
-                            progress >= 100 ? "bg-success" : "bg-gradient-primary"
-                          )}
-                          style={{ width: `${progress}%` }}
-                        />
-                      </div>
-                      
-                      {/* Milestone Icons */}
-                      <div className="flex items-center gap-1.5">
-                        {QUICK_START_MILESTONES.map((milestone) => {
-                          const isCompleted = idea.completedSteps?.some(s => 
-                            s.toLowerCase().includes(milestone.id)
-                          );
-                          return (
-                            <div 
-                              key={milestone.id} 
-                              className={cn(
-                                "w-5 h-5 rounded-full flex items-center justify-center text-[10px] transition-all",
-                                isCompleted 
-                                  ? "bg-success/20 border border-success/30" 
-                                  : "bg-muted/30 border border-border/30"
-                              )}
-                              title={`${milestone.label}: ${isCompleted ? 'Complete' : 'Incomplete'}`}
-                            >
-                              {isCompleted ? (
-                                <CheckCircle2 className="w-3 h-3 text-success" />
-                              ) : (
-                                <span className="opacity-50">{milestone.icon}</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </motion.div>
-                  );
-                })}
+                      );
+                    })}
+                  </div>
+                </motion.div>
+                
+                {/* View Details Button */}
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted-foreground">
+                    {selectedIdeaIndex + 1} of {businessIdeas.length} ideas
+                  </span>
+                  <Button 
+                    onClick={() => onSelectIdea?.(selectedIdea.id)} 
+                    variant="outline" 
+                    size="sm"
+                  >
+                    View Details
+                    <ChevronRight className="w-4 h-4 ml-1" />
+                  </Button>
+                </div>
               </div>
-            )}
-            
-            {/* Summary Footer */}
-            {businessIdeas.length > 0 && (
-              <div className="mt-3 pt-3 border-t border-border/50 flex items-center justify-between text-xs text-muted-foreground">
-                <span>{businessIdeas.length} idea{businessIdeas.length !== 1 ? 's' : ''} tracked</span>
-                <span>Click to view details</span>
-              </div>
-            )}
+            ) : null}
           </motion.div>
         )}
       </AnimatePresence>
