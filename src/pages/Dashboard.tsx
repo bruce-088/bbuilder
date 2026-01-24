@@ -829,22 +829,6 @@ export default function Dashboard() {
           {/* Quick Actions - More Compact */}
           <div className="grid md:grid-cols-2 gap-4 mb-8">
             <Card 
-              className="glass card-hover cursor-pointer group border-accent/30" 
-              onClick={openIndustryDialog}
-            >
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-gradient-accent flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
-                  <Sparkles className="w-6 h-6 text-accent-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-display font-semibold">Generate Business Idea</h3>
-                  <p className="text-sm text-muted-foreground truncate">AI-powered concept with revenue math</p>
-                </div>
-                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-accent transition-colors flex-shrink-0" />
-              </CardContent>
-            </Card>
-
-            <Card 
               className="glass card-hover cursor-pointer group" 
               onClick={handleNewChat}
             >
@@ -859,10 +843,210 @@ export default function Dashboard() {
                 <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
               </CardContent>
             </Card>
+
+            <Card 
+              className="glass card-hover cursor-pointer group border-accent/30" 
+              onClick={openIndustryDialog}
+            >
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className="w-12 h-12 rounded-lg bg-gradient-accent flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
+                  <Sparkles className="w-6 h-6 text-accent-foreground" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-display font-semibold">Generate Business Idea</h3>
+                  <p className="text-sm text-muted-foreground truncate">AI-powered concept with revenue math</p>
+                </div>
+                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-accent transition-colors flex-shrink-0" />
+              </CardContent>
+            </Card>
           </div>
 
           {/* Recent Content */}
           <div className="grid md:grid-cols-2 gap-8">
+            {/* Recent Conversations */}
+            <div>
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+                <h2 className="font-display text-xl font-semibold flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-primary" />
+                  Conversations
+                </h2>
+                <Tabs value={conversationFilter} onValueChange={(v) => setConversationFilter(v as "all" | "favorites")}>
+                  <TabsList className="h-8">
+                    <TabsTrigger value="all" className="text-xs px-3 h-6">All</TabsTrigger>
+                    <TabsTrigger value="favorites" className="text-xs px-3 h-6">
+                      <Star className="w-3 h-3 mr-1" />
+                      Favorites
+                    </TabsTrigger>
+                  </TabsList>
+                </Tabs>
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by title..."
+                    value={conversationSearch}
+                    onChange={(e) => setConversationSearch(e.target.value)}
+                    className="pl-9 h-9"
+                  />
+                  {conversationSearch && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                      onClick={() => setConversationSearch("")}
+                    >
+                      <XIcon className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+              {loading ? (
+                <div className="glass rounded-lg p-8 text-center">
+                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
+                </div>
+              ) : filteredConversations.length > 0 ? (
+                <ScrollArea className="h-[420px] pr-3">
+                  <div className="space-y-3">
+                    {filteredConversations.map((conv) => (
+                      <Card 
+                        key={conv.id} 
+                        className="glass card-hover cursor-pointer"
+                        onClick={() => {
+                          if (editingConversationId !== conv.id) {
+                            navigate(`/chat/${conv.id}`);
+                          }
+                        }}
+                      >
+                        <CardContent className="p-4 flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            {editingConversationId === conv.id ? (
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <Input
+                                  ref={editInputRef}
+                                  value={editingTitle}
+                                  onChange={(e) => setEditingTitle(e.target.value)}
+                                  onKeyDown={(e) => handleEditKeyDown(e, conv.id)}
+                                  onBlur={() => saveConversationTitle(conv.id)}
+                                  className="h-7 text-sm"
+                                  placeholder="Conversation title"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 flex-shrink-0"
+                                  onClick={() => cancelEditing()}
+                                >
+                                  <XIcon className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <h3 className="font-medium mb-1">{conv.title}</h3>
+                            )}
+                            <p className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {new Date(conv.updated_at).toLocaleDateString()}
+                              </span>
+                              {conv.industry && (
+                                <>
+                                  <span className="text-muted-foreground/50">•</span>
+                                  <span className="truncate">{conv.industry}</span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+                          {editingConversationId !== conv.id && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`h-8 w-8 ${savedConversationIds.has(conv.id) ? "text-green-500" : ""}`}
+                                    onClick={(e) => saveIdeaFromConversation(conv.id, e)}
+                                    disabled={savingIdeaFromConv === conv.id || savedConversationIds.has(conv.id)}
+                                  >
+                                    {savingIdeaFromConv === conv.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : savedConversationIds.has(conv.id) ? (
+                                      <BookmarkCheck className="w-4 h-4" />
+                                    ) : (
+                                      <Bookmark className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{savedConversationIds.has(conv.id) ? "Already saved as idea" : "Save as Business Idea to unlock guides & automation"}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleConversationFavorite(conv.id, conv.is_favorite);
+                                }}
+                              >
+                                <Star 
+                                  className={`w-4 h-4 transition-colors ${
+                                    conv.is_favorite 
+                                      ? "fill-yellow-400 text-yellow-400" 
+                                      : "text-muted-foreground hover:text-yellow-400"
+                                  }`} 
+                                />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => startEditingConversation(conv, e)}
+                              >
+                                <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={(e) => confirmDeleteConversation(conv.id, e)}
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
+              ) : conversationFilter === "favorites" ? (
+                <Card className="glass">
+                  <CardContent className="p-8 text-center">
+                    <Star className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">No favorite conversations yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Click the star icon on any conversation to add it to favorites
+                    </p>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card className="glass">
+                  <CardContent className="p-8 text-center">
+                    <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
+                    <p className="text-muted-foreground">No conversations yet</p>
+                    <Button 
+                      variant="link" 
+                      className="mt-2 text-primary"
+                      onClick={handleNewChat}
+                    >
+                      Start your first chat
+                    </Button>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
             {/* Recent Ideas */}
             <div>
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
@@ -1085,190 +1269,6 @@ export default function Dashboard() {
                     >
                       <Lightbulb className="w-4 h-4 mr-2" />
                       Generate Your First Idea
-                    </Button>
-                  </CardContent>
-                </Card>
-              )}
-            </div>
-
-            {/* Recent Conversations */}
-            <div>
-              <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
-                <h2 className="font-display text-xl font-semibold flex items-center gap-2">
-                  <MessageSquare className="w-5 h-5 text-primary" />
-                  Conversations
-                </h2>
-                <Tabs value={conversationFilter} onValueChange={(v) => setConversationFilter(v as "all" | "favorites")}>
-                  <TabsList className="h-8">
-                    <TabsTrigger value="all" className="text-xs px-3 h-6">All</TabsTrigger>
-                    <TabsTrigger value="favorites" className="text-xs px-3 h-6">
-                      <Star className="w-3 h-3 mr-1" />
-                      Favorites
-                    </TabsTrigger>
-                  </TabsList>
-                </Tabs>
-              </div>
-              <div className="flex items-center gap-2 mb-4">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Search by title..."
-                    value={conversationSearch}
-                    onChange={(e) => setConversationSearch(e.target.value)}
-                    className="pl-9 h-9"
-                  />
-                  {conversationSearch && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                      onClick={() => setConversationSearch("")}
-                    >
-                      <XIcon className="w-3 h-3" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-              {loading ? (
-                <div className="glass rounded-lg p-8 text-center">
-                  <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
-                </div>
-              ) : filteredConversations.length > 0 ? (
-                <ScrollArea className="h-[420px] pr-3">
-                  <div className="space-y-3">
-                    {filteredConversations.map((conv) => (
-                      <Card 
-                        key={conv.id} 
-                        className="glass card-hover cursor-pointer"
-                        onClick={() => {
-                          if (editingConversationId !== conv.id) {
-                            navigate(`/chat/${conv.id}`);
-                          }
-                        }}
-                      >
-                        <CardContent className="p-4 flex items-start gap-3">
-                          <div className="flex-1 min-w-0">
-                            {editingConversationId === conv.id ? (
-                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                <Input
-                                  ref={editInputRef}
-                                  value={editingTitle}
-                                  onChange={(e) => setEditingTitle(e.target.value)}
-                                  onKeyDown={(e) => handleEditKeyDown(e, conv.id)}
-                                  onBlur={() => saveConversationTitle(conv.id)}
-                                  className="h-7 text-sm"
-                                  placeholder="Conversation title"
-                                />
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 flex-shrink-0"
-                                  onClick={() => cancelEditing()}
-                                >
-                                  <XIcon className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            ) : (
-                              <h3 className="font-medium mb-1">{conv.title}</h3>
-                            )}
-                            <p className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                              <span className="flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {new Date(conv.updated_at).toLocaleDateString()}
-                              </span>
-                              {conv.industry && (
-                                <>
-                                  <span className="text-muted-foreground/50">•</span>
-                                  <span className="truncate">{conv.industry}</span>
-                                </>
-                              )}
-                            </p>
-                          </div>
-                          {editingConversationId !== conv.id && (
-                            <div className="flex items-center gap-1 flex-shrink-0">
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className={`h-8 w-8 ${savedConversationIds.has(conv.id) ? "text-green-500" : ""}`}
-                                    onClick={(e) => saveIdeaFromConversation(conv.id, e)}
-                                    disabled={savingIdeaFromConv === conv.id || savedConversationIds.has(conv.id)}
-                                  >
-                                    {savingIdeaFromConv === conv.id ? (
-                                      <Loader2 className="w-4 h-4 animate-spin" />
-                                    ) : savedConversationIds.has(conv.id) ? (
-                                      <BookmarkCheck className="w-4 h-4" />
-                                    ) : (
-                                      <Bookmark className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                                    )}
-                                  </Button>
-                                </TooltipTrigger>
-                                <TooltipContent>
-                                  <p>{savedConversationIds.has(conv.id) ? "Already saved as idea" : "Save as Business Idea to unlock guides & automation"}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleConversationFavorite(conv.id, conv.is_favorite);
-                                }}
-                              >
-                                <Star 
-                                  className={`w-4 h-4 transition-colors ${
-                                    conv.is_favorite 
-                                      ? "fill-yellow-400 text-yellow-400" 
-                                      : "text-muted-foreground hover:text-yellow-400"
-                                  }`} 
-                                />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={(e) => startEditingConversation(conv, e)}
-                              >
-                                <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                onClick={(e) => confirmDeleteConversation(conv.id, e)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </ScrollArea>
-              ) : conversationFilter === "favorites" ? (
-                <Card className="glass">
-                  <CardContent className="p-8 text-center">
-                    <Star className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground">No favorite conversations yet</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Click the star icon on any conversation to add it to favorites
-                    </p>
-                  </CardContent>
-                </Card>
-              ) : (
-                <Card className="glass">
-                  <CardContent className="p-8 text-center">
-                    <MessageSquare className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground">No conversations yet</p>
-                    <Button 
-                      variant="link" 
-                      className="mt-2 text-primary"
-                      onClick={handleNewChat}
-                    >
-                      Start your first chat
                     </Button>
                   </CardContent>
                 </Card>
