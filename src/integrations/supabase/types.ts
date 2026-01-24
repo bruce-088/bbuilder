@@ -172,6 +172,7 @@ export type Database = {
       }
       implementation_progress: {
         Row: {
+          business_idea_id: string | null
           completed_steps: string[]
           created_at: string
           id: string
@@ -180,6 +181,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          business_idea_id?: string | null
           completed_steps?: string[]
           created_at?: string
           id?: string
@@ -188,6 +190,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          business_idea_id?: string | null
           completed_steps?: string[]
           created_at?: string
           id?: string
@@ -195,7 +198,15 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "implementation_progress_business_idea_id_fkey"
+            columns: ["business_idea_id"]
+            isOneToOne: false
+            referencedRelation: "business_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
