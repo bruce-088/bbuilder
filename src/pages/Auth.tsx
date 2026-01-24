@@ -74,7 +74,7 @@ export default function Auth() {
             toast.error(error.message);
           }
         } else {
-          toast.success("Account created! Welcome to IdeaForge.");
+          toast.success("Account created! Welcome to Mya.");
           navigate("/dashboard");
         }
       }
@@ -112,7 +112,7 @@ export default function Auth() {
             <div className="w-10 h-10 rounded-lg bg-gradient-primary flex items-center justify-center">
               <Sparkles className="w-6 h-6 text-primary-foreground" />
             </div>
-            <span className="font-display font-bold text-2xl">IdeaForge</span>
+            <span className="font-display font-bold text-2xl">Mya</span>
           </div>
 
           <h1 className="font-display text-2xl font-bold text-center mb-2">

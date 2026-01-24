@@ -61,7 +61,7 @@ export default function Landing() {
             <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-display font-bold text-xl">IdeaForge</span>
+            <span className="font-display font-bold text-xl">Mya</span>
           </div>
           <div className="flex items-center gap-4">
             {user ? (
@@ -143,7 +143,7 @@ export default function Landing() {
               Everything You Need to Launch
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              From ideation to automation, IdeaForge provides the complete blueprint for your online business success.
+              From ideation to automation, Mya provides the complete blueprint for your online business success.
             </p>
           </motion.div>
 

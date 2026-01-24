@@ -480,7 +480,7 @@ export default function Chat() {
             <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-display font-bold">IdeaForge AI</span>
+            <span className="font-display font-bold">Mya</span>
           </div>
         </div>
       </header>
