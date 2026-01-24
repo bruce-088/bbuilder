@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -798,117 +799,119 @@ export default function Dashboard() {
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                 </div>
               ) : filteredIdeas.length > 0 ? (
-                <div className="space-y-3">
-                  {filteredIdeas.map((idea) => (
-                    <Card 
-                      key={idea.id} 
-                      className={`glass card-hover cursor-pointer transition-all ${
-                        compareMode && selectedForCompare.includes(idea.id) 
-                          ? "ring-2 ring-primary" 
-                          : ""
-                      }`}
-                      onClick={() => {
-                        if (editingIdeaId !== idea.id) {
-                          if (compareMode) {
-                            toggleCompareSelection(idea.id);
-                          } else {
-                            setSelectedIdeaId(idea.id);
+                <ScrollArea className="h-[420px] pr-3">
+                  <div className="space-y-3">
+                    {filteredIdeas.map((idea) => (
+                      <Card 
+                        key={idea.id} 
+                        className={`glass card-hover cursor-pointer transition-all ${
+                          compareMode && selectedForCompare.includes(idea.id) 
+                            ? "ring-2 ring-primary" 
+                            : ""
+                        }`}
+                        onClick={() => {
+                          if (editingIdeaId !== idea.id) {
+                            if (compareMode) {
+                              toggleCompareSelection(idea.id);
+                            } else {
+                              setSelectedIdeaId(idea.id);
+                            }
                           }
-                        }
-                      }}
-                    >
-                      <CardContent className="p-4 flex items-start gap-3">
-                        {compareMode && (
-                          <div className="pt-0.5">
-                            <Checkbox
-                              checked={selectedForCompare.includes(idea.id)}
-                              onCheckedChange={() => toggleCompareSelection(idea.id)}
-                            />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0">
-                          {editingIdeaId === idea.id ? (
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <Input
-                                ref={editIdeaInputRef}
-                                value={editingIdeaName}
-                                onChange={(e) => setEditingIdeaName(e.target.value)}
-                                onKeyDown={(e) => handleIdeaEditKeyDown(e, idea.id)}
-                                onBlur={() => saveIdeaName(idea.id)}
-                                className="h-7 text-sm"
-                                placeholder="Business idea name"
+                        }}
+                      >
+                        <CardContent className="p-4 flex items-start gap-3">
+                          {compareMode && (
+                            <div className="pt-0.5">
+                              <Checkbox
+                                checked={selectedForCompare.includes(idea.id)}
+                                onCheckedChange={() => toggleCompareSelection(idea.id)}
                               />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            {editingIdeaId === idea.id ? (
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <Input
+                                  ref={editIdeaInputRef}
+                                  value={editingIdeaName}
+                                  onChange={(e) => setEditingIdeaName(e.target.value)}
+                                  onKeyDown={(e) => handleIdeaEditKeyDown(e, idea.id)}
+                                  onBlur={() => saveIdeaName(idea.id)}
+                                  className="h-7 text-sm"
+                                  placeholder="Business idea name"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 flex-shrink-0"
+                                  onClick={() => cancelEditingIdea()}
+                                >
+                                  <XIcon className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <h3 className="font-medium mb-1">{idea.business_name}</h3>
+                            )}
+                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {new Date(idea.created_at).toLocaleDateString()}
+                              </span>
+                              {idea.niche && (
+                                <>
+                                  <span className="text-muted-foreground/50">•</span>
+                                  <span className="truncate">{idea.niche}</span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+                          {editingIdeaId !== idea.id && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 flex-shrink-0"
-                                onClick={() => cancelEditingIdea()}
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleFavorite(idea.id, idea.is_favorite);
+                                }}
                               >
-                                <XIcon className="w-3 h-3" />
+                                <Star 
+                                  className={`w-4 h-4 transition-colors ${
+                                    idea.is_favorite 
+                                      ? "fill-yellow-400 text-yellow-400" 
+                                      : "text-muted-foreground hover:text-yellow-400"
+                                  }`} 
+                                />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => startEditingIdea(idea, e)}
+                              >
+                                <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={(e) => confirmDeleteIdea(idea.id, e)}
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
-                          ) : (
-                            <h3 className="font-medium mb-1">{idea.business_name}</h3>
                           )}
-                          <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {new Date(idea.created_at).toLocaleDateString()}
-                            </span>
-                            {idea.niche && (
-                              <>
-                                <span className="text-muted-foreground/50">•</span>
-                                <span className="truncate">{idea.niche}</span>
-                              </>
-                            )}
-                          </p>
-                        </div>
-                        {editingIdeaId !== idea.id && (
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleFavorite(idea.id, idea.is_favorite);
-                              }}
-                            >
-                              <Star 
-                                className={`w-4 h-4 transition-colors ${
-                                  idea.is_favorite 
-                                    ? "fill-yellow-400 text-yellow-400" 
-                                    : "text-muted-foreground hover:text-yellow-400"
-                                }`} 
-                              />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={(e) => startEditingIdea(idea, e)}
-                            >
-                              <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              onClick={(e) => confirmDeleteIdea(idea.id, e)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
-                        {compareMode && selectedForCompare.includes(idea.id) && (
-                          <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
-                            <Check className="w-4 h-4 text-primary-foreground" />
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                          {compareMode && selectedForCompare.includes(idea.id) && (
+                            <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
+                              <Check className="w-4 h-4 text-primary-foreground" />
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
               ) : filter === "favorites" ? (
                 <Card className="glass">
                   <CardContent className="p-8 text-center">
@@ -958,112 +961,114 @@ export default function Dashboard() {
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                 </div>
               ) : filteredConversations.length > 0 ? (
-                <div className="space-y-3">
-                  {filteredConversations.map((conv) => (
-                    <Card 
-                      key={conv.id} 
-                      className="glass card-hover cursor-pointer"
-                      onClick={() => {
-                        if (editingConversationId !== conv.id) {
-                          navigate(`/chat/${conv.id}`);
-                        }
-                      }}
-                    >
-                      <CardContent className="p-4 flex items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          {editingConversationId === conv.id ? (
-                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                              <Input
-                                ref={editInputRef}
-                                value={editingTitle}
-                                onChange={(e) => setEditingTitle(e.target.value)}
-                                onKeyDown={(e) => handleEditKeyDown(e, conv.id)}
-                                onBlur={() => saveConversationTitle(conv.id)}
-                                className="h-7 text-sm"
-                                placeholder="Conversation title"
-                              />
+                <ScrollArea className="h-[420px] pr-3">
+                  <div className="space-y-3">
+                    {filteredConversations.map((conv) => (
+                      <Card 
+                        key={conv.id} 
+                        className="glass card-hover cursor-pointer"
+                        onClick={() => {
+                          if (editingConversationId !== conv.id) {
+                            navigate(`/chat/${conv.id}`);
+                          }
+                        }}
+                      >
+                        <CardContent className="p-4 flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            {editingConversationId === conv.id ? (
+                              <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                <Input
+                                  ref={editInputRef}
+                                  value={editingTitle}
+                                  onChange={(e) => setEditingTitle(e.target.value)}
+                                  onKeyDown={(e) => handleEditKeyDown(e, conv.id)}
+                                  onBlur={() => saveConversationTitle(conv.id)}
+                                  className="h-7 text-sm"
+                                  placeholder="Conversation title"
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 flex-shrink-0"
+                                  onClick={() => cancelEditing()}
+                                >
+                                  <XIcon className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            ) : (
+                              <h3 className="font-medium mb-1">{conv.title}</h3>
+                            )}
+                            <p className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
+                              <span className="flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {new Date(conv.updated_at).toLocaleDateString()}
+                              </span>
+                              {conv.industry && (
+                                <>
+                                  <span className="text-muted-foreground/50">•</span>
+                                  <span className="truncate">{conv.industry}</span>
+                                </>
+                              )}
+                            </p>
+                          </div>
+                          {editingConversationId !== conv.id && (
+                            <div className="flex items-center gap-1 flex-shrink-0">
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-7 w-7 flex-shrink-0"
-                                onClick={() => cancelEditing()}
+                                className={`h-8 w-8 ${savedConversationIds.has(conv.id) ? "text-green-500" : ""}`}
+                                onClick={(e) => saveIdeaFromConversation(conv.id, e)}
+                                disabled={savingIdeaFromConv === conv.id || savedConversationIds.has(conv.id)}
+                                title={savedConversationIds.has(conv.id) ? "Already saved" : "Save as Business Idea"}
                               >
-                                <XIcon className="w-3 h-3" />
+                                {savingIdeaFromConv === conv.id ? (
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                ) : savedConversationIds.has(conv.id) ? (
+                                  <BookmarkCheck className="w-4 h-4" />
+                                ) : (
+                                  <Bookmark className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                                )}
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleConversationFavorite(conv.id, conv.is_favorite);
+                                }}
+                              >
+                                <Star 
+                                  className={`w-4 h-4 transition-colors ${
+                                    conv.is_favorite 
+                                      ? "fill-yellow-400 text-yellow-400" 
+                                      : "text-muted-foreground hover:text-yellow-400"
+                                  }`} 
+                                />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => startEditingConversation(conv, e)}
+                              >
+                                <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                onClick={(e) => confirmDeleteConversation(conv.id, e)}
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
-                          ) : (
-                            <h3 className="font-medium mb-1">{conv.title}</h3>
                           )}
-                          <p className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                            <span className="flex items-center gap-1">
-                              <Clock className="w-3 h-3" />
-                              {new Date(conv.updated_at).toLocaleDateString()}
-                            </span>
-                            {conv.industry && (
-                              <>
-                                <span className="text-muted-foreground/50">•</span>
-                                <span className="truncate">{conv.industry}</span>
-                              </>
-                            )}
-                          </p>
-                        </div>
-                        {editingConversationId !== conv.id && (
-                          <div className="flex items-center gap-1 flex-shrink-0">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className={`h-8 w-8 ${savedConversationIds.has(conv.id) ? "text-green-500" : ""}`}
-                              onClick={(e) => saveIdeaFromConversation(conv.id, e)}
-                              disabled={savingIdeaFromConv === conv.id || savedConversationIds.has(conv.id)}
-                              title={savedConversationIds.has(conv.id) ? "Already saved" : "Save as Business Idea"}
-                            >
-                              {savingIdeaFromConv === conv.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : savedConversationIds.has(conv.id) ? (
-                                <BookmarkCheck className="w-4 h-4" />
-                              ) : (
-                                <Bookmark className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                              )}
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                toggleConversationFavorite(conv.id, conv.is_favorite);
-                              }}
-                            >
-                              <Star 
-                                className={`w-4 h-4 transition-colors ${
-                                  conv.is_favorite 
-                                    ? "fill-yellow-400 text-yellow-400" 
-                                    : "text-muted-foreground hover:text-yellow-400"
-                                }`} 
-                              />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={(e) => startEditingConversation(conv, e)}
-                            >
-                              <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                              onClick={(e) => confirmDeleteConversation(conv.id, e)}
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </ScrollArea>
               ) : conversationFilter === "favorites" ? (
                 <Card className="glass">
                   <CardContent className="p-8 text-center">
