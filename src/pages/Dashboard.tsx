@@ -118,7 +118,6 @@ export default function Dashboard() {
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
   const [showQuestList, setShowQuestList] = useState(false);
-  const [activeQuestId, setActiveQuestId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const editIdeaInputRef = useRef<HTMLInputElement>(null);
   
@@ -126,9 +125,11 @@ export default function Dashboard() {
   const { 
     mission, 
     completedQuests, 
+    activeQuestId,
     currentStage, 
     xpEarned, 
     unlockedAchievements,
+    setActiveQuestId,
     refreshMission 
   } = useMissionProgress();
 

@@ -238,6 +238,7 @@ export type Database = {
       user_missions: {
         Row: {
           achievements: string[]
+          active_quest_id: string | null
           created_at: string
           current_stage: number
           id: string
@@ -249,6 +250,7 @@ export type Database = {
         }
         Insert: {
           achievements?: string[]
+          active_quest_id?: string | null
           created_at?: string
           current_stage?: number
           id?: string
@@ -260,6 +262,7 @@ export type Database = {
         }
         Update: {
           achievements?: string[]
+          active_quest_id?: string | null
           created_at?: string
           current_stage?: number
           id?: string
@@ -269,7 +272,15 @@ export type Database = {
           user_id?: string
           xp_earned?: number
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_missions_active_quest_id_fkey"
+            columns: ["active_quest_id"]
+            isOneToOne: false
+            referencedRelation: "business_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
