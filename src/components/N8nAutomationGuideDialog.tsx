@@ -33,6 +33,7 @@ import {
   Zap,
   ArrowRight,
   Cloud,
+  Clock,
   Loader2
 } from "lucide-react";
 import { toast } from "sonner";
@@ -60,6 +61,7 @@ interface AutomationStage {
   title: string;
   icon: React.ReactNode;
   description: string;
+  estimatedTime: string;
   n8nNodes: string[];
   workflowPrompt: string;
   setupSteps: string[];
@@ -76,6 +78,7 @@ const generateAutomationStages = (businessIdea: BusinessIdeaData): AutomationSta
       title: "Lead Prospecting & Discovery",
       icon: <Target className="w-5 h-5" />,
       description: `Automate finding and enriching leads for ${businessName}`,
+      estimatedTime: "2-3 hours",
       n8nNodes: [
         "Schedule Trigger (daily/weekly)",
         "HTTP Request → Apollo.io API",
@@ -110,6 +113,7 @@ Key Nodes: HTTP Request, IF, Set, Google Sheets, Slack`,
       title: "Outreach & Follow-up",
       icon: <Users className="w-5 h-5" />,
       description: `Automated email sequences for ${targetAudience}`,
+      estimatedTime: "3-4 hours",
       n8nNodes: [
         "Google Sheets Trigger (new row)",
         "Wait Node (delays between emails)",
@@ -149,6 +153,7 @@ Key Nodes: Gmail, Wait, IF, Set, Slack`,
       title: "Qualification & Discovery",
       icon: <Presentation className="w-5 h-5" />,
       description: `Qualify and schedule calls with ${targetAudience}`,
+      estimatedTime: "2-3 hours",
       n8nNodes: [
         "Webhook Trigger (Calendly/Typeform)",
         "HTTP Request → Calendly API",
@@ -189,6 +194,7 @@ Key Nodes: HTTP Request, Set, Notion, Gmail, Slack`,
       title: "Proposal & Presentation",
       icon: <Shield className="w-5 h-5" />,
       description: `Auto-generate proposals for ${serviceOffering}`,
+      estimatedTime: "3-4 hours",
       n8nNodes: [
         "Webhook / Form Trigger",
         "HTTP Request → AI API (proposal generation)",
@@ -229,6 +235,7 @@ Key Nodes: HTTP Request, AI, PandaDoc API, Gmail, Wait, IF`,
       title: "Payment & Invoicing",
       icon: <Handshake className="w-5 h-5" />,
       description: `Automate contracts and payments for ${businessName}`,
+      estimatedTime: "2-3 hours",
       n8nNodes: [
         "Webhook Trigger (PandaDoc signed)",
         "HTTP Request → Stripe API",
@@ -270,6 +277,7 @@ Key Nodes: Stripe, Gmail, Google Drive, Airtable, Slack`,
       title: "Client Success & Retention",
       icon: <Heart className="w-5 h-5" />,
       description: `Nurture ${targetAudience} for renewals and referrals`,
+      estimatedTime: "2-3 hours",
       n8nNodes: [
         "Schedule Trigger (weekly/monthly)",
         "Airtable → Get active clients",
@@ -541,11 +549,15 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                             {stage.icon}
                           </div>
                           <div className="flex-1">
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2 flex-wrap">
                               <Badge variant="outline" className="text-xs">
                                 Stage {index + 1}
                               </Badge>
                               <span className="font-medium">{stage.title}</span>
+                              <Badge variant="secondary" className="text-xs gap-1">
+                                <Clock className="w-3 h-3" />
+                                {stage.estimatedTime}
+                              </Badge>
                               {sectionProgress === 100 && (
                                 <Check className="w-4 h-4 text-primary" />
                               )}
