@@ -28,6 +28,7 @@ interface BusinessIdeaOption {
   id: string;
   business_name: string;
   niche: string;
+  completedSteps?: string[];
 }
 
 interface WhatsNextCardProps {
@@ -35,6 +36,7 @@ interface WhatsNextCardProps {
   currentStage: number;
   hasBusinessIdeas: boolean;
   businessIdeas?: BusinessIdeaOption[];
+  activeQuestId?: string | null;
   onGenerateIdea: () => void;
   onViewIdea: () => void;
   onStartChat: () => void;
@@ -49,21 +51,121 @@ interface NextAction {
   action: () => void;
   actionLabel: string;
   gradient: string;
+  questName?: string;
 }
+
+// Milestones for active quest progress
+const QUEST_MILESTONES = [
+  { id: 'validation', label: 'Validation', questId: 'complete_validation' },
+  { id: 'landing_page', label: 'Landing Page', questId: 'create_landing' },
+  { id: 'offer_pricing', label: 'Offer & Pricing', questId: 'define_offer' },
+  { id: 'outreach', label: 'Outreach', questId: 'start_outreach' },
+  { id: 'first_sale', label: 'First Sale', questId: 'first_sale' },
+];
 
 export default function WhatsNextCard({
   completedQuests,
   currentStage,
   hasBusinessIdeas,
   businessIdeas = [],
+  activeQuestId,
   onGenerateIdea,
   onViewIdea,
   onStartChat,
   onSelectIdea,
 }: WhatsNextCardProps) {
   const [showVentureDialog, setShowVentureDialog] = useState(false);
+  
+  // Get the active quest business idea
+  const activeQuestIdea = activeQuestId 
+    ? businessIdeas.find(idea => idea.id === activeQuestId) 
+    : null;
   // Determine the next best action based on progress
   const getNextAction = (): NextAction => {
+    // If there's an active quest, show progress for that specific idea
+    if (activeQuestIdea) {
+      const completedSteps = activeQuestIdea.completedSteps || [];
+      
+      // Check each milestone in order for the active quest
+      if (!completedSteps.includes('validation')) {
+        return {
+          id: 'complete_validation',
+          title: "Validate Your Business Idea",
+          description: "Complete market research and confirm there's real demand",
+          icon: <Sparkles className="w-5 h-5" />,
+          action: onViewIdea,
+          actionLabel: "Continue Validation",
+          gradient: "from-purple-500/20 to-pink-500/20",
+          questName: activeQuestIdea.business_name,
+        };
+      }
+
+      if (!completedSteps.includes('landing_page')) {
+        return {
+          id: 'create_landing',
+          title: "Create Your Landing Page",
+          description: "Set up a simple offer page to start capturing leads",
+          icon: <Globe className="w-5 h-5" />,
+          action: onViewIdea,
+          actionLabel: "Build Landing Page",
+          gradient: "from-indigo-500/20 to-blue-500/20",
+          questName: activeQuestIdea.business_name,
+        };
+      }
+
+      if (!completedSteps.includes('offer_pricing')) {
+        return {
+          id: 'define_offer',
+          title: "Define Your Offer & Pricing",
+          description: "Finalize your service packages and pricing strategy",
+          icon: <DollarSign className="w-5 h-5" />,
+          action: onViewIdea,
+          actionLabel: "Set Pricing",
+          gradient: "from-green-500/20 to-teal-500/20",
+          questName: activeQuestIdea.business_name,
+        };
+      }
+
+      if (!completedSteps.includes('outreach')) {
+        return {
+          id: 'start_outreach',
+          title: "Start Customer Outreach",
+          description: "Begin prospecting and reaching out to potential customers",
+          icon: <Mail className="w-5 h-5" />,
+          action: onViewIdea,
+          actionLabel: "Start Outreach",
+          gradient: "from-orange-500/20 to-red-500/20",
+          questName: activeQuestIdea.business_name,
+        };
+      }
+
+      if (!completedSteps.includes('first_sale')) {
+        return {
+          id: 'first_sale',
+          title: "Close Your First Sale! 🎯",
+          description: "You're so close! Land your first paying customer to complete the mission",
+          icon: <Trophy className="w-5 h-5" />,
+          action: onViewIdea,
+          actionLabel: "Track Progress",
+          gradient: "from-yellow-500/20 to-amber-500/20",
+          questName: activeQuestIdea.business_name,
+        };
+      }
+
+      // Active quest is complete!
+      return {
+        id: 'complete',
+        title: "Quest Complete! 🎉",
+        description: `You've completed ${activeQuestIdea.business_name}. Start a new venture!`,
+        icon: <Trophy className="w-5 h-5" />,
+        action: () => setShowVentureDialog(true),
+        actionLabel: "Start New Venture",
+        gradient: "from-emerald-500/20 to-green-500/20",
+        questName: activeQuestIdea.business_name,
+      };
+    }
+
+    // Default flow when no active quest is set
     // Stage 1: Foundation
     if (!completedQuests.includes('generate_idea')) {
       return {
@@ -99,18 +201,6 @@ export default function WhatsNextCard({
         action: onViewIdea,
         actionLabel: "View Checklist",
         gradient: "from-green-500/20 to-emerald-500/20",
-      };
-    }
-
-    if (!completedQuests.includes('complete_validation')) {
-      return {
-        id: 'complete_validation',
-        title: "Validate Your Business Idea",
-        description: "Complete market research and confirm there's real demand",
-        icon: <Sparkles className="w-5 h-5" />,
-        action: onViewIdea,
-        actionLabel: "Continue Validation",
-        gradient: "from-purple-500/20 to-pink-500/20",
       };
     }
 
@@ -215,11 +305,15 @@ export default function WhatsNextCard({
         </div>
         <div>
           <h3 className="font-display font-semibold text-sm">What's Next?</h3>
-          {currentStageData && (
+          {nextAction.questName ? (
+            <span className="text-xs text-accent font-medium">
+              🎯 {nextAction.questName}
+            </span>
+          ) : currentStageData ? (
             <span className="text-xs text-muted-foreground">
               Stage {currentStage}: {currentStageData.title}
             </span>
-          )}
+          ) : null}
         </div>
       </div>
       
