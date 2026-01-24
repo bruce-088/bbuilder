@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { 
   ArrowRight, 
@@ -9,18 +10,35 @@ import {
   Bot, 
   Mail, 
   Trophy,
-  Sparkles
+  Sparkles,
+  FolderOpen,
+  Plus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { QUEST_STAGES } from "./types";
+
+interface BusinessIdeaOption {
+  id: string;
+  business_name: string;
+  niche: string;
+}
 
 interface WhatsNextCardProps {
   completedQuests: string[];
   currentStage: number;
   hasBusinessIdeas: boolean;
+  businessIdeas?: BusinessIdeaOption[];
   onGenerateIdea: () => void;
   onViewIdea: () => void;
   onStartChat: () => void;
+  onSelectIdea?: (ideaId: string) => void;
 }
 
 interface NextAction {
@@ -37,10 +55,13 @@ export default function WhatsNextCard({
   completedQuests,
   currentStage,
   hasBusinessIdeas,
+  businessIdeas = [],
   onGenerateIdea,
   onViewIdea,
   onStartChat,
+  onSelectIdea,
 }: WhatsNextCardProps) {
+  const [showVentureDialog, setShowVentureDialog] = useState(false);
   // Determine the next best action based on progress
   const getNextAction = (): NextAction => {
     // Stage 1: Foundation
@@ -162,10 +183,20 @@ export default function WhatsNextCard({
       title: "Mission Accomplished! 🎉",
       description: "You've completed all quests. Now scale your empire!",
       icon: <Trophy className="w-5 h-5" />,
-      action: onGenerateIdea,
+      action: () => setShowVentureDialog(true),
       actionLabel: "Start New Venture",
       gradient: "from-emerald-500/20 to-green-500/20",
     };
+  };
+
+  const handleContinueFromIdea = (ideaId: string) => {
+    setShowVentureDialog(false);
+    onSelectIdea?.(ideaId);
+  };
+
+  const handleStartFresh = () => {
+    setShowVentureDialog(false);
+    onGenerateIdea();
   };
 
   const nextAction = getNextAction();
@@ -203,6 +234,70 @@ export default function WhatsNextCard({
         {nextAction.actionLabel}
         <ArrowRight className="w-4 h-4" />
       </Button>
+
+      {/* New Venture Dialog */}
+      <Dialog open={showVentureDialog} onOpenChange={setShowVentureDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trophy className="w-5 h-5 text-accent" />
+              Start Your Next Venture
+            </DialogTitle>
+            <DialogDescription>
+              Choose how you'd like to proceed with your next business journey.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-3 mt-4">
+            {/* Start Fresh Option */}
+            <Button
+              onClick={handleStartFresh}
+              variant="outline"
+              className="w-full justify-start gap-3 h-auto py-4 px-4 border-2 hover:border-accent hover:bg-accent/10"
+            >
+              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent/20 to-accent/10 flex items-center justify-center">
+                <Plus className="w-5 h-5 text-accent" />
+              </div>
+              <div className="text-left">
+                <div className="font-semibold">Start Fresh</div>
+                <div className="text-sm text-muted-foreground">
+                  Generate a brand new business idea
+                </div>
+              </div>
+            </Button>
+
+            {/* Continue from Saved Idea */}
+            {businessIdeas.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
+                  <FolderOpen className="w-4 h-4" />
+                  <span>Or continue from a saved idea:</span>
+                </div>
+                <div className="max-h-48 overflow-y-auto space-y-2">
+                  {businessIdeas.map((idea) => (
+                    <Button
+                      key={idea.id}
+                      onClick={() => handleContinueFromIdea(idea.id)}
+                      variant="outline"
+                      className="w-full justify-start gap-3 h-auto py-3 px-4 hover:border-accent hover:bg-accent/10"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
+                        <Lightbulb className="w-4 h-4 text-primary" />
+                      </div>
+                      <div className="text-left flex-1 min-w-0">
+                        <div className="font-medium truncate">{idea.business_name}</div>
+                        <div className="text-xs text-muted-foreground truncate">
+                          {idea.niche}
+                        </div>
+                      </div>
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </motion.div>
   );
 }

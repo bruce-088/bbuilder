@@ -817,6 +817,11 @@ export default function Dashboard() {
                 completedQuests={completedQuests}
                 currentStage={currentStage}
                 hasBusinessIdeas={businessIdeas.length > 0}
+                businessIdeas={businessIdeas.map(idea => ({
+                  id: idea.id,
+                  business_name: idea.business_name,
+                  niche: idea.niche
+                }))}
                 onGenerateIdea={openIndustryDialog}
                 onViewIdea={() => {
                   if (businessIdeas.length > 0) {
@@ -824,6 +829,11 @@ export default function Dashboard() {
                   }
                 }}
                 onStartChat={handleNewChat}
+                onSelectIdea={(ideaId) => {
+                  setActiveQuestId(ideaId);
+                  setSelectedIdeaId(ideaId);
+                  toast.success("Quest activated! Your progress is now tracked.");
+                }}
               />
             </div>
           </div>
