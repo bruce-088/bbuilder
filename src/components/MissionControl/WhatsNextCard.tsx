@@ -331,60 +331,58 @@ export default function WhatsNextCard({
 
       {/* New Venture Dialog */}
       <Dialog open={showVentureDialog} onOpenChange={setShowVentureDialog}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-sm max-w-[calc(100vw-2rem)]">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Trophy className="w-5 h-5 text-accent" />
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <Trophy className="w-4 h-4 text-accent shrink-0" />
               Start Your Next Venture
             </DialogTitle>
-            <DialogDescription>
-              Choose how you'd like to proceed with your next business journey.
+            <DialogDescription className="text-sm">
+              Choose how to proceed with your next journey.
             </DialogDescription>
           </DialogHeader>
           
-          <div className="space-y-3 mt-4">
+          <div className="space-y-3 mt-2">
             {/* Start Fresh Option */}
-            <Button
+            <button
               onClick={handleStartFresh}
-              variant="outline"
-              className="w-full justify-start gap-3 h-auto py-4 px-4 border-2 hover:border-accent hover:bg-accent/10"
+              className="w-full flex items-center gap-3 p-3 rounded-lg border border-border bg-card hover:border-accent hover:bg-accent/5 transition-colors text-left"
             >
-              <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-accent/20 to-accent/10 flex items-center justify-center">
-                <Plus className="w-5 h-5 text-accent" />
+              <div className="w-9 h-9 shrink-0 rounded-lg bg-accent/20 flex items-center justify-center">
+                <Plus className="w-4 h-4 text-accent" />
               </div>
-              <div className="text-left">
-                <div className="font-semibold">Start Fresh</div>
-                <div className="text-sm text-muted-foreground">
-                  Generate a brand new business idea
+              <div className="min-w-0">
+                <div className="font-medium text-sm">Start Fresh</div>
+                <div className="text-xs text-muted-foreground">
+                  Generate a new business idea
                 </div>
               </div>
-            </Button>
+            </button>
 
             {/* Continue from Saved Idea */}
             {businessIdeas.length > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground px-1">
-                  <FolderOpen className="w-4 h-4" />
-                  <span>Or continue from a saved idea:</span>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <FolderOpen className="w-3 h-3 shrink-0" />
+                  <span>Continue from saved idea:</span>
                 </div>
-                <div className="max-h-48 overflow-y-auto space-y-2">
+                <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
                   {businessIdeas.map((idea) => (
-                    <Button
+                    <button
                       key={idea.id}
                       onClick={() => handleContinueFromIdea(idea.id)}
-                      variant="outline"
-                      className="w-full justify-start gap-3 h-auto py-3 px-4 hover:border-accent hover:bg-accent/10"
+                      className="w-full flex items-center gap-2.5 p-2.5 rounded-lg border border-border bg-card hover:border-accent hover:bg-accent/5 transition-colors text-left"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center">
-                        <Lightbulb className="w-4 h-4 text-primary" />
+                      <div className="w-7 h-7 shrink-0 rounded-md bg-primary/20 flex items-center justify-center">
+                        <Lightbulb className="w-3.5 h-3.5 text-primary" />
                       </div>
-                      <div className="text-left flex-1 min-w-0">
-                        <div className="font-medium truncate">{idea.business_name}</div>
+                      <div className="min-w-0 flex-1">
+                        <div className="font-medium text-sm truncate">{idea.business_name}</div>
                         <div className="text-xs text-muted-foreground truncate">
                           {idea.niche}
                         </div>
                       </div>
-                    </Button>
+                    </button>
                   ))}
                 </div>
               </div>
