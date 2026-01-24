@@ -1,7 +1,8 @@
 import { motion } from "framer-motion";
-import { Check, ChevronRight, Lock, Sparkles } from "lucide-react";
+import { Check, ChevronRight, Lock, Sparkles, Wand2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QUEST_STAGES } from "./types";
+import QuestPromptDialog from "./QuestPromptDialog";
 
 interface QuestListProps {
   completedQuests: string[];
@@ -120,6 +121,24 @@ export default function QuestList({
                         +{quest.xp} XP
                       </div>
                       
+                      {/* Generate Prompt Button */}
+                      {!isLocked && (
+                        <QuestPromptDialog
+                          questId={quest.id}
+                          questTitle={quest.title}
+                          trigger={
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                              title="Generate Mya-style prompt"
+                            >
+                              <Wand2 className="w-4 h-4" />
+                            </Button>
+                          }
+                        />
+                      )}
+
                       {/* Action Button */}
                       {isActive && onQuestAction && (
                         <Button 
