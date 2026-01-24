@@ -22,9 +22,11 @@ import {
   Workflow,
   Star,
   MessageSquare,
+  Wand2,
 } from "lucide-react";
 import N8nWorkflowDialog from "./N8nWorkflowDialog";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
+import BusinessIdeaMasterPromptDialog from "./BusinessIdeaMasterPromptDialog";
 import { Json } from "@/integrations/supabase/types";
 
 interface BusinessIdea {
@@ -233,6 +235,25 @@ export default function BusinessIdeaDialog({
                   <Button variant="outline" className="w-full gap-2">
                     <Workflow className="w-4 h-4" />
                     Generate n8n Workflow
+                  </Button>
+                }
+              />
+              <BusinessIdeaMasterPromptDialog
+                businessIdea={{
+                  id: idea.id,
+                  businessName: idea.business_name,
+                  niche: idea.niche,
+                  targetAudience: idea.target_audience,
+                  valueProposition: idea.value_proposition,
+                  serviceOffering: idea.service_offering,
+                  revenueMath: idea.revenue_math,
+                  validationPath: idea.validation_path,
+                  aiAutomationStrategy: idea.ai_automation_strategy,
+                }}
+                trigger={
+                  <Button variant="outline" className="w-full gap-2">
+                    <Wand2 className="w-4 h-4" />
+                    Generate LLM Master Prompt
                   </Button>
                 }
               />
