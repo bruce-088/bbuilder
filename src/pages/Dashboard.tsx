@@ -66,7 +66,8 @@ import {
   XPProgress, 
   AchievementBadges, 
   CurrentQuestCard,
-  QuestList 
+  QuestList,
+  WhatsNextCard 
 } from "@/components/MissionControl";
 import { useMissionProgress } from "@/hooks/useMissionProgress";
 
@@ -760,7 +761,7 @@ export default function Dashboard() {
               />
             </div>
             
-            {/* Right Column: Timer + XP */}
+            {/* Right Column: Timer + XP + What's Next */}
             <div className="space-y-4">
               {mission && (
                 <CountdownTimer 
@@ -769,6 +770,18 @@ export default function Dashboard() {
                 />
               )}
               <XPProgress currentXP={xpEarned} />
+              <WhatsNextCard
+                completedQuests={completedQuests}
+                currentStage={currentStage}
+                hasBusinessIdeas={businessIdeas.length > 0}
+                onGenerateIdea={openIndustryDialog}
+                onViewIdea={() => {
+                  if (businessIdeas.length > 0) {
+                    setSelectedIdeaId(businessIdeas[0].id);
+                  }
+                }}
+                onStartChat={handleNewChat}
+              />
             </div>
           </div>
 
