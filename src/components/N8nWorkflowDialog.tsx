@@ -10,7 +10,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Workflow, Copy, Check, RefreshCw, ExternalLink, Info } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Loader2, Workflow, Copy, Check, RefreshCw, ExternalLink, Info, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -152,6 +157,58 @@ export default function N8nWorkflowDialog({
                 </div>
               </div>
             </div>
+
+            {/* Visual Guide - Collapsible */}
+            <Collapsible>
+              <CollapsibleTrigger className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
+                <ChevronDown className="w-4 h-4 transition-transform data-[state=open]:rotate-180" />
+                Show visual guide - where to paste the prompt
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <div className="mt-3 p-4 rounded-lg border bg-muted/30">
+                  <p className="text-xs text-muted-foreground mb-3 text-center">n8n Workflow Structure</p>
+                  
+                  {/* Workflow flow */}
+                  <div className="flex items-center justify-center gap-2 sm:gap-4 mb-4 text-sm">
+                    <div className="px-2 sm:px-3 py-2 rounded border bg-background text-xs sm:text-sm">
+                      🔔 Trigger
+                    </div>
+                    <span className="text-muted-foreground">→</span>
+                    <div className="px-2 sm:px-3 py-2 rounded border-2 border-primary bg-primary/10 text-xs sm:text-sm font-medium">
+                      🤖 AI Agent
+                    </div>
+                    <span className="text-muted-foreground">→</span>
+                    <div className="px-2 sm:px-3 py-2 rounded border bg-background text-xs sm:text-sm">
+                      📤 Output
+                    </div>
+                  </div>
+                  
+                  {/* AI Agent config panel */}
+                  <div className="border-2 border-primary rounded-lg p-3 sm:p-4 bg-background">
+                    <p className="font-medium text-sm mb-3 flex items-center gap-2">
+                      🤖 AI Agent Configuration Panel
+                    </p>
+                    <div className="space-y-2 text-xs sm:text-sm">
+                      <div className="px-3 py-2 rounded bg-muted text-muted-foreground">
+                        Model Selection (e.g., GPT-4, Claude)
+                      </div>
+                      <div className="px-3 py-2 rounded bg-success/20 border-2 border-success font-medium flex items-center gap-2">
+                        <span className="text-success">⭐</span>
+                        <span>System Message</span>
+                        <span className="ml-auto text-success font-bold">← PASTE PROMPT HERE</span>
+                      </div>
+                      <div className="px-3 py-2 rounded bg-muted text-muted-foreground">
+                        Temperature, Max Tokens, etc.
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <p className="text-xs text-muted-foreground mt-3 text-center">
+                    Click on the AI Agent node to open its configuration panel, then paste your prompt in the System Message field
+                  </p>
+                </div>
+              </CollapsibleContent>
+            </Collapsible>
 
             <div className="flex items-center gap-2 mb-2">
               <Button
