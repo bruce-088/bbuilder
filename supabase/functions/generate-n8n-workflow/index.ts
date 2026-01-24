@@ -6,26 +6,94 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const N8N_PROMPT = `You are an expert n8n workflow automation architect. Given a business idea, generate a COMPLETE, VALID n8n workflow JSON that can be directly imported into n8n.
+const N8N_PROMPT = `You are an expert n8n workflow automation architect. Generate a COMPLETE, VALID n8n workflow JSON that can be directly imported into n8n via File → Import from File.
 
-CRITICAL: Your output must include a SINGLE JSON code block containing a valid n8n workflow with this EXACT structure:
+CRITICAL RULES - FOLLOW EXACTLY:
+1. Output ONLY ONE JSON code block with a complete n8n workflow
+2. Use ONLY these EXACT node types (DO NOT invent or modify type names):
 
+TRIGGER NODES (use ONE to start):
+- n8n-nodes-base.manualTrigger (typeVersion: 1, parameters: {})
+- n8n-nodes-base.scheduleTrigger (typeVersion: 1.2)
+- n8n-nodes-base.webhook (typeVersion: 2)
+
+ACTION NODES:
+- n8n-nodes-base.httpRequest (typeVersion: 4.2) - for API calls
+- n8n-nodes-base.set (typeVersion: 3.4) - for data transformation
+- n8n-nodes-base.if (typeVersion: 2.1) - for conditionals
+- n8n-nodes-base.code (typeVersion: 2) - for custom JavaScript
+- n8n-nodes-base.wait (typeVersion: 1.1) - for delays
+- n8n-nodes-base.noOp (typeVersion: 1) - for placeholders
+
+3. NEVER use non-existent types like "openAi", "stripeWebhook", "leadCapture", etc.
+4. Keep parameters MINIMAL - only use basic parameters shown in template
+5. Each node MUST have: id (uuid format), name, type, typeVersion, position [x,y], parameters
+
+EXACT WORKING TEMPLATE - FOLLOW THIS STRUCTURE:
 \`\`\`json
 {
-  "name": "Workflow Name Here",
+  "name": "Business Automation Workflow",
   "nodes": [
     {
-      "id": "unique-uuid-here",
-      "name": "Node Display Name",
-      "type": "n8n-nodes-base.nodeType",
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
       "typeVersion": 1,
       "position": [250, 300],
       "parameters": {}
+    },
+    {
+      "id": "b2c3d4e5-f6a7-8901-bcde-f12345678901",
+      "name": "Fetch Data",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [450, 300],
+      "parameters": {
+        "url": "https://api.example.com/data",
+        "method": "GET"
+      }
+    },
+    {
+      "id": "c3d4e5f6-a7b8-9012-cdef-123456789012",
+      "name": "Process Data",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [650, 300],
+      "parameters": {
+        "mode": "manual",
+        "duplicateItem": false,
+        "assignments": {
+          "assignments": []
+        }
+      }
+    },
+    {
+      "id": "d4e5f6a7-b8c9-0123-defa-234567890123",
+      "name": "Send Notification",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [850, 300],
+      "parameters": {
+        "url": "https://hooks.slack.com/services/YOUR/WEBHOOK/URL",
+        "method": "POST",
+        "body": "json",
+        "bodyParameters": {
+          "parameters": [
+            {"name": "text", "value": "Workflow completed!"}
+          ]
+        }
+      }
     }
   ],
   "connections": {
-    "Source Node Name": {
-      "main": [[{ "node": "Target Node Name", "type": "main", "index": 0 }]]
+    "Start": {
+      "main": [[{"node": "Fetch Data", "type": "main", "index": 0}]]
+    },
+    "Fetch Data": {
+      "main": [[{"node": "Process Data", "type": "main", "index": 0}]]
+    },
+    "Process Data": {
+      "main": [[{"node": "Send Notification", "type": "main", "index": 0}]]
     }
   },
   "settings": {
@@ -35,31 +103,7 @@ CRITICAL: Your output must include a SINGLE JSON code block containing a valid n
 }
 \`\`\`
 
-VALID n8n node types to use:
-- n8n-nodes-base.manualTrigger - Manual trigger to start workflow
-- n8n-nodes-base.scheduleTrigger - Schedule-based trigger
-- n8n-nodes-base.webhook - Webhook trigger
-- n8n-nodes-base.httpRequest - Make HTTP/API requests
-- n8n-nodes-base.gmail - Send/read Gmail emails
-- n8n-nodes-base.slack - Send Slack messages
-- n8n-nodes-base.if - Conditional branching
-- n8n-nodes-base.switch - Multiple condition routing
-- n8n-nodes-base.code - Custom JavaScript code
-- n8n-nodes-base.set - Set/transform data
-- n8n-nodes-base.merge - Merge data streams
-- n8n-nodes-base.wait - Delay execution
-- n8n-nodes-base.noOp - No operation placeholder
-- @n8n/n8n-nodes-langchain.agent - AI Agent node
-- @n8n/n8n-nodes-langchain.lmChatOpenAi - OpenAI Chat
-
-Create a comprehensive workflow for the business that covers:
-1. Lead capture/prospecting trigger
-2. Data processing and enrichment
-3. Outreach automation (email/messaging)
-4. Follow-up sequences with delays
-5. Notification/reporting
-
-Output the complete workflow JSON first, then provide a brief explanation of each node's purpose.`;
+Build a workflow that covers the business's key automation needs using HTTP requests to external APIs. After the JSON block, briefly explain what each node does.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
