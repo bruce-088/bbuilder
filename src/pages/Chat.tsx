@@ -515,6 +515,29 @@ export default function Chat() {
                 Ask me about business ideas, validation strategies, pricing, or anything related to building your $10K/month business.
               </p>
               
+              {/* Starter prompts */}
+              <div className="flex flex-wrap gap-2 mb-6 max-w-xl justify-center">
+                {[
+                  "What business can I start with $500?",
+                  "How do I validate my idea fast?",
+                  "Best niches for introverts?",
+                  "How to get my first customer?"
+                ].map((prompt) => (
+                  <Button
+                    key={prompt}
+                    variant="outline"
+                    size="sm"
+                    className="text-xs"
+                    onClick={() => {
+                      setInput(prompt);
+                      textareaRef.current?.focus();
+                    }}
+                  >
+                    {prompt}
+                  </Button>
+                ))}
+              </div>
+              
               {/* Centered chat input for empty state */}
               <div className="w-full max-w-2xl mb-6">
                 <div className="flex gap-3">
@@ -545,7 +568,7 @@ export default function Chat() {
                 </div>
               </div>
               
-              <p className="text-muted-foreground text-sm mb-3">or</p>
+              <p className="text-muted-foreground text-sm mb-3">or get a complete idea instantly</p>
               
               <Button
                 onClick={handleGenerateIdeas}

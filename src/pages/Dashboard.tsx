@@ -55,6 +55,7 @@ import {
   Trophy
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -886,14 +887,21 @@ export default function Dashboard() {
                   )}
                 </div>
                 {businessIdeas.length >= 2 && !compareMode && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setCompareMode(true)}
-                  >
-                    <Scale className="w-4 h-4 mr-1" />
-                    Compare
-                  </Button>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setCompareMode(true)}
+                      >
+                        <Scale className="w-4 h-4 mr-1" />
+                        Compare
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Compare up to 4 ideas side-by-side to find your best fit</p>
+                    </TooltipContent>
+                  </Tooltip>
                 )}
                 {compareMode && (
                   <>
@@ -1050,14 +1058,17 @@ export default function Dashboard() {
               ) : (
                 <Card className="glass">
                   <CardContent className="p-8 text-center">
-                    <Lightbulb className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground">No business ideas yet</p>
+                    <Lightbulb className="w-10 h-10 text-primary mx-auto mb-4" />
+                    <p className="font-medium text-foreground mb-1">No business ideas yet</p>
+                    <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
+                      Start by chatting with Mya to discover your perfect $10K/month business idea
+                    </p>
                     <Button 
-                      variant="link" 
-                      className="mt-2 text-primary"
+                      className="bg-gradient-primary hover:opacity-90"
                       onClick={handleGenerateIdeas}
                     >
-                      Generate your first ideas
+                      <Lightbulb className="w-4 h-4 mr-2" />
+                      Generate Your First Idea
                     </Button>
                   </CardContent>
                 </Card>
@@ -1159,22 +1170,28 @@ export default function Dashboard() {
                           </div>
                           {editingConversationId !== conv.id && (
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className={`h-8 w-8 ${savedConversationIds.has(conv.id) ? "text-green-500" : ""}`}
-                                onClick={(e) => saveIdeaFromConversation(conv.id, e)}
-                                disabled={savingIdeaFromConv === conv.id || savedConversationIds.has(conv.id)}
-                                title={savedConversationIds.has(conv.id) ? "Already saved" : "Save as Business Idea"}
-                              >
-                                {savingIdeaFromConv === conv.id ? (
-                                  <Loader2 className="w-4 h-4 animate-spin" />
-                                ) : savedConversationIds.has(conv.id) ? (
-                                  <BookmarkCheck className="w-4 h-4" />
-                                ) : (
-                                  <Bookmark className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                                )}
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className={`h-8 w-8 ${savedConversationIds.has(conv.id) ? "text-green-500" : ""}`}
+                                    onClick={(e) => saveIdeaFromConversation(conv.id, e)}
+                                    disabled={savingIdeaFromConv === conv.id || savedConversationIds.has(conv.id)}
+                                  >
+                                    {savingIdeaFromConv === conv.id ? (
+                                      <Loader2 className="w-4 h-4 animate-spin" />
+                                    ) : savedConversationIds.has(conv.id) ? (
+                                      <BookmarkCheck className="w-4 h-4" />
+                                    ) : (
+                                      <Bookmark className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{savedConversationIds.has(conv.id) ? "Already saved as idea" : "Save as Business Idea to unlock guides & automation"}</p>
+                                </TooltipContent>
+                              </Tooltip>
                               <Button
                                 variant="ghost"
                                 size="icon"
