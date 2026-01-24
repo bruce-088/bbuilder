@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,6 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import { 
   Copy, 
   Check, 
@@ -29,10 +31,14 @@ import {
   Workflow,
   ExternalLink,
   Zap,
-  ArrowRight
+  ArrowRight,
+  Cloud,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BusinessIdeaData {
   id: string;
@@ -59,12 +65,14 @@ interface AutomationStage {
   setupSteps: string[];
 }
 
+type CompletedSteps = Record<string, Set<string>>;
+
 const generateAutomationStages = (businessIdea: BusinessIdeaData): AutomationStage[] => {
   const { businessName, niche, targetAudience, serviceOffering, valueProposition } = businessIdea;
 
   return [
     {
-      id: "prospecting",
+      id: "n8n-prospecting",
       title: "Lead Prospecting & Discovery",
       icon: <Target className="w-5 h-5" />,
       description: `Automate finding and enriching leads for ${businessName}`,
@@ -98,7 +106,7 @@ Key Nodes: HTTP Request, IF, Set, Google Sheets, Slack`,
       ]
     },
     {
-      id: "outreach",
+      id: "n8n-outreach",
       title: "Outreach & Follow-up",
       icon: <Users className="w-5 h-5" />,
       description: `Automated email sequences for ${targetAudience}`,
@@ -137,7 +145,7 @@ Key Nodes: Gmail, Wait, IF, Set, Slack`,
       ]
     },
     {
-      id: "qualification",
+      id: "n8n-qualification",
       title: "Qualification & Discovery",
       icon: <Presentation className="w-5 h-5" />,
       description: `Qualify and schedule calls with ${targetAudience}`,
@@ -177,7 +185,7 @@ Key Nodes: HTTP Request, Set, Notion, Gmail, Slack`,
       ]
     },
     {
-      id: "proposal",
+      id: "n8n-proposal",
       title: "Proposal & Presentation",
       icon: <Shield className="w-5 h-5" />,
       description: `Auto-generate proposals for ${serviceOffering}`,
@@ -217,7 +225,7 @@ Key Nodes: HTTP Request, AI, PandaDoc API, Gmail, Wait, IF`,
       ]
     },
     {
-      id: "closing",
+      id: "n8n-closing",
       title: "Payment & Invoicing",
       icon: <Handshake className="w-5 h-5" />,
       description: `Automate contracts and payments for ${businessName}`,
@@ -258,7 +266,7 @@ Key Nodes: Stripe, Gmail, Google Drive, Airtable, Slack`,
       ]
     },
     {
-      id: "client-success",
+      id: "n8n-client-success",
       title: "Client Success & Retention",
       icon: <Heart className="w-5 h-5" />,
       description: `Nurture ${targetAudience} for renewals and referrals`,
@@ -309,10 +317,122 @@ Key Nodes: Airtable, HTTP Request, IF, Gmail, Typeform, Slack`,
 };
 
 export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nAutomationGuideDialogProps) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [completedSteps, setCompletedSteps] = useState<CompletedSteps>({});
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   const stages = generateAutomationStages(businessIdea);
+
+  // Calculate overall progress
+  const totalSteps = stages.reduce((acc, stage) => acc + stage.setupSteps.length, 0);
+  const completedCount = Object.values(completedSteps).reduce(
+    (acc, set) => acc + set.size,
+    0
+  );
+  const progressPercent = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
+
+  // Load progress from database
+  const loadProgress = useCallback(async () => {
+    if (!user || !businessIdea.id) return;
+
+    setIsLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("implementation_progress")
+        .select("section_id, completed_steps")
+        .eq("user_id", user.id)
+        .eq("business_idea_id", businessIdea.id)
+        .like("section_id", "n8n-%");
+
+      if (error) throw error;
+
+      const result: CompletedSteps = {};
+      for (const row of data || []) {
+        result[row.section_id] = new Set(row.completed_steps || []);
+      }
+      setCompletedSteps(result);
+    } catch (e) {
+      console.error("Error loading progress:", e);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user, businessIdea.id]);
+
+  // Save progress to database
+  const saveProgress = useCallback(async (sectionId: string, steps: Set<string>) => {
+    if (!user || !businessIdea.id) return;
+
+    setIsSyncing(true);
+    try {
+      const { data: existing } = await supabase
+        .from("implementation_progress")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("section_id", sectionId)
+        .eq("business_idea_id", businessIdea.id)
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("implementation_progress")
+          .update({
+            completed_steps: Array.from(steps),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+      } else {
+        await supabase
+          .from("implementation_progress")
+          .insert({
+            user_id: user.id,
+            section_id: sectionId,
+            completed_steps: Array.from(steps),
+            business_idea_id: businessIdea.id,
+          });
+      }
+    } catch (e) {
+      console.error("Error saving progress:", e);
+      toast.error("Failed to sync progress");
+    } finally {
+      setIsSyncing(false);
+    }
+  }, [user, businessIdea.id]);
+
+  // Load progress when dialog opens
+  useEffect(() => {
+    if (open && user) {
+      loadProgress();
+    }
+  }, [open, user, loadProgress]);
+
+  const toggleStep = (sectionId: string, stepIndex: number) => {
+    const stepKey = `step-${stepIndex}`;
+    setCompletedSteps(prev => {
+      const sectionSteps = new Set(prev[sectionId] || []);
+      if (sectionSteps.has(stepKey)) {
+        sectionSteps.delete(stepKey);
+      } else {
+        sectionSteps.add(stepKey);
+      }
+      
+      // Save to database
+      saveProgress(sectionId, sectionSteps);
+      
+      return { ...prev, [sectionId]: sectionSteps };
+    });
+  };
+
+  const isStepCompleted = (sectionId: string, stepIndex: number): boolean => {
+    return completedSteps[sectionId]?.has(`step-${stepIndex}`) || false;
+  };
+
+  const getSectionProgress = (sectionId: string, totalSteps: number): number => {
+    const completed = completedSteps[sectionId]?.size || 0;
+    return totalSteps > 0 ? Math.round((completed / totalSteps) * 100) : 0;
+  };
 
   const copyToClipboard = async (text: string, id: string) => {
     try {
@@ -335,150 +455,208 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="font-display text-xl flex items-center gap-2">
-            <Workflow className="w-5 h-5 text-primary" />
-            n8n Full Automation Setup Guide
-          </DialogTitle>
-          <DialogDescription>
-            Step-by-step instructions to automate your entire sales workflow for{" "}
-            <span className="font-medium text-foreground">{businessIdea.businessName}</span>
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+        <div className="px-6 pt-6 pb-4 border-b">
+          <DialogHeader>
+            <DialogTitle className="font-display text-xl flex items-center gap-2">
+              <Workflow className="w-5 h-5 text-primary" />
+              n8n Full Automation Setup Guide
+            </DialogTitle>
+            <DialogDescription>
+              Step-by-step instructions to automate your entire sales workflow for{" "}
+              <span className="font-medium text-foreground">{businessIdea.businessName}</span>
+            </DialogDescription>
+          </DialogHeader>
 
-        {/* Quick Start Card */}
-        <Card className="bg-primary/5 border-primary/20">
-          <CardContent className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="p-2 rounded-lg bg-primary/10">
-                <Zap className="w-5 h-5 text-primary" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-medium mb-1">Quick Start</h4>
-                <p className="text-sm text-muted-foreground mb-2">
-                  Copy each workflow prompt below and paste it into n8n's AI workflow builder, or use it as a guide to build manually.
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => window.open("https://n8n.io", "_blank")}
-                >
-                  Open n8n <ExternalLink className="w-3 h-3" />
-                </Button>
-              </div>
+          {/* Overall Progress */}
+          <div className="mt-4 space-y-2">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground flex items-center gap-2">
+                {isSyncing ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <Cloud className="w-3 h-3" />
+                    Progress saved
+                  </>
+                )}
+              </span>
+              <span className="font-medium">
+                {completedCount} / {totalSteps} steps ({progressPercent}%)
+              </span>
             </div>
-          </CardContent>
-        </Card>
+            <Progress value={progressPercent} className="h-2" />
+          </div>
+        </div>
 
-        <ScrollArea className="flex-1 -mx-6 px-6">
-          <Accordion type="single" collapsible className="space-y-2">
-            {stages.map((stage, index) => (
-              <AccordionItem
-                key={stage.id}
-                value={stage.id}
-                className="border rounded-lg px-4 bg-card"
-              >
-                <AccordionTrigger className="hover:no-underline py-4">
-                  <div className="flex items-center gap-3 text-left">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
-                      {stage.icon}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className="text-xs">
-                          Stage {index + 1}
-                        </Badge>
-                        <span className="font-medium">{stage.title}</span>
-                      </div>
-                      <p className="text-sm text-muted-foreground mt-0.5">
-                        {stage.description}
-                      </p>
-                    </div>
+        <ScrollArea className="flex-1 px-6">
+          <div className="py-4 space-y-4">
+            {/* Quick Start Card */}
+            <Card className="bg-primary/5 border-primary/20">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="p-2 rounded-lg bg-primary/10">
+                    <Zap className="w-5 h-5 text-primary" />
                   </div>
-                </AccordionTrigger>
-                <AccordionContent className="pb-4 space-y-4">
-                  {/* n8n Nodes */}
-                  <div>
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                      <Workflow className="w-4 h-4 text-primary" />
-                      Required n8n Nodes
-                    </h4>
-                    <div className="flex flex-wrap gap-2">
-                      {stage.n8nNodes.map((node, i) => (
-                        <Badge key={i} variant="secondary" className="text-xs">
-                          {node}
-                        </Badge>
-                      ))}
-                    </div>
+                  <div className="flex-1">
+                    <h4 className="font-medium mb-1">Quick Start</h4>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      Copy each workflow prompt below and paste it into n8n's AI workflow builder, or use it as a guide to build manually.
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      onClick={() => window.open("https://n8n.io", "_blank")}
+                    >
+                      Open n8n <ExternalLink className="w-3 h-3" />
+                    </Button>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
 
-                  {/* Workflow Prompt */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-medium flex items-center gap-2">
-                        <Zap className="w-4 h-4 text-primary" />
-                        Workflow Prompt (Copy & Paste into n8n)
-                      </h4>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-2 h-8"
-                        onClick={() => copyToClipboard(stage.workflowPrompt, `prompt-${stage.id}`)}
-                      >
-                        {copiedId === `prompt-${stage.id}` ? (
-                          <>
-                            <Check className="w-3 h-3" />
-                            Copied!
-                          </>
-                        ) : (
-                          <>
-                            <Copy className="w-3 h-3" />
-                            Copy Prompt
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                    <div className="bg-muted/50 rounded-lg p-3 text-sm font-mono whitespace-pre-wrap max-h-48 overflow-y-auto border">
-                      {stage.workflowPrompt}
-                    </div>
-                  </div>
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="w-6 h-6 animate-spin text-primary" />
+              </div>
+            ) : (
+              <Accordion type="single" collapsible className="space-y-2">
+                {stages.map((stage, index) => {
+                  const sectionProgress = getSectionProgress(stage.id, stage.setupSteps.length);
+                  const sectionCompleted = completedSteps[stage.id]?.size || 0;
+                  
+                  return (
+                    <AccordionItem
+                      key={stage.id}
+                      value={stage.id}
+                      className="border rounded-lg px-4 bg-card"
+                    >
+                      <AccordionTrigger className="hover:no-underline py-4">
+                        <div className="flex items-center gap-3 text-left flex-1">
+                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
+                            {stage.icon}
+                          </div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="text-xs">
+                                Stage {index + 1}
+                              </Badge>
+                              <span className="font-medium">{stage.title}</span>
+                              {sectionProgress === 100 && (
+                                <Check className="w-4 h-4 text-primary" />
+                              )}
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-0.5">
+                              {stage.description}
+                            </p>
+                            <div className="flex items-center gap-2 mt-2">
+                              <Progress value={sectionProgress} className="h-1.5 flex-1 max-w-32" />
+                              <span className="text-xs text-muted-foreground">
+                                {sectionCompleted}/{stage.setupSteps.length}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="pb-4 space-y-4">
+                        {/* n8n Nodes */}
+                        <div>
+                          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                            <Workflow className="w-4 h-4 text-primary" />
+                            Required n8n Nodes
+                          </h4>
+                          <div className="flex flex-wrap gap-2">
+                            {stage.n8nNodes.map((node, i) => (
+                              <Badge key={i} variant="secondary" className="text-xs">
+                                {node}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
 
-                  {/* Setup Steps */}
-                  <div>
-                    <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                      <ArrowRight className="w-4 h-4 text-primary" />
-                      Setup Steps
-                    </h4>
-                    <ol className="space-y-2">
-                      {stage.setupSteps.map((step, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm">
-                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-primary/10 text-primary text-xs flex items-center justify-center mt-0.5">
-                            {i + 1}
-                          </span>
-                          <span className="text-muted-foreground">{step}</span>
-                        </li>
-                      ))}
-                    </ol>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
+                        {/* Workflow Prompt */}
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <h4 className="text-sm font-medium flex items-center gap-2">
+                              <Zap className="w-4 h-4 text-primary" />
+                              Workflow Prompt (Copy & Paste into n8n)
+                            </h4>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="gap-2 h-8"
+                              onClick={() => copyToClipboard(stage.workflowPrompt, `prompt-${stage.id}`)}
+                            >
+                              {copiedId === `prompt-${stage.id}` ? (
+                                <>
+                                  <Check className="w-3 h-3" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3" />
+                                  Copy Prompt
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          <div className="bg-muted/50 rounded-lg p-3 text-sm font-mono whitespace-pre-wrap max-h-48 overflow-y-auto border">
+                            {stage.workflowPrompt}
+                          </div>
+                        </div>
 
-          {/* Footer Tips */}
-          <Card className="mt-4 mb-2 bg-muted/30">
-            <CardContent className="p-4">
-              <h4 className="font-medium mb-2">💡 Pro Tips</h4>
-              <ul className="text-sm text-muted-foreground space-y-1">
-                <li>• Start with Stage 1 (Prospecting) and build incrementally</li>
-                <li>• Test each workflow with sample data before going live</li>
-                <li>• Use n8n's built-in error handling for reliable automations</li>
-                <li>• Connect workflows together using webhooks for end-to-end automation</li>
-              </ul>
-            </CardContent>
-          </Card>
+                        {/* Setup Steps with Checkboxes */}
+                        <div>
+                          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                            <ArrowRight className="w-4 h-4 text-primary" />
+                            Setup Steps
+                          </h4>
+                          <ol className="space-y-2">
+                            {stage.setupSteps.map((step, i) => {
+                              const completed = isStepCompleted(stage.id, i);
+                              return (
+                                <li 
+                                  key={i} 
+                                  className="flex items-start gap-3 text-sm group cursor-pointer"
+                                  onClick={() => toggleStep(stage.id, i)}
+                                >
+                                  <Checkbox
+                                    checked={completed}
+                                    onCheckedChange={() => toggleStep(stage.id, i)}
+                                    className="mt-0.5"
+                                  />
+                                  <span className={`flex-1 ${completed ? "line-through text-muted-foreground" : ""}`}>
+                                    {step}
+                                  </span>
+                                </li>
+                              );
+                            })}
+                          </ol>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  );
+                })}
+              </Accordion>
+            )}
+
+            {/* Footer Tips */}
+            <Card className="bg-muted/30">
+              <CardContent className="p-4">
+                <h4 className="font-medium mb-2">💡 Pro Tips</h4>
+                <ul className="text-sm text-muted-foreground space-y-1">
+                  <li>• Start with Stage 1 (Prospecting) and build incrementally</li>
+                  <li>• Test each workflow with sample data before going live</li>
+                  <li>• Use n8n's built-in error handling for reliable automations</li>
+                  <li>• Connect workflows together using webhooks for end-to-end automation</li>
+                </ul>
+              </CardContent>
+            </Card>
+          </div>
         </ScrollArea>
       </DialogContent>
     </Dialog>
