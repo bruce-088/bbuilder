@@ -237,14 +237,14 @@ export default function BusinessIdeaDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col overflow-hidden">
         {loading ? (
           <div className="flex-1 flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         ) : idea ? (
           <>
-            <DialogHeader className="pb-2">
+            <DialogHeader className="pb-2 flex-shrink-0">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <DialogTitle className="font-display text-xl md:text-2xl">
@@ -271,7 +271,7 @@ export default function BusinessIdeaDialog({
               </div>
             </DialogHeader>
 
-            <ScrollArea className="flex-1 -mx-6 px-6">
+            <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
               <div className="space-y-4 pb-4">
                 {/* Quick Start Checklist */}
                 <Card className="glass border-primary/20">
