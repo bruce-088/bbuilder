@@ -127,7 +127,7 @@ export default function Dashboard() {
   } = useMissionProgress();
 
   // Onboarding tour
-  const { showTour, completeTour, skipTour } = useOnboardingTour();
+  const { showTour, completeTour, skipTour, resetTour } = useOnboardingTour();
 
   const industries = [
     { value: "any", label: "Any Industry (Surprise me!)" },
@@ -1378,6 +1378,7 @@ export default function Dashboard() {
       <HowToUseDialog
         open={showHowToUse}
         onOpenChange={setShowHowToUse}
+        onRestartTour={resetTour}
       />
 
       {/* Onboarding Tour */}
