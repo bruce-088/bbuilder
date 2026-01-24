@@ -724,7 +724,7 @@ export default function Dashboard() {
         >
           {/* Mission Control Header */}
           <div className="grid lg:grid-cols-3 gap-6 mb-8">
-            {/* Welcome + Current Quest */}
+            {/* Welcome + Current Quest + Achievements */}
             <div className="lg:col-span-2 space-y-6">
               <div>
                 <div className="flex items-center gap-3 mb-2">
@@ -762,9 +762,12 @@ export default function Dashboard() {
                   }
                 }}
               />
+
+              {/* Achievements - below Current Quest */}
+              <AchievementBadges unlockedAchievements={unlockedAchievements} />
             </div>
             
-            {/* Right Column: Timer + XP + What's Next + Achievements */}
+            {/* Right Column: Timer + XP + What's Next */}
             <div className="space-y-4">
               {mission && (
                 <CountdownTimer 
@@ -785,7 +788,6 @@ export default function Dashboard() {
                 }}
                 onStartChat={handleNewChat}
               />
-              <AchievementBadges unlockedAchievements={unlockedAchievements} />
             </div>
           </div>
 
