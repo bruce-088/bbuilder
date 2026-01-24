@@ -311,7 +311,13 @@ export default function BusinessIdeaDialog({
                                 </label>
                               </div>
                             </TooltipTrigger>
-                            <TooltipContent side="left" align="center" className="max-w-xs z-[100]">
+                            <TooltipContent
+                              side="left"
+                              align="center"
+                              sideOffset={16}
+                              collisionPadding={16}
+                              className="max-w-xs z-[100]"
+                            >
                               <p className="text-sm">{step.tip}</p>
                             </TooltipContent>
                           </Tooltip>
