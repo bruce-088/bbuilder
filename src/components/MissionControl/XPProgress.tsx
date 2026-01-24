@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { Zap, Trophy, Target } from "lucide-react";
+import { Zap, Trophy, Target, Info } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { getTotalXP, calculateLevel } from "./types";
 
 interface XPProgressProps {
@@ -41,10 +42,25 @@ export default function XPProgress({ currentXP, className = "" }: XPProgressProp
             <p className="font-display font-semibold">{levelName}</p>
           </div>
         </div>
-        <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-accent/20 border border-accent/30">
-          <Zap className="w-4 h-4 text-accent" />
-          <span className="font-display font-bold text-accent">{currentXP} XP</span>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div className="flex items-center gap-1 px-3 py-1.5 rounded-full bg-accent/20 border border-accent/30 cursor-help">
+              <Zap className="w-4 h-4 text-accent" />
+              <span className="font-display font-bold text-accent">{currentXP} XP</span>
+              <Info className="w-3 h-3 text-accent/60 ml-1" />
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-xs">
+            <p className="font-medium mb-1">How to earn XP:</p>
+            <ul className="text-xs space-y-1">
+              <li>• Generate an idea: +50 XP</li>
+              <li>• Save an idea: +50 XP</li>
+              <li>• Complete validation: +150 XP</li>
+              <li>• Setup automation: +100 XP</li>
+              <li>• Land first customer: +250 XP</li>
+            </ul>
+          </TooltipContent>
+        </Tooltip>
       </div>
 
       {/* Level Progress */}
