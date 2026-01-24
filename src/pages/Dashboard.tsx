@@ -817,14 +817,18 @@ export default function Dashboard() {
                 completedQuests={completedQuests}
                 currentStage={currentStage}
                 hasBusinessIdeas={businessIdeas.length > 0}
-                businessIdeas={businessIdeas.map(idea => ({
+                businessIdeas={businessIdeasWithProgress.map(idea => ({
                   id: idea.id,
                   business_name: idea.business_name,
-                  niche: idea.niche
+                  niche: idea.niche,
+                  completedSteps: idea.completedSteps || []
                 }))}
+                activeQuestId={activeQuestId}
                 onGenerateIdea={openIndustryDialog}
                 onViewIdea={() => {
-                  if (businessIdeas.length > 0) {
+                  if (activeQuestId) {
+                    setSelectedIdeaId(activeQuestId);
+                  } else if (businessIdeas.length > 0) {
                     setSelectedIdeaId(businessIdeas[0].id);
                   }
                 }}
