@@ -8,6 +8,7 @@ export function useMissionProgress() {
   const { user } = useAuth();
   const [mission, setMission] = useState<MissionProgress | null>(null);
   const [completedQuests, setCompletedQuests] = useState<string[]>([]);
+  const [activeQuestId, setActiveQuestIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Load mission progress
@@ -35,6 +36,10 @@ export function useMissionProgress() {
 
       if (data) {
         setMission(data);
+        // Load persisted active quest ID
+        if (data.active_quest_id) {
+          setActiveQuestIdState(data.active_quest_id);
+        }
       } else {
         // Create new mission for user
         const { data: newMission, error: insertError } = await supabase
@@ -193,14 +198,32 @@ export function useMissionProgress() {
     }
   };
 
+  const setActiveQuestId = async (questId: string | null) => {
+    if (!user) return;
+
+    // Update local state immediately
+    setActiveQuestIdState(questId);
+
+    try {
+      await supabase
+        .from('user_missions')
+        .update({ active_quest_id: questId })
+        .eq('user_id', user.id);
+    } catch (error) {
+      console.error('Error updating active quest:', error);
+    }
+  };
+
   return {
     mission,
     loading,
     completedQuests,
+    activeQuestId,
     currentStage: calculateCurrentStage(),
     xpEarned: calculateXP(),
     unlockedAchievements: getUnlockedAchievements(),
     completeQuest,
+    setActiveQuestId,
     refreshMission: loadMission,
   };
 }
