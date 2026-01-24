@@ -50,13 +50,15 @@ import {
   Trash2,
   Bookmark,
   BookmarkCheck,
-  Search
+  Search,
+  HelpCircle
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
+import HowToUseDialog from "@/components/HowToUseDialog";
 
 interface BusinessIdea {
   id: string;
@@ -98,6 +100,7 @@ export default function Dashboard() {
   const [ideaSearch, setIdeaSearch] = useState("");
   const [conversationSearch, setConversationSearch] = useState("");
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
+  const [showHowToUse, setShowHowToUse] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const editIdeaInputRef = useRef<HTMLInputElement>(null);
 
@@ -675,10 +678,16 @@ export default function Dashboard() {
             </div>
             <span className="font-display font-bold text-xl">Mya</span>
           </div>
-          <Button onClick={handleSignOut} variant="ghost" size="sm">
-            <LogOut className="w-4 h-4 mr-2" />
-            Sign Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => setShowHowToUse(true)} variant="ghost" size="sm">
+              <HelpCircle className="w-4 h-4 mr-2" />
+              How to Use
+            </Button>
+            <Button onClick={handleSignOut} variant="ghost" size="sm">
+              <LogOut className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
       </nav>
 
@@ -1240,6 +1249,12 @@ export default function Dashboard() {
             )
           );
         }}
+      />
+
+      {/* How to Use Dialog */}
+      <HowToUseDialog
+        open={showHowToUse}
+        onOpenChange={setShowHowToUse}
       />
     </div>
   );
