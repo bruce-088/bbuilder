@@ -83,6 +83,7 @@ export default function Dashboard() {
   const [compareMode, setCompareMode] = useState(false);
   const [selectedForCompare, setSelectedForCompare] = useState<string[]>([]);
   const [filter, setFilter] = useState<"all" | "favorites">("all");
+  const [conversationFilter, setConversationFilter] = useState<"all" | "favorites">("all");
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState("");
   const [editingIdeaId, setEditingIdeaId] = useState<string | null>(null);
@@ -334,7 +335,7 @@ export default function Dashboard() {
     return matchesFilter && matchesSearch;
   });
 
-  const filteredConversations = filter === "favorites"
+  const filteredConversations = conversationFilter === "favorites"
     ? conversations.filter(conv => conv.is_favorite)
     : conversations;
 
@@ -945,7 +946,7 @@ export default function Dashboard() {
                   <MessageSquare className="w-5 h-5 text-primary" />
                   Conversations
                 </h2>
-                <Tabs value={filter} onValueChange={(v) => setFilter(v as "all" | "favorites")}>
+                <Tabs value={conversationFilter} onValueChange={(v) => setConversationFilter(v as "all" | "favorites")}>
                   <TabsList className="h-8">
                     <TabsTrigger value="all" className="text-xs px-3 h-6">All</TabsTrigger>
                     <TabsTrigger value="favorites" className="text-xs px-3 h-6">
@@ -1068,7 +1069,7 @@ export default function Dashboard() {
                     ))}
                   </div>
                 </ScrollArea>
-              ) : filter === "favorites" ? (
+              ) : conversationFilter === "favorites" ? (
                 <Card className="glass">
                   <CardContent className="p-8 text-center">
                     <Star className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
