@@ -16,7 +16,9 @@ import {
   BookmarkCheck,
   Workflow,
   Wrench,
-  Eye
+  Eye,
+  X,
+  MessageSquare
 } from "lucide-react";
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
@@ -58,6 +60,7 @@ export default function Chat() {
   } | null>(null);
   const [hasExistingWorkflow, setHasExistingWorkflow] = useState(false);
   const [businessIdeaDialogOpen, setBusinessIdeaDialogOpen] = useState(false);
+  const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const hasGeneratedRef = useRef(false);
@@ -684,21 +687,120 @@ export default function Chat() {
         </div>
       </main>
 
-      {/* Floating View Idea Button */}
+      {/* Floating Toolbar */}
       <AnimatePresence>
         {savedBusinessIdea && messages.length > 0 && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.8, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: 20 }}
-            className="fixed bottom-24 right-6 z-20"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed bottom-24 right-6 z-20 flex flex-col-reverse items-end gap-2"
           >
+            {/* Expanded Action Buttons */}
+            <AnimatePresence>
+              {toolbarExpanded && (
+                <>
+                  {/* View Idea */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.5, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.5, y: 10 }}
+                    transition={{ delay: 0.05 }}
+                  >
+                    <Button
+                      onClick={() => {
+                        setBusinessIdeaDialogOpen(true);
+                        setToolbarExpanded(false);
+                      }}
+                      className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all"
+                    >
+                      <Eye className="w-4 h-4" />
+                      <span className="hidden sm:inline">View Idea</span>
+                    </Button>
+                  </motion.div>
+
+                  {/* Implementation Guide */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.5, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.5, y: 10 }}
+                    transition={{ delay: 0.1 }}
+                  >
+                    <ImplementationGuideDialog
+                      trigger={
+                        <Button className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all">
+                          <Wrench className="w-4 h-4" />
+                          <span className="hidden sm:inline">Impl. Guide</span>
+                        </Button>
+                      }
+                      businessIdea={{
+                        id: savedBusinessIdea.id,
+                        businessName: savedBusinessIdea.business_name,
+                        niche: savedBusinessIdea.niche,
+                        targetAudience: savedBusinessIdea.target_audience,
+                        valueProposition: savedBusinessIdea.value_proposition,
+                        serviceOffering: savedBusinessIdea.service_offering,
+                        aiAutomationStrategy: savedBusinessIdea.ai_automation_strategy,
+                      }}
+                    />
+                  </motion.div>
+
+                  {/* n8n Workflow */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.5, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.5, y: 10 }}
+                    transition={{ delay: 0.15 }}
+                  >
+                    <N8nWorkflowDialog
+                      businessIdeaId={savedBusinessIdea.id}
+                      businessName={savedBusinessIdea.business_name}
+                      trigger={
+                        <Button className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all">
+                          <Workflow className="w-4 h-4" />
+                          <span className="hidden sm:inline">n8n Workflow</span>
+                        </Button>
+                      }
+                    />
+                  </motion.div>
+
+                  {/* Focus Chat */}
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.5, y: 10 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.5, y: 10 }}
+                    transition={{ delay: 0.2 }}
+                  >
+                    <Button
+                      onClick={() => {
+                        textareaRef.current?.focus();
+                        setToolbarExpanded(false);
+                      }}
+                      className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all"
+                    >
+                      <MessageSquare className="w-4 h-4" />
+                      <span className="hidden sm:inline">Chat</span>
+                    </Button>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+
+            {/* Toggle Button */}
             <Button
-              onClick={() => setBusinessIdeaDialogOpen(true)}
-              className="h-12 px-4 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all"
+              onClick={() => setToolbarExpanded(!toolbarExpanded)}
+              className="h-12 w-12 rounded-full shadow-lg bg-gradient-primary hover:opacity-90 btn-glow p-0"
             >
-              <Eye className="w-4 h-4" />
-              <span className="hidden sm:inline">View Idea</span>
+              <motion.div
+                animate={{ rotate: toolbarExpanded ? 45 : 0 }}
+                transition={{ duration: 0.2 }}
+              >
+                {toolbarExpanded ? (
+                  <X className="w-5 h-5" />
+                ) : (
+                  <Sparkles className="w-5 h-5" />
+                )}
+              </motion.div>
             </Button>
           </motion.div>
         )}
@@ -717,23 +819,6 @@ export default function Chat() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Dashboard
               </Button>
-              <ImplementationGuideDialog
-                trigger={
-                  <Button variant="outline" className="h-12 px-4 gap-2">
-                    <Wrench className="w-4 h-4" />
-                    <span className="hidden sm:inline">Implementation Guide</span>
-                  </Button>
-                }
-                businessIdea={savedBusinessIdea ? {
-                  id: savedBusinessIdea.id,
-                  businessName: savedBusinessIdea.business_name,
-                  niche: savedBusinessIdea.niche,
-                  targetAudience: savedBusinessIdea.target_audience,
-                  valueProposition: savedBusinessIdea.value_proposition,
-                  serviceOffering: savedBusinessIdea.service_offering,
-                  aiAutomationStrategy: savedBusinessIdea.ai_automation_strategy,
-                } : undefined}
-              />
               <Textarea
                 ref={textareaRef}
                 value={input}
