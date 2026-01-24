@@ -133,7 +133,7 @@ serve(async (req) => {
       );
     }
 
-    const { businessIdeaId } = await req.json();
+    const { businessIdeaId, regenerate } = await req.json();
 
     if (!businessIdeaId) {
       return new Response(
@@ -142,7 +142,7 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Generating n8n workflow for business idea: ${businessIdeaId}`);
+    console.log(`Generating n8n workflow for business idea: ${businessIdeaId}, regenerate: ${regenerate}`);
 
     // Check for existing n8n prompt
     const { data: existingPrompt } = await supabaseClient
@@ -152,12 +152,25 @@ serve(async (req) => {
       .eq("prompt_type", "n8n_workflow")
       .single();
 
-    if (existingPrompt) {
+    if (existingPrompt && !regenerate) {
       console.log("Found existing n8n workflow prompt");
       return new Response(
         JSON.stringify({ prompt: existingPrompt }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
+    }
+
+    // If regenerating, delete the old prompt first
+    if (existingPrompt && regenerate) {
+      console.log("Deleting existing prompt for regeneration");
+      const { error: deleteError } = await supabaseClient
+        .from("ai_prompts")
+        .delete()
+        .eq("id", existingPrompt.id);
+      
+      if (deleteError) {
+        console.error("Failed to delete existing prompt:", deleteError);
+      }
     }
 
     // Fetch the business idea
