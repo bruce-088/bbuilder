@@ -422,6 +422,8 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
       const sectionSteps = new Set(prev[sectionId] || []);
       if (sectionSteps.has(stepKey)) {
         sectionSteps.delete(stepKey);
+        // Also remove stage-complete if unchecking a step
+        sectionSteps.delete('stage-complete');
       } else {
         sectionSteps.add(stepKey);
       }
@@ -437,8 +439,45 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
     return completedSteps[sectionId]?.has(`step-${stepIndex}`) || false;
   };
 
+  const isStageComplete = (sectionId: string): boolean => {
+    return completedSteps[sectionId]?.has('stage-complete') || false;
+  };
+
+  const areAllStepsCompleted = (sectionId: string, totalSteps: number): boolean => {
+    const sectionSet = completedSteps[sectionId];
+    if (!sectionSet) return false;
+    for (let i = 0; i < totalSteps; i++) {
+      if (!sectionSet.has(`step-${i}`)) return false;
+    }
+    return true;
+  };
+
+  const markStageComplete = (sectionId: string, totalSteps: number) => {
+    if (!areAllStepsCompleted(sectionId, totalSteps)) {
+      toast.error("Please complete all setup steps before marking this stage as complete");
+      return;
+    }
+    
+    setCompletedSteps(prev => {
+      const sectionSteps = new Set(prev[sectionId] || []);
+      sectionSteps.add('stage-complete');
+      
+      // Save to database
+      saveProgress(sectionId, sectionSteps);
+      
+      toast.success("Stage marked as complete! 🎉");
+      return { ...prev, [sectionId]: sectionSteps };
+    });
+  };
+
   const getSectionProgress = (sectionId: string, totalSteps: number): number => {
-    const completed = completedSteps[sectionId]?.size || 0;
+    const sectionSet = completedSteps[sectionId];
+    if (!sectionSet) return 0;
+    // Count only step-X entries, not stage-complete
+    let completed = 0;
+    for (let i = 0; i < totalSteps; i++) {
+      if (sectionSet.has(`step-${i}`)) completed++;
+    }
     return totalSteps > 0 ? Math.round((completed / totalSteps) * 100) : 0;
   };
 
@@ -535,18 +574,24 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
               <Accordion type="single" collapsible className="space-y-2">
                 {stages.map((stage, index) => {
                   const sectionProgress = getSectionProgress(stage.id, stage.setupSteps.length);
-                  const sectionCompleted = completedSteps[stage.id]?.size || 0;
+                  const stageComplete = isStageComplete(stage.id);
+                  const allStepsDone = areAllStepsCompleted(stage.id, stage.setupSteps.length);
+                  // Count only actual steps for display
+                  let stepsCompleted = 0;
+                  for (let i = 0; i < stage.setupSteps.length; i++) {
+                    if (isStepCompleted(stage.id, i)) stepsCompleted++;
+                  }
                   
                   return (
                     <AccordionItem
                       key={stage.id}
                       value={stage.id}
-                      className="border rounded-lg px-4 bg-card"
+                      className={`border rounded-lg px-4 bg-card ${stageComplete ? 'border-green-500/50 bg-green-500/5' : ''}`}
                     >
                       <AccordionTrigger className="hover:no-underline py-4">
                         <div className="flex items-center gap-3 text-left flex-1">
-                          <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10 text-primary">
-                            {stage.icon}
+                          <div className={`flex items-center justify-center w-8 h-8 rounded-full ${stageComplete ? 'bg-green-500/20 text-green-500' : 'bg-primary/10 text-primary'}`}>
+                            {stageComplete ? <Check className="w-5 h-5" /> : stage.icon}
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
@@ -558,17 +603,20 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                 <Clock className="w-3 h-3" />
                                 {stage.estimatedTime}
                               </Badge>
-                              {sectionProgress === 100 && (
-                                <Check className="w-4 h-4 text-primary" />
+                              {stageComplete && (
+                                <Badge className="bg-green-500 text-white text-xs gap-1">
+                                  <Check className="w-3 h-3" />
+                                  Validated
+                                </Badge>
                               )}
                             </div>
                             <p className="text-sm text-muted-foreground mt-0.5">
                               {stage.description}
                             </p>
                             <div className="flex items-center gap-2 mt-2">
-                              <Progress value={sectionProgress} className="h-1.5 flex-1 max-w-32" />
+                              <Progress value={sectionProgress} className={`h-1.5 flex-1 max-w-32 ${stageComplete ? '[&>div]:bg-green-500' : ''}`} />
                               <span className="text-xs text-muted-foreground">
-                                {sectionCompleted}/{stage.setupSteps.length}
+                                {stepsCompleted}/{stage.setupSteps.length}
                               </span>
                             </div>
                           </div>
@@ -648,6 +696,26 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                               );
                             })}
                           </ol>
+                        </div>
+
+                        {/* Mark Stage Complete Button */}
+                        <div className="pt-4 border-t">
+                          {stageComplete ? (
+                            <div className="flex items-center gap-2 text-green-500 text-sm font-medium">
+                              <Check className="w-4 h-4" />
+                              Stage validated and complete
+                            </div>
+                          ) : (
+                            <Button
+                              onClick={() => markStageComplete(stage.id, stage.setupSteps.length)}
+                              disabled={!allStepsDone}
+                              className={allStepsDone ? 'bg-green-500 hover:bg-green-600 text-white' : ''}
+                              variant={allStepsDone ? 'default' : 'outline'}
+                            >
+                              <Check className="w-4 h-4 mr-2" />
+                              {allStepsDone ? 'Mark Stage Complete' : `Complete all ${stage.setupSteps.length - stepsCompleted} remaining steps first`}
+                            </Button>
+                          )}
                         </div>
                       </AccordionContent>
                     </AccordionItem>
