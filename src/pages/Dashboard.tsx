@@ -64,6 +64,7 @@ interface BusinessIdea {
   niche: string;
   created_at: string;
   is_favorite: boolean;
+  conversation_id: string | null;
 }
 
 interface Conversation {
@@ -128,7 +129,7 @@ export default function Dashboard() {
       const [ideasResult, convsResult, linkedIdeasResult] = await Promise.all([
         supabase
           .from("business_ideas")
-          .select("id, business_name, niche, created_at, is_favorite")
+          .select("id, business_name, niche, created_at, is_favorite, conversation_id")
           .order("created_at", { ascending: false })
           .limit(20),
         supabase
@@ -247,6 +248,25 @@ export default function Dashboard() {
         .eq("id", id);
 
       if (error) throw error;
+
+      // If favoriting a conversation, also favorite any linked business ideas
+      if (!currentStatus) {
+        const linkedIdeas = businessIdeas.filter(idea => idea.conversation_id === id);
+        if (linkedIdeas.length > 0) {
+          const { error: ideaError } = await supabase
+            .from("business_ideas")
+            .update({ is_favorite: true })
+            .eq("conversation_id", id);
+
+          if (!ideaError) {
+            setBusinessIdeas(prev =>
+              prev.map(idea =>
+                idea.conversation_id === id ? { ...idea, is_favorite: true } : idea
+              )
+            );
+          }
+        }
+      }
 
       setConversations(prev => 
         prev.map(conv => 
@@ -581,7 +601,7 @@ export default function Dashboard() {
       // Refresh business ideas list
       const { data: ideasData } = await supabase
         .from("business_ideas")
-        .select("id, business_name, niche, created_at, is_favorite")
+        .select("id, business_name, niche, created_at, is_favorite, conversation_id")
         .order("created_at", { ascending: false })
         .limit(20);
       
