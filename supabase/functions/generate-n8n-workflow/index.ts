@@ -6,43 +6,60 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const N8N_PROMPT = `You are an expert n8n workflow automation consultant. Given a business idea, create a comprehensive n8n workflow automation prompt that can be directly imported or built in n8n.
+const N8N_PROMPT = `You are an expert n8n workflow automation architect. Given a business idea, generate a COMPLETE, VALID n8n workflow JSON that can be directly imported into n8n.
 
-Your output should be a detailed, ready-to-use n8n workflow specification in JSON format that includes:
+CRITICAL: Your output must include a SINGLE JSON code block containing a valid n8n workflow with this EXACT structure:
 
-1. **Workflow Overview**: Brief description of what the automation does
-2. **Trigger Node**: How the workflow starts (webhook, schedule, etc.)
-3. **Node Sequence**: Step-by-step nodes with their configurations
-4. **Connections**: How nodes connect to each other
+\`\`\`json
+{
+  "name": "Workflow Name Here",
+  "nodes": [
+    {
+      "id": "unique-uuid-here",
+      "name": "Node Display Name",
+      "type": "n8n-nodes-base.nodeType",
+      "typeVersion": 1,
+      "position": [250, 300],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Source Node Name": {
+      "main": [[{ "node": "Target Node Name", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
+\`\`\`
 
-For each sales automation stage, include specific n8n nodes:
+VALID n8n node types to use:
+- n8n-nodes-base.manualTrigger - Manual trigger to start workflow
+- n8n-nodes-base.scheduleTrigger - Schedule-based trigger
+- n8n-nodes-base.webhook - Webhook trigger
+- n8n-nodes-base.httpRequest - Make HTTP/API requests
+- n8n-nodes-base.gmail - Send/read Gmail emails
+- n8n-nodes-base.slack - Send Slack messages
+- n8n-nodes-base.if - Conditional branching
+- n8n-nodes-base.switch - Multiple condition routing
+- n8n-nodes-base.code - Custom JavaScript code
+- n8n-nodes-base.set - Set/transform data
+- n8n-nodes-base.merge - Merge data streams
+- n8n-nodes-base.wait - Delay execution
+- n8n-nodes-base.noOp - No operation placeholder
+- @n8n/n8n-nodes-langchain.agent - AI Agent node
+- @n8n/n8n-nodes-langchain.lmChatOpenAi - OpenAI Chat
 
-### Lead Prospecting & Discovery
-- HTTP Request nodes for API calls to lead databases
-- Google Sheets/Airtable nodes for CRM integration
-- AI nodes for lead scoring and qualification
+Create a comprehensive workflow for the business that covers:
+1. Lead capture/prospecting trigger
+2. Data processing and enrichment
+3. Outreach automation (email/messaging)
+4. Follow-up sequences with delays
+5. Notification/reporting
 
-### Outreach & Follow-up
-- Email nodes (Gmail, SendGrid, etc.)
-- Wait nodes for timing sequences
-- IF nodes for conditional logic based on responses
-
-### Client Onboarding
-- Webhook triggers for form submissions
-- Notion/ClickUp nodes for project setup
-- Slack/Discord nodes for team notifications
-
-### Payment & Invoicing
-- Stripe/PayPal nodes for payment processing
-- Invoice generation with PDF nodes
-- Calendar integration for scheduling
-
-### Client Success
-- Scheduled triggers for check-ins
-- Survey/feedback collection
-- Reporting and analytics nodes
-
-Output the workflow as a JSON object that matches n8n's workflow format, wrapped in markdown code blocks.`;
+Output the complete workflow JSON first, then provide a brief explanation of each node's purpose.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {

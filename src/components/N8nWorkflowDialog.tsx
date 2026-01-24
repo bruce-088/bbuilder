@@ -101,22 +101,27 @@ export default function N8nWorkflowDialog({
     const jsonBlockRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
     const matches = [...markdownContent.matchAll(jsonBlockRegex)];
     
-    // Find the largest JSON block (likely the main workflow)
-    let largestJson: object | null = null;
-    let largestSize = 0;
+    // Find the best n8n workflow JSON block
+    let bestWorkflow: Record<string, unknown> | null = null;
+    let bestScore = 0;
     
     for (const match of matches) {
       try {
         const jsonContent = match[1].trim();
-        const parsed = JSON.parse(jsonContent);
+        const parsed = JSON.parse(jsonContent) as Record<string, unknown>;
         
-        // Check if this looks like an n8n workflow (has nodes array or is a workflow object)
-        if (parsed && (Array.isArray(parsed.nodes) || parsed.name || parsed.meta)) {
-          const size = JSON.stringify(parsed).length;
-          if (size > largestSize) {
-            largestJson = parsed;
-            largestSize = size;
-          }
+        // Must have nodes array to be a valid n8n workflow
+        if (!parsed || !Array.isArray(parsed.nodes)) continue;
+        
+        // Score based on completeness
+        let score = (parsed.nodes as unknown[]).length;
+        if (parsed.connections) score += 10;
+        if (parsed.settings) score += 5;
+        if (parsed.name) score += 5;
+        
+        if (score > bestScore) {
+          bestWorkflow = parsed;
+          bestScore = score;
         }
       } catch {
         // Not valid JSON, skip
@@ -124,7 +129,15 @@ export default function N8nWorkflowDialog({
       }
     }
     
-    return largestJson;
+    // Ensure required fields exist for n8n import
+    if (bestWorkflow) {
+      if (!bestWorkflow.connections) bestWorkflow.connections = {};
+      if (!bestWorkflow.settings) bestWorkflow.settings = { executionOrder: "v1" };
+      if (!bestWorkflow.name) bestWorkflow.name = `${businessName} Automation`;
+      if (bestWorkflow.active === undefined) bestWorkflow.active = false;
+    }
+    
+    return bestWorkflow;
   };
 
   const downloadAsJson = () => {
@@ -133,25 +146,12 @@ export default function N8nWorkflowDialog({
     // Try to extract the actual n8n workflow JSON from the markdown
     const workflowJson = extractN8nWorkflowJson(prompt.prompt_content);
     
-    let jsonData: object;
-    
-    if (workflowJson) {
-      // Use the extracted n8n workflow directly (importable into n8n)
-      jsonData = workflowJson;
-      toast.success("n8n workflow JSON downloaded! Import directly into n8n.");
-    } else {
-      // Fallback: wrap the content in metadata if no JSON found
-      jsonData = {
-        name: `n8n Workflow - ${businessName}`,
-        description: `Generated n8n workflow automation for ${businessName}`,
-        generated_at: prompt.created_at || new Date().toISOString(),
-        prompt_type: prompt.prompt_type,
-        content: prompt.prompt_content,
-      };
-      toast.success("JSON file downloaded!");
+    if (!workflowJson) {
+      toast.error("Could not extract valid n8n workflow JSON. Try regenerating the workflow.");
+      return;
     }
     
-    const blob = new Blob([JSON.stringify(jsonData, null, 2)], { 
+    const blob = new Blob([JSON.stringify(workflowJson, null, 2)], { 
       type: "application/json" 
     });
     const url = URL.createObjectURL(blob);
@@ -162,6 +162,8 @@ export default function N8nWorkflowDialog({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+    
+    toast.success("n8n workflow downloaded! Import via File → Import from File in n8n.");
   };
 
   return (
