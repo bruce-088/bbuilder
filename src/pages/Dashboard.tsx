@@ -96,6 +96,7 @@ export default function Dashboard() {
   const [savedConversationIds, setSavedConversationIds] = useState<Set<string>>(new Set());
   const [ideaToDelete, setIdeaToDelete] = useState<string | null>(null);
   const [ideaSearch, setIdeaSearch] = useState("");
+  const [conversationSearch, setConversationSearch] = useState("");
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const editIdeaInputRef = useRef<HTMLInputElement>(null);
@@ -355,9 +356,14 @@ export default function Dashboard() {
     return matchesFilter && matchesSearch;
   });
 
-  const filteredConversations = conversationFilter === "favorites"
-    ? conversations.filter(conv => conv.is_favorite)
-    : conversations;
+  const filteredConversations = conversations.filter(conv => {
+    const matchesFilter = conversationFilter === "favorites" ? conv.is_favorite : true;
+    const searchLower = conversationSearch.toLowerCase();
+    const matchesSearch = conversationSearch === "" || 
+      conv.title?.toLowerCase().includes(searchLower) ||
+      conv.industry?.toLowerCase().includes(searchLower);
+    return matchesFilter && matchesSearch;
+  });
 
   const startEditingConversation = (conv: Conversation, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -975,6 +981,27 @@ export default function Dashboard() {
                     </TabsTrigger>
                   </TabsList>
                 </Tabs>
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by title..."
+                    value={conversationSearch}
+                    onChange={(e) => setConversationSearch(e.target.value)}
+                    className="pl-9 h-9"
+                  />
+                  {conversationSearch && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                      onClick={() => setConversationSearch("")}
+                    >
+                      <XIcon className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
               </div>
               {loading ? (
                 <div className="glass rounded-lg p-8 text-center">
