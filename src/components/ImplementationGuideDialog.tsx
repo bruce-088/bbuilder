@@ -46,7 +46,10 @@ interface ImplementationGuideDialogProps {
 
 type CompletedSteps = Record<string, Set<string>>;
 
-const STORAGE_KEY = "implementation-guide-progress";
+const getStorageKey = (businessIdeaId?: string) => 
+  businessIdeaId 
+    ? `implementation-guide-progress-${businessIdeaId}` 
+    : "implementation-guide-progress-global";
 
 interface Tool {
   name: string;
@@ -364,7 +367,7 @@ export default function ImplementationGuideDialog({ trigger, businessIdea }: Imp
   // Load progress from localStorage as fallback
   const loadLocalProgress = useCallback((): CompletedSteps => {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
+      const saved = localStorage.getItem(getStorageKey(businessIdea?.id));
       if (saved) {
         const parsed = JSON.parse(saved);
         const result: CompletedSteps = {};
@@ -377,7 +380,7 @@ export default function ImplementationGuideDialog({ trigger, businessIdea }: Imp
       console.error("Error loading local progress:", e);
     }
     return {};
-  }, []);
+  }, [businessIdea?.id]);
 
   // Save progress to localStorage as fallback
   const saveLocalProgress = useCallback((progress: CompletedSteps) => {
@@ -386,21 +389,30 @@ export default function ImplementationGuideDialog({ trigger, businessIdea }: Imp
       for (const [key, value] of Object.entries(progress)) {
         toSave[key] = Array.from(value);
       }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave));
+      localStorage.setItem(getStorageKey(businessIdea?.id), JSON.stringify(toSave));
     } catch (e) {
       console.error("Error saving local progress:", e);
     }
-  }, []);
+  }, [businessIdea?.id]);
 
   // Load progress from database
   const loadCloudProgress = useCallback(async (): Promise<CompletedSteps> => {
     if (!user) return {};
     
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from("implementation_progress")
         .select("section_id, completed_steps")
         .eq("user_id", user.id);
+
+      // Filter by business idea if provided
+      if (businessIdea?.id) {
+        query = query.eq("business_idea_id", businessIdea.id);
+      } else {
+        query = query.is("business_idea_id", null);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
 
@@ -413,7 +425,7 @@ export default function ImplementationGuideDialog({ trigger, businessIdea }: Imp
       console.error("Error loading cloud progress:", e);
       return {};
     }
-  }, [user]);
+  }, [user, businessIdea?.id]);
 
   // Save progress to database
   const saveCloudProgress = useCallback(async (sectionId: string, steps: Set<string>) => {
@@ -421,41 +433,74 @@ export default function ImplementationGuideDialog({ trigger, businessIdea }: Imp
 
     setIsSyncing(true);
     try {
-      const { error } = await supabase
+      // First check if record exists
+      let query = supabase
         .from("implementation_progress")
-        .upsert({
-          user_id: user.id,
-          section_id: sectionId,
-          completed_steps: Array.from(steps),
-        }, {
-          onConflict: "user_id,section_id",
-        });
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("section_id", sectionId);
 
-      if (error) throw error;
+      if (businessIdea?.id) {
+        query = query.eq("business_idea_id", businessIdea.id);
+      } else {
+        query = query.is("business_idea_id", null);
+      }
+
+      const { data: existing } = await query.maybeSingle();
+
+      if (existing) {
+        // Update existing record
+        const { error } = await supabase
+          .from("implementation_progress")
+          .update({
+            completed_steps: Array.from(steps),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", existing.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new record
+        const { error } = await supabase
+          .from("implementation_progress")
+          .insert({
+            user_id: user.id,
+            section_id: sectionId,
+            completed_steps: Array.from(steps),
+            business_idea_id: businessIdea?.id || null,
+          });
+
+        if (error) throw error;
+      }
     } catch (e) {
       console.error("Error saving cloud progress:", e);
       toast.error("Failed to sync progress");
     } finally {
       setIsSyncing(false);
     }
-  }, [user]);
+  }, [user, businessIdea?.id]);
 
-  // Load progress on mount
+  // Load progress on mount and when business idea changes
   useEffect(() => {
     const loadProgress = async () => {
       setIsLoading(true);
+      // Reset completed steps when business idea changes
+      setCompletedSteps({});
+      
       if (user) {
         const cloudProgress = await loadCloudProgress();
         if (Object.keys(cloudProgress).length > 0) {
           setCompletedSteps(cloudProgress);
           saveLocalProgress(cloudProgress);
         } else {
-          // Migrate local progress to cloud
+          // Load from local storage
           const localProgress = loadLocalProgress();
-          setCompletedSteps(localProgress);
-          // Sync local to cloud
-          for (const [sectionId, steps] of Object.entries(localProgress)) {
-            await saveCloudProgress(sectionId, steps);
+          if (Object.keys(localProgress).length > 0) {
+            setCompletedSteps(localProgress);
+            // Sync local to cloud
+            for (const [sectionId, steps] of Object.entries(localProgress)) {
+              await saveCloudProgress(sectionId, steps);
+            }
           }
         }
       } else {
@@ -464,7 +509,7 @@ export default function ImplementationGuideDialog({ trigger, businessIdea }: Imp
       setIsLoading(false);
     };
     loadProgress();
-  }, [user, loadCloudProgress, loadLocalProgress, saveLocalProgress, saveCloudProgress]);
+  }, [user, businessIdea?.id, loadCloudProgress, loadLocalProgress, saveLocalProgress, saveCloudProgress]);
 
   const toggleStep = (sectionId: string, stepIndex: number) => {
     setCompletedSteps((prev) => {
@@ -545,18 +590,20 @@ export default function ImplementationGuideDialog({ trigger, businessIdea }: Imp
         <div className="border border-border/50 rounded-lg p-4 bg-muted/30">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">Overall Progress</span>
+              <span className="text-sm font-medium">
+                {businessIdea ? `Progress for ${businessIdea.businessName}` : "Overall Progress"}
+              </span>
               {user && (
                 <div className="flex items-center gap-1 text-xs text-muted-foreground">
                   {isSyncing ? (
                     <>
                       <Loader2 className="w-3 h-3 animate-spin" />
-                      <span>Syncing...</span>
+                      <span>Saving...</span>
                     </>
                   ) : (
                     <>
                       <Cloud className="w-3 h-3" />
-                      <span>Synced</span>
+                      <span>{businessIdea ? "Saved to this idea" : "Synced"}</span>
                     </>
                   )}
                 </div>
@@ -568,7 +615,7 @@ export default function ImplementationGuideDialog({ trigger, businessIdea }: Imp
           </div>
           <Progress value={isLoading ? 0 : totalProgress.percentage} className="h-2" />
           {totalProgress.percentage === 100 && !isLoading && (
-            <div className="flex items-center gap-2 mt-2 text-green-500 text-sm">
+            <div className="flex items-center gap-2 mt-2 text-sm" style={{ color: 'hsl(var(--primary))' }}>
               <CheckCircle2 className="w-4 h-4" />
               <span>All steps completed! 🎉</span>
             </div>
