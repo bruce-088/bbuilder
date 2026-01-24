@@ -11,7 +11,6 @@ import {
   Send, 
   Loader2,
   User,
-  Bot,
   Lightbulb,
   Bookmark,
   BookmarkCheck,
@@ -23,6 +22,7 @@ import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import myaAvatar from "@/assets/mya-avatar.png";
 
 interface ChatMessage {
   id: string;
@@ -477,9 +477,11 @@ export default function Chat() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <img 
+              src={myaAvatar} 
+              alt="Mya" 
+              className="w-8 h-8 rounded-lg object-cover"
+            />
             <span className="font-display font-bold">Mya</span>
           </div>
         </div>
@@ -498,9 +500,11 @@ export default function Chat() {
               animate={{ opacity: 1, y: 0 }}
               className="text-center py-16"
             >
-              <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto mb-6">
-                <Bot className="w-8 h-8 text-primary" />
-              </div>
+              <img 
+                src={myaAvatar} 
+                alt="Mya" 
+                className="w-16 h-16 rounded-2xl object-cover mx-auto mb-6"
+              />
               <h2 className="font-display text-2xl font-bold mb-2">
                 How can I help you today?
               </h2>
@@ -528,9 +532,11 @@ export default function Chat() {
                   }`}
                 >
                   {message.role === "assistant" && (
-                    <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0 mt-1">
-                      <Bot className="w-4 h-4 text-primary" />
-                    </div>
+                    <img 
+                      src={myaAvatar} 
+                      alt="Mya" 
+                      className="w-8 h-8 rounded-lg object-cover flex-shrink-0 mt-1"
+                    />
                   )}
                   <div className="flex flex-col gap-2 max-w-[90%]">
                     <div
@@ -600,9 +606,11 @@ export default function Chat() {
           {/* Typing indicator */}
           {isStreaming && messages[messages.length - 1]?.content === "" && (
             <div className="flex gap-3 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center flex-shrink-0">
-                <Bot className="w-4 h-4 text-primary" />
-              </div>
+              <img 
+                src={myaAvatar} 
+                alt="Mya" 
+                className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
+              />
               <div className="message-assistant px-4 py-3">
                 <div className="flex gap-1">
                   <span className="typing-dot" />
