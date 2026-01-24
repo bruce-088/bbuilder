@@ -764,7 +764,7 @@ export default function Dashboard() {
               />
             </div>
             
-            {/* Right Column: Timer + XP + What's Next */}
+            {/* Right Column: Timer + XP + What's Next + Achievements */}
             <div className="space-y-4">
               {mission && (
                 <CountdownTimer 
@@ -785,12 +785,8 @@ export default function Dashboard() {
                 }}
                 onStartChat={handleNewChat}
               />
+              <AchievementBadges unlockedAchievements={unlockedAchievements} />
             </div>
-          </div>
-
-          {/* Achievements Row */}
-          <div className="mb-8">
-            <AchievementBadges unlockedAchievements={unlockedAchievements} />
           </div>
 
           {/* Quest List Toggle */}
