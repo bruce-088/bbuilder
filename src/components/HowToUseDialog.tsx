@@ -5,6 +5,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { 
   MessageSquare, 
@@ -19,6 +20,7 @@ import {
 interface HowToUseDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onRestartTour?: () => void;
 }
 
 const steps = [
@@ -74,7 +76,11 @@ const steps = [
   }
 ];
 
-export default function HowToUseDialog({ open, onOpenChange }: HowToUseDialogProps) {
+export default function HowToUseDialog({ open, onOpenChange, onRestartTour }: HowToUseDialogProps) {
+  const handleRestartTour = () => {
+    onOpenChange(false);
+    onRestartTour?.();
+  };
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh]">
@@ -132,6 +138,19 @@ export default function HowToUseDialog({ open, onOpenChange }: HowToUseDialogPro
                 You can always refine ideas later!
               </p>
             </div>
+
+            {onRestartTour && (
+              <div className="mt-4 pt-4 border-t border-border">
+                <Button 
+                  variant="outline" 
+                  onClick={handleRestartTour}
+                  className="w-full"
+                >
+                  <Rocket className="w-4 h-4 mr-2" />
+                  Restart Interactive Tour
+                </Button>
+              </div>
+            )}
           </div>
         </ScrollArea>
       </DialogContent>
