@@ -235,6 +235,42 @@ export type Database = {
         }
         Relationships: []
       }
+      user_missions: {
+        Row: {
+          achievements: string[]
+          created_at: string
+          current_stage: number
+          id: string
+          mission_started_at: string
+          target_date: string
+          updated_at: string
+          user_id: string
+          xp_earned: number
+        }
+        Insert: {
+          achievements?: string[]
+          created_at?: string
+          current_stage?: number
+          id?: string
+          mission_started_at?: string
+          target_date?: string
+          updated_at?: string
+          user_id: string
+          xp_earned?: number
+        }
+        Update: {
+          achievements?: string[]
+          created_at?: string
+          current_stage?: number
+          id?: string
+          mission_started_at?: string
+          target_date?: string
+          updated_at?: string
+          user_id?: string
+          xp_earned?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
