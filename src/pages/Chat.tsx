@@ -498,19 +498,52 @@ export default function Chat() {
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              className="text-center py-16"
+              className="flex flex-col items-center justify-center min-h-[60vh]"
             >
               <img 
                 src={myaAvatar} 
                 alt="Mya" 
-                className="w-16 h-16 rounded-2xl object-cover mx-auto mb-6"
+                className="w-16 h-16 rounded-2xl object-cover mb-6"
               />
-              <h2 className="font-display text-2xl font-bold mb-2">
+              <h2 className="font-display text-2xl font-bold mb-2 text-center">
                 How can I help you today?
               </h2>
-              <p className="text-muted-foreground mb-8 max-w-md mx-auto">
+              <p className="text-muted-foreground mb-6 max-w-md text-center">
                 Ask me about business ideas, validation strategies, pricing, or anything related to building your $10K/month business.
               </p>
+              
+              {/* Centered chat input for empty state */}
+              <div className="w-full max-w-2xl mb-6">
+                <div className="flex gap-3">
+                  <Textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => {
+                      setInput(e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+                    }}
+                    onKeyDown={handleKeyDown}
+                    placeholder="Ask about business ideas, validation strategies..."
+                    className="resize-none min-h-[48px] max-h-[200px]"
+                    disabled={isStreaming}
+                  />
+                  <Button
+                    onClick={handleSend}
+                    disabled={!input.trim() || isStreaming}
+                    className="bg-gradient-primary hover:opacity-90 btn-glow h-12 px-4"
+                  >
+                    {isStreaming ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Send className="w-5 h-5" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+              
+              <p className="text-muted-foreground text-sm mb-3">or</p>
+              
               <Button
                 onClick={handleGenerateIdeas}
                 className="bg-gradient-accent text-accent-foreground hover:opacity-90 btn-glow"
@@ -625,62 +658,64 @@ export default function Chat() {
         </div>
       </main>
 
-      {/* Input */}
-      <footer className="relative z-10 border-t border-border/50 backdrop-blur-xl">
-        <div className="container mx-auto max-w-5xl px-4 py-4">
-          <div className="flex gap-3">
-            <Button
-              variant="outline"
-              onClick={() => navigate("/dashboard")}
-              className="h-12 px-4"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Dashboard
-            </Button>
-            <ImplementationGuideDialog
-              trigger={
-                <Button variant="outline" className="h-12 px-4 gap-2">
-                  <Wrench className="w-4 h-4" />
-                  <span className="hidden sm:inline">Implementation Guide</span>
-                </Button>
-              }
-              businessIdea={savedBusinessIdea ? {
-                id: savedBusinessIdea.id,
-                businessName: savedBusinessIdea.business_name,
-                niche: savedBusinessIdea.niche,
-                targetAudience: savedBusinessIdea.target_audience,
-                valueProposition: savedBusinessIdea.value_proposition,
-                serviceOffering: savedBusinessIdea.service_offering,
-                aiAutomationStrategy: savedBusinessIdea.ai_automation_strategy,
-              } : undefined}
-            />
-            <Textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => {
-                setInput(e.target.value);
-                e.target.style.height = "auto";
-                e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
-              }}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask about business ideas, validation strategies..."
-              className="resize-none min-h-[48px] max-h-[200px]"
-              disabled={isStreaming}
-            />
-            <Button
-              onClick={handleSend}
-              disabled={!input.trim() || isStreaming}
-              className="bg-gradient-primary hover:opacity-90 btn-glow h-12 px-4"
-            >
-              {isStreaming ? (
-                <Loader2 className="w-5 h-5 animate-spin" />
-              ) : (
-                <Send className="w-5 h-5" />
-              )}
-            </Button>
+      {/* Input - only show in footer when there are messages */}
+      {messages.length > 0 && (
+        <footer className="relative z-10 border-t border-border/50 backdrop-blur-xl">
+          <div className="container mx-auto max-w-5xl px-4 py-4">
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                onClick={() => navigate("/dashboard")}
+                className="h-12 px-4"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Dashboard
+              </Button>
+              <ImplementationGuideDialog
+                trigger={
+                  <Button variant="outline" className="h-12 px-4 gap-2">
+                    <Wrench className="w-4 h-4" />
+                    <span className="hidden sm:inline">Implementation Guide</span>
+                  </Button>
+                }
+                businessIdea={savedBusinessIdea ? {
+                  id: savedBusinessIdea.id,
+                  businessName: savedBusinessIdea.business_name,
+                  niche: savedBusinessIdea.niche,
+                  targetAudience: savedBusinessIdea.target_audience,
+                  valueProposition: savedBusinessIdea.value_proposition,
+                  serviceOffering: savedBusinessIdea.service_offering,
+                  aiAutomationStrategy: savedBusinessIdea.ai_automation_strategy,
+                } : undefined}
+              />
+              <Textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => {
+                  setInput(e.target.value);
+                  e.target.style.height = "auto";
+                  e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+                }}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask about business ideas, validation strategies..."
+                className="resize-none min-h-[48px] max-h-[200px]"
+                disabled={isStreaming}
+              />
+              <Button
+                onClick={handleSend}
+                disabled={!input.trim() || isStreaming}
+                className="bg-gradient-primary hover:opacity-90 btn-glow h-12 px-4"
+              >
+                {isStreaming ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
+              </Button>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
+      )}
     </div>
   );
 }
