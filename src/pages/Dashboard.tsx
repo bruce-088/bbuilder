@@ -915,7 +915,7 @@ export default function Dashboard() {
                               <Button
                                 variant="ghost"
                                 size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                className="h-8 w-8 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
                                 onClick={(e) => confirmDeleteIdea(idea.id, e)}
                               >
                                 <Trash2 className="w-4 h-4" />
