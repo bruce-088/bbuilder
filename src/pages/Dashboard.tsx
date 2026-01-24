@@ -872,6 +872,20 @@ export default function Dashboard() {
                     setSelectedIdeaId(businessIdeas[0].id);
                   }
                 }}
+                activeQuestId={activeQuestId}
+                activeQuestName={businessIdeasWithProgress.find(i => i.id === activeQuestId)?.business_name}
+                activeQuestMilestones={(() => {
+                  const activeIdea = businessIdeasWithProgress.find(i => i.id === activeQuestId);
+                  if (!activeIdea) return undefined;
+                  const steps = activeIdea.completedSteps || [];
+                  return {
+                    validation: steps.some(s => s.toLowerCase().includes('validation') || s.toLowerCase().includes('validate')),
+                    landing: steps.some(s => s.toLowerCase().includes('landing') || s.toLowerCase().includes('website')),
+                    offer: steps.some(s => s.toLowerCase().includes('offer') || s.toLowerCase().includes('pricing')),
+                    outreach: steps.some(s => s.toLowerCase().includes('outreach') || s.toLowerCase().includes('prospect')),
+                    sale: steps.some(s => s.toLowerCase().includes('sale') || s.toLowerCase().includes('customer')),
+                  };
+                })()}
               />
             </motion.div>
           )}
