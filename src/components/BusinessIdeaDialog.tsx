@@ -271,8 +271,8 @@ export default function BusinessIdeaDialog({
               </div>
             </DialogHeader>
 
-            <ScrollArea className="flex-1 min-h-0 -mx-6 px-6">
-              <div className="space-y-4 pb-4">
+            <ScrollArea className="flex-1 min-h-0 -mx-6 px-6 [&>[data-radix-scroll-area-viewport]]:max-h-[50vh]">
+              <div className="space-y-4 pb-4 pr-2">
                 {/* Quick Start Checklist */}
                 <Card className="glass border-primary/20">
                   <CardContent className="p-4">
