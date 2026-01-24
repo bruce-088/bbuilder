@@ -15,7 +15,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Workflow, Copy, Check, RefreshCw, ExternalLink, Info, ChevronDown } from "lucide-react";
+import { Loader2, Workflow, Copy, Check, RefreshCw, ExternalLink, Info, ChevronDown, Download } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -94,6 +94,32 @@ export default function N8nWorkflowDialog({
     } catch (error) {
       toast.error("Failed to copy");
     }
+  };
+
+  const downloadAsJson = () => {
+    if (!prompt?.prompt_content) return;
+    
+    const jsonData = {
+      name: `n8n Workflow - ${businessName}`,
+      description: `Generated n8n workflow automation for ${businessName}`,
+      generated_at: prompt.created_at || new Date().toISOString(),
+      prompt_type: prompt.prompt_type,
+      content: prompt.prompt_content,
+    };
+    
+    const blob = new Blob([JSON.stringify(jsonData, null, 2)], { 
+      type: "application/json" 
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `n8n-workflow-${businessName.toLowerCase().replace(/\s+/g, "-")}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    toast.success("JSON file downloaded!");
   };
 
   return (
@@ -210,7 +236,7 @@ export default function N8nWorkflowDialog({
               </CollapsibleContent>
             </Collapsible>
 
-            <div className="flex items-center gap-2 mb-2">
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
               <Button
                 variant="outline"
                 size="sm"
@@ -223,6 +249,15 @@ export default function N8nWorkflowDialog({
                   <Copy className="w-4 h-4" />
                 )}
                 {copied ? "Copied!" : "Copy to Clipboard"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={downloadAsJson}
+                className="gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Download JSON
               </Button>
               <Button
                 variant="ghost"
