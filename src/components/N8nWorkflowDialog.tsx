@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Loader2, Workflow, Copy, Check, RefreshCw, ExternalLink, Info, ChevronDown, Download } from "lucide-react";
+import { Loader2, Workflow, Copy, Check, RefreshCw, ExternalLink, Info, ChevronDown, Download, Zap, Mail, MessageSquare, Database, Globe, Clock, GitBranch, Code, Bot } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 
@@ -31,6 +32,24 @@ interface AiPrompt {
   prompt_type: string;
   created_at?: string;
 }
+
+// Map node types to friendly names and icons
+const NODE_TYPE_MAP: Record<string, { label: string; icon: typeof Zap }> = {
+  'webhook': { label: 'Webhook', icon: Zap },
+  'httpRequest': { label: 'HTTP Request', icon: Globe },
+  'gmail': { label: 'Gmail', icon: Mail },
+  'slack': { label: 'Slack', icon: MessageSquare },
+  'notion': { label: 'Notion', icon: Database },
+  'airtable': { label: 'Airtable', icon: Database },
+  'set': { label: 'Set Data', icon: Database },
+  'if': { label: 'Condition', icon: GitBranch },
+  'switch': { label: 'Switch', icon: GitBranch },
+  'code': { label: 'Code', icon: Code },
+  'wait': { label: 'Wait', icon: Clock },
+  'manualTrigger': { label: 'Manual Trigger', icon: Zap },
+  'scheduleTrigger': { label: 'Schedule', icon: Clock },
+  'agent': { label: 'AI Agent', icon: Bot },
+};
 
 export default function N8nWorkflowDialog({
   businessIdeaId,
@@ -203,6 +222,34 @@ export default function N8nWorkflowDialog({
     toast.success("n8n workflow downloaded! Import via File → Import from File in n8n.");
   };
 
+  // Extract unique node types from the workflow for display
+  const workflowNodeTypes = useMemo(() => {
+    if (!prompt?.prompt_content) return [];
+    
+    const workflow = extractN8nWorkflowJson(prompt.prompt_content);
+    if (!workflow || !Array.isArray((workflow as { nodes?: unknown[] }).nodes)) return [];
+    
+    const nodes = (workflow as { nodes: Array<{ type?: string }> }).nodes;
+    const typeSet = new Set<string>();
+    
+    nodes.forEach(node => {
+      if (node.type) {
+        // Extract the short type name (e.g., "webhook" from "n8n-nodes-base.webhook")
+        const shortType = node.type.split('.').pop() || node.type;
+        typeSet.add(shortType);
+      }
+    });
+    
+    return Array.from(typeSet).map(type => {
+      const mapping = NODE_TYPE_MAP[type];
+      return {
+        type,
+        label: mapping?.label || type.charAt(0).toUpperCase() + type.slice(1),
+        Icon: mapping?.icon || Zap,
+      };
+    });
+  }, [prompt?.prompt_content]);
+
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
@@ -264,6 +311,21 @@ export default function N8nWorkflowDialog({
                 </div>
               </div>
             </div>
+
+            {/* Node Types Badges */}
+            {workflowNodeTypes.length > 0 && (
+              <div className="mb-4">
+                <p className="text-xs text-muted-foreground mb-2">Integrations included in this workflow:</p>
+                <div className="flex flex-wrap gap-2">
+                  {workflowNodeTypes.map(({ type, label, Icon }) => (
+                    <Badge key={type} variant="secondary" className="gap-1.5 py-1">
+                      <Icon className="w-3 h-3" />
+                      {label}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Visual Guide - Collapsible */}
             <Collapsible>
