@@ -118,6 +118,7 @@ export default function Dashboard() {
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
   const [showQuestList, setShowQuestList] = useState(false);
+  const [activeQuestId, setActiveQuestId] = useState<string | null>(null);
   const editInputRef = useRef<HTMLInputElement>(null);
   const editIdeaInputRef = useRef<HTMLInputElement>(null);
   
@@ -792,6 +793,11 @@ export default function Dashboard() {
                 }}
                 businessIdeas={businessIdeasWithProgress}
                 onSelectIdea={(ideaId) => setSelectedIdeaId(ideaId)}
+                activeQuestId={activeQuestId}
+                onSetActiveQuest={(ideaId) => {
+                  setActiveQuestId(ideaId);
+                  toast.success("Quest activated!");
+                }}
               />
 
               {/* Achievements - below Current Quest */}
