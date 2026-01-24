@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,6 +11,8 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import {
   Loader2,
   Target,
@@ -23,6 +26,7 @@ import {
   Star,
   MessageSquare,
   Wand2,
+  Rocket,
 } from "lucide-react";
 import N8nWorkflowDialog from "./N8nWorkflowDialog";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
@@ -60,6 +64,14 @@ const detailItems = [
   { id: "validation_path", label: "Validation Path", key: "validation_path" as const, icon: Zap },
 ];
 
+const quickStartSteps = [
+  { id: "validate", label: "Validate your idea with 3 potential customers" },
+  { id: "landing", label: "Create a simple landing page or social profile" },
+  { id: "offer", label: "Define your core offer and pricing" },
+  { id: "outreach", label: "Reach out to 10 prospects this week" },
+  { id: "first_sale", label: "Close your first paying customer" },
+];
+
 const formatAutomationStrategy = (strategy: Json): string => {
   if (!strategy) return "Not specified";
   if (typeof strategy === "string") return strategy;
@@ -80,14 +92,86 @@ export default function BusinessIdeaDialog({
   onFavoriteToggle,
 }: BusinessIdeaDialogProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [idea, setIdea] = useState<BusinessIdea | null>(null);
+  const [completedSteps, setCompletedSteps] = useState<string[]>([]);
+  const [savingProgress, setSavingProgress] = useState(false);
 
   useEffect(() => {
     if (open && ideaId) {
       fetchIdea(ideaId);
+      loadQuickStartProgress(ideaId);
     }
   }, [open, ideaId]);
+
+  const loadQuickStartProgress = useCallback(async (businessIdeaId: string) => {
+    if (!user) return;
+    
+    try {
+      const { data, error } = await supabase
+        .from("implementation_progress")
+        .select("completed_steps")
+        .eq("user_id", user.id)
+        .eq("business_idea_id", businessIdeaId)
+        .eq("section_id", "quick-start")
+        .maybeSingle();
+
+      if (error) throw error;
+      if (data) {
+        setCompletedSteps(data.completed_steps || []);
+      } else {
+        setCompletedSteps([]);
+      }
+    } catch (error) {
+      console.error("Error loading quick start progress:", error);
+    }
+  }, [user]);
+
+  const saveQuickStartProgress = useCallback(async (newCompletedSteps: string[]) => {
+    if (!user || !idea) return;
+    
+    setSavingProgress(true);
+    try {
+      const { data: existing } = await supabase
+        .from("implementation_progress")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("business_idea_id", idea.id)
+        .eq("section_id", "quick-start")
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from("implementation_progress")
+          .update({ completed_steps: newCompletedSteps, updated_at: new Date().toISOString() })
+          .eq("id", existing.id);
+      } else {
+        await supabase
+          .from("implementation_progress")
+          .insert({
+            user_id: user.id,
+            business_idea_id: idea.id,
+            section_id: "quick-start",
+            completed_steps: newCompletedSteps,
+          });
+      }
+    } catch (error) {
+      console.error("Error saving quick start progress:", error);
+    } finally {
+      setSavingProgress(false);
+    }
+  }, [user, idea]);
+
+  const toggleStep = (stepId: string) => {
+    const newCompleted = completedSteps.includes(stepId)
+      ? completedSteps.filter((s) => s !== stepId)
+      : [...completedSteps, stepId];
+    setCompletedSteps(newCompleted);
+    saveQuickStartProgress(newCompleted);
+  };
+
+  const quickStartProgress = (completedSteps.length / quickStartSteps.length) * 100;
 
   const fetchIdea = async (id: string) => {
     setLoading(true);
@@ -163,6 +247,48 @@ export default function BusinessIdeaDialog({
 
             <ScrollArea className="flex-1 -mx-6 px-6">
               <div className="space-y-4 pb-4">
+                {/* Quick Start Checklist */}
+                <Card className="glass border-primary/20">
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2 text-primary">
+                        <Rocket className="w-4 h-4" />
+                        <span className="font-medium text-sm">Quick Start Checklist</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground">
+                        {completedSteps.length}/{quickStartSteps.length} complete
+                        {savingProgress && " • Saving..."}
+                      </span>
+                    </div>
+                    <Progress value={quickStartProgress} className="h-2 mb-3" />
+                    <div className="space-y-2">
+                      {quickStartSteps.map((step, index) => (
+                        <div
+                          key={step.id}
+                          className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors"
+                        >
+                          <Checkbox
+                            id={step.id}
+                            checked={completedSteps.includes(step.id)}
+                            onCheckedChange={() => toggleStep(step.id)}
+                          />
+                          <label
+                            htmlFor={step.id}
+                            className={`text-sm cursor-pointer flex-1 ${
+                              completedSteps.includes(step.id)
+                                ? "line-through text-muted-foreground"
+                                : ""
+                            }`}
+                          >
+                            <span className="font-medium text-primary mr-2">{index + 1}.</span>
+                            {step.label}
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {detailItems.map((item) => {
                   const IconComponent = item.icon;
                   const value = idea[item.key];
