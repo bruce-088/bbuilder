@@ -14,6 +14,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Loader2,
   Target,
   Users,
@@ -65,11 +71,31 @@ const detailItems = [
 ];
 
 const quickStartSteps = [
-  { id: "validate", label: "Validate your idea with 3 potential customers" },
-  { id: "landing", label: "Create a simple landing page or social profile" },
-  { id: "offer", label: "Define your core offer and pricing" },
-  { id: "outreach", label: "Reach out to 10 prospects this week" },
-  { id: "first_sale", label: "Close your first paying customer" },
+  { 
+    id: "validate", 
+    label: "Validate your idea with 3 potential customers",
+    tip: "Reach out via LinkedIn, email, or communities. Ask: 'Would you pay for this?' and 'What's your biggest pain point?'"
+  },
+  { 
+    id: "landing", 
+    label: "Create a simple landing page or social profile",
+    tip: "Use Carrd, Notion, or a simple one-page site. Include: headline, benefit, and a way to contact you."
+  },
+  { 
+    id: "offer", 
+    label: "Define your core offer and pricing",
+    tip: "Start with one clear package. Price based on value delivered, not time. Consider a 'founding client' discount."
+  },
+  { 
+    id: "outreach", 
+    label: "Reach out to 10 prospects this week",
+    tip: "Use personalized messages. Focus on their problem, not your solution. Follow up 2-3 times."
+  },
+  { 
+    id: "first_sale", 
+    label: "Close your first paying customer",
+    tip: "Offer a money-back guarantee to reduce risk. Start small, deliver exceptional results, ask for referrals."
+  },
 ];
 
 const formatAutomationStrategy = (strategy: Json): string => {
@@ -261,31 +287,37 @@ export default function BusinessIdeaDialog({
                       </span>
                     </div>
                     <Progress value={quickStartProgress} className="h-2 mb-3" />
-                    <div className="space-y-2">
-                      {quickStartSteps.map((step, index) => (
-                        <div
-                          key={step.id}
-                          className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors"
-                        >
-                          <Checkbox
-                            id={step.id}
-                            checked={completedSteps.includes(step.id)}
-                            onCheckedChange={() => toggleStep(step.id)}
-                          />
-                          <label
-                            htmlFor={step.id}
-                            className={`text-sm cursor-pointer flex-1 ${
-                              completedSteps.includes(step.id)
-                                ? "line-through text-muted-foreground"
-                                : ""
-                            }`}
-                          >
-                            <span className="font-medium text-primary mr-2">{index + 1}.</span>
-                            {step.label}
-                          </label>
-                        </div>
-                      ))}
-                    </div>
+                    <TooltipProvider>
+                      <div className="space-y-2">
+                        {quickStartSteps.map((step, index) => (
+                          <Tooltip key={step.id}>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors cursor-help">
+                                <Checkbox
+                                  id={step.id}
+                                  checked={completedSteps.includes(step.id)}
+                                  onCheckedChange={() => toggleStep(step.id)}
+                                />
+                                <label
+                                  htmlFor={step.id}
+                                  className={`text-sm cursor-pointer flex-1 ${
+                                    completedSteps.includes(step.id)
+                                      ? "line-through text-muted-foreground"
+                                      : ""
+                                  }`}
+                                >
+                                  <span className="font-medium text-primary mr-2">{index + 1}.</span>
+                                  {step.label}
+                                </label>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="right" className="max-w-xs">
+                              <p className="text-sm">{step.tip}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        ))}
+                      </div>
+                    </TooltipProvider>
                   </CardContent>
                 </Card>
 
