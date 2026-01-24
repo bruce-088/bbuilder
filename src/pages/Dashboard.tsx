@@ -731,7 +731,7 @@ export default function Dashboard() {
                       Mission: First Customer
                     </h1>
                     <p className="text-muted-foreground text-sm">
-                      Build your $10K/month empire in 14 days
+                      Create a fully functioning $10K/month empire and land your first customer in 14 days or less
                     </p>
                   </div>
                 </div>
