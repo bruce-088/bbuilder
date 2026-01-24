@@ -646,7 +646,7 @@ export default function Dashboard() {
             <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
               <Sparkles className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-display font-bold text-xl">IdeaForge</span>
+            <span className="font-display font-bold text-xl">Mya</span>
           </div>
           <Button onClick={handleSignOut} variant="ghost" size="sm">
             <LogOut className="w-4 h-4 mr-2" />
@@ -664,7 +664,7 @@ export default function Dashboard() {
           {/* Welcome */}
           <div className="mb-12">
             <h1 className="font-display text-3xl md:text-4xl font-bold mb-2">
-              Welcome to IdeaForge
+              Welcome back
             </h1>
             <p className="text-muted-foreground text-lg">
               Generate AI-powered business ideas and build your $10K/month empire
