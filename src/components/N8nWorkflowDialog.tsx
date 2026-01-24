@@ -96,16 +96,60 @@ export default function N8nWorkflowDialog({
     }
   };
 
+  const extractN8nWorkflowJson = (markdownContent: string): object | null => {
+    // Look for JSON code blocks in the markdown
+    const jsonBlockRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
+    const matches = [...markdownContent.matchAll(jsonBlockRegex)];
+    
+    // Find the largest JSON block (likely the main workflow)
+    let largestJson: object | null = null;
+    let largestSize = 0;
+    
+    for (const match of matches) {
+      try {
+        const jsonContent = match[1].trim();
+        const parsed = JSON.parse(jsonContent);
+        
+        // Check if this looks like an n8n workflow (has nodes array or is a workflow object)
+        if (parsed && (Array.isArray(parsed.nodes) || parsed.name || parsed.meta)) {
+          const size = JSON.stringify(parsed).length;
+          if (size > largestSize) {
+            largestJson = parsed;
+            largestSize = size;
+          }
+        }
+      } catch {
+        // Not valid JSON, skip
+        continue;
+      }
+    }
+    
+    return largestJson;
+  };
+
   const downloadAsJson = () => {
     if (!prompt?.prompt_content) return;
     
-    const jsonData = {
-      name: `n8n Workflow - ${businessName}`,
-      description: `Generated n8n workflow automation for ${businessName}`,
-      generated_at: prompt.created_at || new Date().toISOString(),
-      prompt_type: prompt.prompt_type,
-      content: prompt.prompt_content,
-    };
+    // Try to extract the actual n8n workflow JSON from the markdown
+    const workflowJson = extractN8nWorkflowJson(prompt.prompt_content);
+    
+    let jsonData: object;
+    
+    if (workflowJson) {
+      // Use the extracted n8n workflow directly (importable into n8n)
+      jsonData = workflowJson;
+      toast.success("n8n workflow JSON downloaded! Import directly into n8n.");
+    } else {
+      // Fallback: wrap the content in metadata if no JSON found
+      jsonData = {
+        name: `n8n Workflow - ${businessName}`,
+        description: `Generated n8n workflow automation for ${businessName}`,
+        generated_at: prompt.created_at || new Date().toISOString(),
+        prompt_type: prompt.prompt_type,
+        content: prompt.prompt_content,
+      };
+      toast.success("JSON file downloaded!");
+    }
     
     const blob = new Blob([JSON.stringify(jsonData, null, 2)], { 
       type: "application/json" 
@@ -118,8 +162,6 @@ export default function N8nWorkflowDialog({
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-    
-    toast.success("JSON file downloaded!");
   };
 
   return (
