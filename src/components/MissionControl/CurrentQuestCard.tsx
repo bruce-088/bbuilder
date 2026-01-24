@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronRight, ChevronLeft, Rocket, Target, Zap, Lightbulb, CheckCircle2, Circle } from "lucide-react";
+import { ChevronRight, ChevronLeft, Rocket, Target, Zap, Lightbulb, CheckCircle2, Circle, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { QUEST_STAGES } from "./types";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 
 interface BusinessIdeaProgress {
   id: string;
@@ -18,6 +19,8 @@ interface CurrentQuestCardProps {
   onAction: () => void;
   businessIdeas?: BusinessIdeaProgress[];
   onSelectIdea?: (ideaId: string) => void;
+  activeQuestId?: string | null;
+  onSetActiveQuest?: (ideaId: string) => void;
 }
 
 const QUICK_START_MILESTONES = [
@@ -33,12 +36,19 @@ export default function CurrentQuestCard({
   currentStage,
   onAction,
   businessIdeas = [],
-  onSelectIdea
+  onSelectIdea,
+  activeQuestId,
+  onSetActiveQuest
 }: CurrentQuestCardProps) {
   const [activeView, setActiveView] = useState<'quest' | 'ideas'>('quest');
   const [selectedIdeaIndex, setSelectedIdeaIndex] = useState(0);
   
-  // Find the next incomplete quest
+  // Find the active quest idea
+  const activeQuestIdea = businessIdeas.find(idea => idea.id === activeQuestId);
+  const activeQuestProgress = activeQuestIdea ? calculateIdeaProgress(activeQuestIdea.completedSteps) : 0;
+  const isActiveQuestComplete = activeQuestProgress >= 100;
+  
+  // Find the next incomplete quest from stages
   const currentStageData = QUEST_STAGES.find(s => s.stage === currentStage);
   const nextQuest = currentStageData?.quests.find(q => !completedQuests.includes(q.id));
   
@@ -47,13 +57,13 @@ export default function CurrentQuestCard({
   const completedInStage = stageQuests.filter(q => completedQuests.includes(q.id)).length;
   const stageProgress = stageQuests.length > 0 ? (completedInStage / stageQuests.length) * 100 : 0;
 
-  const calculateIdeaProgress = (steps: string[]) => {
+  function calculateIdeaProgress(steps: string[]) {
     if (!steps || steps.length === 0) return 0;
     const matchedMilestones = QUICK_START_MILESTONES.filter(m => 
       steps.some(s => s.toLowerCase().includes(m.id))
     );
     return (matchedMilestones.length / QUICK_START_MILESTONES.length) * 100;
-  };
+  }
 
   const selectedIdea = businessIdeas[selectedIdeaIndex];
   
@@ -64,6 +74,16 @@ export default function CurrentQuestCard({
       setSelectedIdeaIndex((prev) => (prev < businessIdeas.length - 1 ? prev + 1 : 0));
     }
   };
+
+  // Sync selected idea index when active quest changes
+  useEffect(() => {
+    if (activeQuestId) {
+      const idx = businessIdeas.findIndex(idea => idea.id === activeQuestId);
+      if (idx !== -1) {
+        setSelectedIdeaIndex(idx);
+      }
+    }
+  }, [activeQuestId, businessIdeas]);
 
   return (
     <motion.div
@@ -77,6 +97,16 @@ export default function CurrentQuestCard({
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <Rocket className="w-5 h-5 text-primary flex-shrink-0" />
             <span className="font-display font-semibold flex-shrink-0">Current Quest</span>
+            
+            {/* Active Quest Name - shows when in Quest view with active quest */}
+            {activeView === 'quest' && activeQuestIdea && (
+              <div className="flex items-center gap-2 ml-2 min-w-0">
+                <span className="text-muted-foreground">·</span>
+                <span className="text-sm font-medium text-accent truncate max-w-[180px]">
+                  {activeQuestIdea.business_name}
+                </span>
+              </div>
+            )}
             
             {/* Idea Navigator - shows when in Ideas view */}
             {activeView === 'ideas' && businessIdeas.length > 0 && (
@@ -141,8 +171,112 @@ export default function CurrentQuestCard({
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            {!nextQuest ? (
-              // All quests complete!
+            {/* Show active quest idea progress if one is selected */}
+            {activeQuestIdea && !isActiveQuestComplete ? (
+              <div className="p-5">
+                <div className="flex items-start gap-4">
+                  <div className="w-14 h-14 rounded-xl bg-gradient-accent flex items-center justify-center text-2xl flex-shrink-0">
+                    <Crown className="w-7 h-7 text-accent-foreground" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-1">
+                      <h4 className="font-display font-bold text-lg">{activeQuestIdea.business_name}</h4>
+                      <span className={cn(
+                        "text-sm font-semibold",
+                        activeQuestProgress > 0 ? "text-accent" : "text-muted-foreground"
+                      )}>
+                        {Math.round(activeQuestProgress)}%
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground mb-3">{activeQuestIdea.niche}</p>
+                    
+                    {/* Progress Bar */}
+                    <div className="h-2 bg-muted rounded-full overflow-hidden mb-4">
+                      <motion.div 
+                        initial={{ width: 0 }}
+                        animate={{ width: `${activeQuestProgress}%` }}
+                        transition={{ duration: 0.5, ease: "easeOut" }}
+                        className="h-full bg-gradient-accent rounded-full"
+                      />
+                    </div>
+                    
+                    {/* Milestone Icons */}
+                    <div className="flex items-center justify-between gap-2 mb-4">
+                      {QUICK_START_MILESTONES.map((milestone) => {
+                        const isCompleted = activeQuestIdea.completedSteps?.some(s => 
+                          s.toLowerCase().includes(milestone.id)
+                        );
+                        return (
+                          <div 
+                            key={milestone.id} 
+                            className={cn(
+                              "flex-1 flex flex-col items-center gap-1 p-2 rounded-lg transition-all",
+                              isCompleted 
+                                ? "bg-success/10 border border-success/20" 
+                                : "bg-muted/20 border border-border/30"
+                            )}
+                            title={`${milestone.label}: ${isCompleted ? 'Complete' : 'Incomplete'}`}
+                          >
+                            <div className={cn(
+                              "w-6 h-6 rounded-full flex items-center justify-center text-xs",
+                              isCompleted 
+                                ? "bg-success/20" 
+                                : "bg-muted/30"
+                            )}>
+                              {isCompleted ? (
+                                <CheckCircle2 className="w-4 h-4 text-success" />
+                              ) : (
+                                <span className="opacity-50">{milestone.icon}</span>
+                              )}
+                            </div>
+                            <span className={cn(
+                              "text-[10px] font-medium",
+                              isCompleted ? "text-success" : "text-muted-foreground"
+                            )}>
+                              {milestone.label}
+                            </span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                    
+                    <div className="flex items-center gap-3">
+                      <Button 
+                        onClick={() => onSelectIdea?.(activeQuestIdea.id)}
+                        className="bg-gradient-primary hover:opacity-90 btn-glow"
+                      >
+                        <Zap className="w-4 h-4 mr-2" />
+                        Continue Quest
+                        <ChevronRight className="w-4 h-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : isActiveQuestComplete ? (
+              // Active quest is complete!
+              <div className="p-6">
+                <div className="text-center">
+                  <div className="w-16 h-16 mx-auto rounded-full bg-success/20 flex items-center justify-center mb-4">
+                    <span className="text-3xl">🎉</span>
+                  </div>
+                  <h3 className="font-display text-xl font-bold text-success mb-2">
+                    Quest Complete!
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    You've completed all milestones for {activeQuestIdea?.business_name}!
+                  </p>
+                  <Button 
+                    onClick={() => setActiveView('ideas')}
+                    variant="outline"
+                  >
+                    <Lightbulb className="w-4 h-4 mr-2" />
+                    Select Next Quest
+                  </Button>
+                </div>
+              </div>
+            ) : !nextQuest ? (
+              // No active quest and all quests complete
               <div className="p-6">
                 <div className="text-center">
                   <div className="w-16 h-16 mx-auto rounded-full bg-success/20 flex items-center justify-center mb-4">
@@ -158,7 +292,7 @@ export default function CurrentQuestCard({
               </div>
             ) : (
               <>
-                {/* Quest Content */}
+                {/* Default Quest Content - show stage quests */}
                 <div className="p-5">
                   <div className="flex items-start gap-4">
                     <div className="w-14 h-14 rounded-xl bg-gradient-primary flex items-center justify-center text-2xl flex-shrink-0">
@@ -236,8 +370,21 @@ export default function CurrentQuestCard({
                   key={selectedIdea.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="p-4 rounded-lg border border-border/50 bg-muted/10"
+                  className={cn(
+                    "p-4 rounded-lg border bg-muted/10 relative",
+                    selectedIdea.id === activeQuestId 
+                      ? "border-accent/50 ring-2 ring-accent/20" 
+                      : "border-border/50"
+                  )}
                 >
+                  {/* Active Quest Badge */}
+                  {selectedIdea.id === activeQuestId && (
+                    <Badge className="absolute -top-2 -right-2 bg-accent text-accent-foreground gap-1">
+                      <Crown className="w-3 h-3" />
+                      Active
+                    </Badge>
+                  )}
+                  
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1 min-w-0">
                       <h5 className="font-medium text-base truncate">
@@ -246,15 +393,17 @@ export default function CurrentQuestCard({
                       <p className="text-xs text-muted-foreground truncate">{selectedIdea.niche}</p>
                     </div>
                     
-                    {/* Start Quest Button */}
-                    <Button
-                      onClick={() => onSelectIdea?.(selectedIdea.id)}
-                      size="sm"
-                      className="bg-gradient-primary hover:opacity-90 btn-glow"
-                    >
-                      <Target className="w-4 h-4 mr-1" />
-                      Start Quest
-                    </Button>
+                    {/* Start Quest Button - only show if not already active */}
+                    {selectedIdea.id !== activeQuestId && (
+                      <Button
+                        onClick={() => onSetActiveQuest?.(selectedIdea.id)}
+                        size="sm"
+                        className="bg-gradient-primary hover:opacity-90 btn-glow"
+                      >
+                        <Target className="w-4 h-4 mr-1" />
+                        Start Quest
+                      </Button>
+                    )}
                     
                     <div className="flex items-center gap-1 text-sm">
                       <span className={cn(
@@ -280,7 +429,9 @@ export default function CurrentQuestCard({
                         "h-full rounded-full",
                         calculateIdeaProgress(selectedIdea.completedSteps) >= 100 
                           ? "bg-success" 
-                          : "bg-gradient-primary"
+                          : selectedIdea.id === activeQuestId
+                            ? "bg-gradient-accent"
+                            : "bg-gradient-primary"
                       )}
                     />
                   </div>
