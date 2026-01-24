@@ -45,24 +45,24 @@ export default function N8nWorkflowDialog({
   const generateWorkflow = async (regenerate = false) => {
     setLoading(true);
     try {
-      // If regenerating, we need to delete the existing prompt first
-      if (regenerate && prompt?.id) {
-        await supabase
-          .from("ai_prompts")
-          .delete()
-          .eq("id", prompt.id);
+      // If regenerating, clear the current prompt state
+      if (regenerate) {
         setPrompt(null);
       }
 
       const { data, error } = await supabase.functions.invoke("generate-n8n-workflow", {
-        body: { businessIdeaId },
+        body: { businessIdeaId, regenerate },
       });
 
       if (error) throw error;
 
       if (data?.prompt) {
         setPrompt(data.prompt);
-        if (data.saved) {
+        if (regenerate) {
+          toast.success("Fresh workflow generated!", {
+            description: "The workflow has been regenerated with the latest template.",
+          });
+        } else if (data.saved) {
           toast.success("n8n workflow generated and saved!");
         } else {
           toast.success("n8n workflow generated!");
