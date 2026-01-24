@@ -58,6 +58,11 @@ interface N8nAutomationGuideDialogProps {
   businessIdea: BusinessIdeaData;
 }
 
+interface SetupStep {
+  text: string;
+  links?: { label: string; url: string }[];
+}
+
 interface AutomationStage {
   id: string;
   title: string;
@@ -66,7 +71,7 @@ interface AutomationStage {
   estimatedTime: string;
   n8nNodes: string[];
   workflowPrompt: string;
-  setupSteps: string[];
+  setupSteps: SetupStep[];
 }
 
 type CompletedSteps = Record<string, Set<string>>;
@@ -101,13 +106,13 @@ const generateAutomationStages = (businessIdea: BusinessIdeaData): AutomationSta
 Trigger: Schedule Trigger
 Key Nodes: HTTP Request, IF, Set, Google Sheets, Slack`,
       setupSteps: [
-        "Sign up for Apollo.io and get your API key",
-        "Create a Hunter.io account for email verification",
-        "Set up a Google Sheet with lead columns",
-        "In n8n, create a new workflow and add Schedule Trigger",
-        "Add HTTP Request nodes for Apollo.io and Hunter.io",
-        "Use IF nodes to filter by your ICP criteria",
-        "Connect to Google Sheets to store qualified leads"
+        { text: "Sign up for Apollo.io and get your API key", links: [{ label: "Apollo.io", url: "https://www.apollo.io" }] },
+        { text: "Create a Hunter.io account for email verification", links: [{ label: "Hunter.io", url: "https://hunter.io" }] },
+        { text: "Set up a Google Sheet with lead columns", links: [{ label: "Google Sheets", url: "https://sheets.google.com" }] },
+        { text: "In n8n, create a new workflow and add Schedule Trigger", links: [{ label: "n8n", url: "https://n8n.io" }] },
+        { text: "Add HTTP Request nodes for Apollo.io and Hunter.io", links: [{ label: "Apollo.io", url: "https://www.apollo.io" }, { label: "Hunter.io", url: "https://hunter.io" }] },
+        { text: "Use IF nodes to filter by your ICP criteria" },
+        { text: "Connect to Google Sheets to store qualified leads", links: [{ label: "Google Sheets", url: "https://sheets.google.com" }] }
       ]
     },
     {
@@ -142,12 +147,12 @@ Email personalization should include:
 Trigger: Google Sheets (new row)
 Key Nodes: Gmail, Wait, IF, Set, Slack`,
       setupSteps: [
-        "Connect your Gmail or SendGrid account to n8n",
-        "Create email templates with {{firstName}}, {{company}} variables",
-        "Set up a 'Responded' sheet for engaged leads",
-        "Configure Wait nodes with appropriate delays (3-4 days)",
-        "Add IF nodes to check for email replies",
-        "Connect Slack for real-time notifications"
+        { text: "Connect your Gmail or SendGrid account to n8n", links: [{ label: "Gmail", url: "https://mail.google.com" }, { label: "SendGrid", url: "https://sendgrid.com" }, { label: "n8n", url: "https://n8n.io" }] },
+        { text: "Create email templates with {{firstName}}, {{company}} variables" },
+        { text: "Set up a 'Responded' sheet for engaged leads" },
+        { text: "Configure Wait nodes with appropriate delays (3-4 days)" },
+        { text: "Add IF nodes to check for email replies" },
+        { text: "Connect Slack for real-time notifications", links: [{ label: "Slack", url: "https://slack.com" }] }
       ]
     },
     {
@@ -183,12 +188,12 @@ Key Nodes: Gmail, Wait, IF, Set, Slack`,
 Trigger: Webhook (Calendly booking)
 Key Nodes: HTTP Request, Set, Notion, Gmail, Slack`,
       setupSteps: [
-        "Set up Calendly with embedded Typeform for qualification",
-        "Create a Notion database for call prep documents",
-        "Define scoring criteria based on your ICP",
-        "Configure webhook in n8n to receive Calendly events",
-        "Build the scoring logic with Set and IF nodes",
-        "Connect Gmail for automated confirmations"
+        { text: "Set up Calendly with embedded Typeform for qualification", links: [{ label: "Calendly", url: "https://calendly.com" }, { label: "Typeform", url: "https://www.typeform.com" }] },
+        { text: "Create a Notion database for call prep documents", links: [{ label: "Notion", url: "https://www.notion.so" }] },
+        { text: "Define scoring criteria based on your ICP" },
+        { text: "Configure webhook in n8n to receive Calendly events", links: [{ label: "n8n", url: "https://n8n.io" }, { label: "Calendly", url: "https://calendly.com" }] },
+        { text: "Build the scoring logic with Set and IF nodes" },
+        { text: "Connect Gmail for automated confirmations", links: [{ label: "Gmail", url: "https://mail.google.com" }] }
       ]
     },
     {
@@ -224,12 +229,12 @@ Key Nodes: HTTP Request, Set, Notion, Gmail, Slack`,
 Trigger: CRM Webhook (deal stage change)
 Key Nodes: HTTP Request, AI, PandaDoc API, Gmail, Wait, IF`,
       setupSteps: [
-        "Create a PandaDoc template with variable fields",
-        "Set up AI prompt for proposal content generation",
-        "Configure CRM webhook for deal stage changes",
-        "Add tracking to monitor proposal engagement",
-        "Create follow-up email templates",
-        "Link to your onboarding workflow trigger"
+        { text: "Create a PandaDoc template with variable fields", links: [{ label: "PandaDoc", url: "https://www.pandadoc.com" }] },
+        { text: "Set up AI prompt for proposal content generation" },
+        { text: "Configure CRM webhook for deal stage changes" },
+        { text: "Add tracking to monitor proposal engagement" },
+        { text: "Create follow-up email templates" },
+        { text: "Link to your onboarding workflow trigger" }
       ]
     },
     {
@@ -266,12 +271,12 @@ Key Nodes: HTTP Request, AI, PandaDoc API, Gmail, Wait, IF`,
 Trigger: Webhook (document signed)
 Key Nodes: Stripe, Gmail, Google Drive, Airtable, Slack`,
       setupSteps: [
-        "Connect Stripe account to n8n",
-        "Set up PandaDoc/DocuSign webhook for signatures",
-        "Create welcome email template",
-        "Configure client folder structure in Google Drive",
-        "Set up Airtable base for client management",
-        "Create Slack channel for closed deals"
+        { text: "Connect Stripe account to n8n", links: [{ label: "Stripe", url: "https://stripe.com" }, { label: "n8n", url: "https://n8n.io" }] },
+        { text: "Set up PandaDoc/DocuSign webhook for signatures", links: [{ label: "PandaDoc", url: "https://www.pandadoc.com" }, { label: "DocuSign", url: "https://www.docusign.com" }] },
+        { text: "Create welcome email template" },
+        { text: "Configure client folder structure in Google Drive", links: [{ label: "Google Drive", url: "https://drive.google.com" }] },
+        { text: "Set up Airtable base for client management", links: [{ label: "Airtable", url: "https://airtable.com" }] },
+        { text: "Create Slack channel for closed deals", links: [{ label: "Slack", url: "https://slack.com" }] }
       ]
     },
     {
@@ -315,15 +320,59 @@ Key Nodes: Stripe, Gmail, Google Drive, Airtable, Slack`,
 Trigger: Schedule Trigger (weekly)
 Key Nodes: Airtable, HTTP Request, IF, Gmail, Typeform, Slack`,
       setupSteps: [
-        "Set up client tracking in Airtable with health metrics",
-        "Create NPS survey in Typeform",
-        "Define health score calculation logic",
-        "Write check-in email templates for different scenarios",
-        "Configure renewal reminder sequence",
-        "Set up reporting dashboard in Google Sheets"
+        { text: "Set up client tracking in Airtable with health metrics", links: [{ label: "Airtable", url: "https://airtable.com" }] },
+        { text: "Create NPS survey in Typeform", links: [{ label: "Typeform", url: "https://www.typeform.com" }] },
+        { text: "Define health score calculation logic" },
+        { text: "Write check-in email templates for different scenarios" },
+        { text: "Configure renewal reminder sequence" },
+        { text: "Set up reporting dashboard in Google Sheets", links: [{ label: "Google Sheets", url: "https://sheets.google.com" }] }
       ]
     }
   ];
+};
+
+// Helper function to render step text with clickable links
+const renderStepWithLinks = (step: SetupStep): React.ReactNode => {
+  if (!step.links || step.links.length === 0) {
+    return step.text;
+  }
+
+  let result: React.ReactNode[] = [];
+  let remainingText = step.text;
+  let keyIndex = 0;
+
+  step.links.forEach((link) => {
+    const index = remainingText.indexOf(link.label);
+    if (index !== -1) {
+      // Add text before the link
+      if (index > 0) {
+        result.push(<span key={`text-${keyIndex++}`}>{remainingText.substring(0, index)}</span>);
+      }
+      // Add the link
+      result.push(
+        <a
+          key={`link-${keyIndex++}`}
+          href={link.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline font-medium inline-flex items-center gap-0.5"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {link.label}
+          <ExternalLink className="w-3 h-3" />
+        </a>
+      );
+      // Update remaining text
+      remainingText = remainingText.substring(index + link.label.length);
+    }
+  });
+
+  // Add any remaining text
+  if (remainingText) {
+    result.push(<span key={`text-${keyIndex++}`}>{remainingText}</span>);
+  }
+
+  return result.length > 0 ? result : step.text;
 };
 
 export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nAutomationGuideDialogProps) {
@@ -701,7 +750,11 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                 <li 
                                   key={i} 
                                   className="flex items-start gap-3 text-sm group cursor-pointer"
-                                  onClick={() => toggleStep(stage.id, i)}
+                                  onClick={(e) => {
+                                    // Don't toggle if clicking a link
+                                    if ((e.target as HTMLElement).tagName === 'A') return;
+                                    toggleStep(stage.id, i);
+                                  }}
                                 >
                                   <Checkbox
                                     checked={completed}
@@ -709,7 +762,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                     className="mt-0.5"
                                   />
                                   <span className={`flex-1 ${completed ? "line-through text-muted-foreground" : ""}`}>
-                                    {step}
+                                    {renderStepWithLinks(step)}
                                   </span>
                                 </li>
                               );
