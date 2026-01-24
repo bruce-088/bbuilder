@@ -96,6 +96,30 @@ export default function N8nWorkflowDialog({
     }
   };
 
+  // Known valid n8n node type prefixes
+  const VALID_N8N_NODE_PREFIXES = [
+    'n8n-nodes-base.manualTrigger',
+    'n8n-nodes-base.scheduleTrigger',
+    'n8n-nodes-base.webhook',
+    'n8n-nodes-base.httpRequest',
+    'n8n-nodes-base.set',
+    'n8n-nodes-base.if',
+    'n8n-nodes-base.switch',
+    'n8n-nodes-base.code',
+    'n8n-nodes-base.wait',
+    'n8n-nodes-base.noOp',
+    'n8n-nodes-base.merge',
+    'n8n-nodes-base.gmail',
+    'n8n-nodes-base.slack',
+    'n8n-nodes-base.notion',
+    'n8n-nodes-base.airtable',
+    '@n8n/n8n-nodes-langchain.agent',
+  ];
+
+  const isValidNodeType = (type: string): boolean => {
+    return VALID_N8N_NODE_PREFIXES.some(prefix => type === prefix || type.startsWith(prefix));
+  };
+
   const extractN8nWorkflowJson = (markdownContent: string): object | null => {
     // Look for JSON code blocks in the markdown
     const jsonBlockRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
@@ -113,11 +137,17 @@ export default function N8nWorkflowDialog({
         // Must have nodes array to be a valid n8n workflow
         if (!parsed || !Array.isArray(parsed.nodes)) continue;
         
+        const nodes = parsed.nodes as Array<{ type?: string; name?: string }>;
+        
         // Score based on completeness
-        let score = (parsed.nodes as unknown[]).length;
+        let score = nodes.length;
         if (parsed.connections) score += 10;
         if (parsed.settings) score += 5;
         if (parsed.name) score += 5;
+        
+        // Bonus points for valid node types
+        const validNodeCount = nodes.filter(n => n.type && isValidNodeType(n.type)).length;
+        score += validNodeCount * 2;
         
         if (score > bestScore) {
           bestWorkflow = parsed;
@@ -135,6 +165,13 @@ export default function N8nWorkflowDialog({
       if (!bestWorkflow.settings) bestWorkflow.settings = { executionOrder: "v1" };
       if (!bestWorkflow.name) bestWorkflow.name = `${businessName} Automation`;
       if (bestWorkflow.active === undefined) bestWorkflow.active = false;
+      
+      // Log warning for potentially invalid node types
+      const nodes = bestWorkflow.nodes as Array<{ type?: string; name?: string }>;
+      const invalidNodes = nodes.filter(n => n.type && !isValidNodeType(n.type));
+      if (invalidNodes.length > 0) {
+        console.warn('Workflow contains potentially invalid node types:', invalidNodes.map(n => n.type));
+      }
     }
     
     return bestWorkflow;
