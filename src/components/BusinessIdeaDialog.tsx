@@ -24,6 +24,7 @@ import {
   MessageSquare,
 } from "lucide-react";
 import N8nWorkflowDialog from "./N8nWorkflowDialog";
+import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
 import { Json } from "@/integrations/supabase/types";
 
 interface BusinessIdea {
@@ -208,11 +209,28 @@ export default function BusinessIdeaDialog({
                   View Original Conversation
                 </Button>
               )}
+              <N8nAutomationGuideDialog
+                businessIdea={{
+                  id: idea.id,
+                  businessName: idea.business_name,
+                  niche: idea.niche,
+                  targetAudience: idea.target_audience,
+                  valueProposition: idea.value_proposition,
+                  serviceOffering: idea.service_offering,
+                  aiAutomationStrategy: idea.ai_automation_strategy,
+                }}
+                trigger={
+                  <Button className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 btn-glow gap-2">
+                    <Zap className="w-4 h-4" />
+                    Full Automation Setup Guide
+                  </Button>
+                }
+              />
               <N8nWorkflowDialog
                 businessIdeaId={idea.id}
                 businessName={idea.business_name}
                 trigger={
-                  <Button className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 btn-glow gap-2">
+                  <Button variant="outline" className="w-full gap-2">
                     <Workflow className="w-4 h-4" />
                     Generate n8n Workflow
                   </Button>
