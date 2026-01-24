@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,8 @@ import {
   ArrowRight,
   Cloud,
   Clock,
-  Loader2
+  Loader2,
+  Bot
 } from "lucide-react";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
@@ -326,6 +328,7 @@ Key Nodes: Airtable, HTTP Request, IF, Gmail, Typeform, Slack`,
 
 export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nAutomationGuideDialogProps) {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [completedSteps, setCompletedSteps] = useState<CompletedSteps>({});
@@ -333,6 +336,11 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const [isLoading, setIsLoading] = useState(false);
 
   const stages = generateAutomationStages(businessIdea);
+
+  const handleExportForAI = () => {
+    setOpen(false);
+    navigate("/export-computer-use-prompt");
+  };
 
   // Calculate overall progress
   const totalSteps = stages.reduce((acc, stage) => acc + stage.setupSteps.length, 0);
@@ -553,14 +561,25 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                     <p className="text-sm text-muted-foreground mb-2">
                       Copy each workflow prompt below and paste it into n8n's AI workflow builder, or use it as a guide to build manually.
                     </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      onClick={() => window.open("https://n8n.io", "_blank")}
-                    >
-                      Open n8n <ExternalLink className="w-3 h-3" />
-                    </Button>
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        onClick={() => window.open("https://n8n.io", "_blank")}
+                      >
+                        Open n8n <ExternalLink className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="gap-2"
+                        onClick={handleExportForAI}
+                      >
+                        <Bot className="w-3 h-3" />
+                        Export for AI Agent
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
