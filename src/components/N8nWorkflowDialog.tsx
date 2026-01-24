@@ -406,10 +406,15 @@ export default function N8nWorkflowDialog({
                 variant="ghost"
                 size="sm"
                 onClick={() => generateWorkflow(true)}
+                disabled={loading}
                 className="gap-2"
               >
-                <RefreshCw className="w-4 h-4" />
-                Regenerate
+                {loading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="w-4 h-4" />
+                )}
+                {loading ? "Regenerating..." : "Regenerate"}
               </Button>
             </div>
             <ScrollArea className="flex-1 max-h-[50vh] rounded-lg border bg-muted/50 p-4">
