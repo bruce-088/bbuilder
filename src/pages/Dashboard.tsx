@@ -70,7 +70,7 @@ import {
   WhatsNextCard 
 } from "@/components/MissionControl";
 import { useMissionProgress } from "@/hooks/useMissionProgress";
-
+import OnboardingTour, { useOnboardingTour } from "@/components/OnboardingTour";
 interface BusinessIdea {
   id: string;
   business_name: string;
@@ -125,6 +125,9 @@ export default function Dashboard() {
     unlockedAchievements,
     refreshMission 
   } = useMissionProgress();
+
+  // Onboarding tour
+  const { showTour, completeTour, skipTour } = useOnboardingTour();
 
   const industries = [
     { value: "any", label: "Any Industry (Surprise me!)" },
@@ -1376,6 +1379,14 @@ export default function Dashboard() {
         open={showHowToUse}
         onOpenChange={setShowHowToUse}
       />
+
+      {/* Onboarding Tour */}
+      {showTour && (
+        <OnboardingTour
+          onComplete={completeTour}
+          onSkip={skipTour}
+        />
+      )}
     </div>
   );
 }
