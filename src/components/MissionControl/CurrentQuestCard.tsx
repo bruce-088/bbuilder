@@ -245,6 +245,17 @@ export default function CurrentQuestCard({
                       </h5>
                       <p className="text-xs text-muted-foreground truncate">{selectedIdea.niche}</p>
                     </div>
+                    
+                    {/* Start Quest Button */}
+                    <Button
+                      onClick={() => onSelectIdea?.(selectedIdea.id)}
+                      size="sm"
+                      className="bg-gradient-primary hover:opacity-90 btn-glow"
+                    >
+                      <Target className="w-4 h-4 mr-1" />
+                      Start Quest
+                    </Button>
+                    
                     <div className="flex items-center gap-1 text-sm">
                       <span className={cn(
                         "font-semibold",
