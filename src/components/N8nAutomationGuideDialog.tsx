@@ -39,13 +39,17 @@ import {
   Bot,
   Download,
   Lightbulb,
-  ChevronDown
+  ChevronDown,
+  CheckCircle2,
+  XCircle,
+  ClipboardCheck
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import { getVerificationDataForStages, generateStepVerificationPrompt, VerificationData } from "@/lib/verificationPromptGenerator";
 
 interface BusinessIdeaData {
   id: string;
@@ -66,6 +70,7 @@ interface SetupStep {
   text: string;
   links?: { label: string; url: string }[];
   proTip?: string;
+  verification?: VerificationData;
 }
 
 interface AutomationStage {
@@ -1143,6 +1148,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                           <ol className="space-y-3">
                             {stage.setupSteps.map((step, i) => {
                               const completed = isStepCompleted(stage.id, i);
+                              const verificationData = getVerificationDataForStages().get(stage.id)?.[i];
                               return (
                                 <li key={i} className="space-y-1">
                                   <div 
@@ -1151,6 +1157,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                       // Don't toggle if clicking a link or collapsible trigger
                                       if ((e.target as HTMLElement).tagName === 'A') return;
                                       if ((e.target as HTMLElement).closest('[data-pro-tip-trigger]')) return;
+                                      if ((e.target as HTMLElement).closest('[data-verification-trigger]')) return;
                                       toggleStep(stage.id, i);
                                     }}
                                   >
@@ -1163,23 +1170,72 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                       {renderStepWithLinks(step)}
                                     </span>
                                   </div>
-                                  {step.proTip && (
-                                    <Collapsible>
-                                      <CollapsibleTrigger 
-                                        className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 ml-7 group/tip"
-                                        data-pro-tip-trigger
-                                      >
-                                        <Lightbulb className="w-3 h-3" />
-                                        <span>Pro Tip</span>
-                                        <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]/tip:rotate-180" />
-                                      </CollapsibleTrigger>
-                                      <CollapsibleContent className="ml-7 mt-1.5">
-                                        <div className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-md p-2.5 leading-relaxed">
-                                          {step.proTip}
-                                        </div>
-                                      </CollapsibleContent>
-                                    </Collapsible>
-                                  )}
+                                  <div className="flex gap-2 ml-7">
+                                    {step.proTip && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger 
+                                          className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 group/tip"
+                                          data-pro-tip-trigger
+                                        >
+                                          <Lightbulb className="w-3 h-3" />
+                                          <span>Pro Tip</span>
+                                          <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]/tip:rotate-180" />
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent className="mt-1.5">
+                                          <div className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-md p-2.5 leading-relaxed">
+                                            {step.proTip}
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+                                    {verificationData && (
+                                      <Collapsible>
+                                        <CollapsibleTrigger 
+                                          className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 group/verify"
+                                          data-verification-trigger
+                                        >
+                                          <ClipboardCheck className="w-3 h-3" />
+                                          <span>Verification</span>
+                                          <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]/verify:rotate-180" />
+                                        </CollapsibleTrigger>
+                                        <CollapsibleContent className="mt-1.5">
+                                          <div className="text-xs bg-primary/5 border border-primary/20 rounded-md p-2.5 space-y-2">
+                                            <p className="font-medium text-foreground">{verificationData.checkDescription}</p>
+                                            <div className="space-y-1">
+                                              <p className="text-muted-foreground font-medium flex items-center gap-1"><CheckCircle2 className="w-3 h-3 text-green-500" /> Success:</p>
+                                              <ul className="text-muted-foreground pl-4 space-y-0.5">
+                                                {verificationData.successIndicators.slice(0, 2).map((s, idx) => <li key={idx}>• {s}</li>)}
+                                              </ul>
+                                            </div>
+                                            <div className="space-y-1">
+                                              <p className="text-muted-foreground font-medium flex items-center gap-1"><XCircle className="w-3 h-3 text-destructive" /> Failure:</p>
+                                              <ul className="text-muted-foreground pl-4 space-y-0.5">
+                                                {verificationData.failureIndicators.slice(0, 2).map((f, idx) => <li key={idx}>• {f}</li>)}
+                                              </ul>
+                                            </div>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="h-6 text-xs mt-2 gap-1"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const prompt = generateStepVerificationPrompt(
+                                                  { text: step.text, verification: verificationData },
+                                                  i,
+                                                  stage.title,
+                                                  { id: businessIdea.id, businessName: businessIdea.businessName, niche: businessIdea.niche, targetAudience: businessIdea.targetAudience }
+                                                );
+                                                navigator.clipboard.writeText(prompt);
+                                                toast.success("Verification prompt copied!");
+                                              }}
+                                            >
+                                              <Copy className="w-3 h-3" /> Copy Test Prompt
+                                            </Button>
+                                          </div>
+                                        </CollapsibleContent>
+                                      </Collapsible>
+                                    )}
+                                  </div>
                                 </li>
                               );
                             })}
