@@ -13,12 +13,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import {
   Loader2,
   Target,
@@ -33,6 +33,12 @@ import {
   Wand2,
   Rocket,
   Download,
+  Lightbulb,
+  ChevronDown,
+  ClipboardCheck,
+  XCircle,
+  RotateCw,
+  AlertCircle,
 } from "lucide-react";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
 import BusinessIdeaMasterPromptDialog from "./BusinessIdeaMasterPromptDialog";
@@ -61,6 +67,23 @@ interface BusinessIdeaDialogProps {
   onFavoriteToggle?: (id: string, isFavorite: boolean) => void;
 }
 
+interface VerificationResult {
+  status: 'loading' | 'pass' | 'attention' | 'manual';
+  summary?: string;
+  checklist?: Array<{ item: string; status: string; howToVerify: string }>;
+}
+
+interface QuickStartStep {
+  id: string;
+  label: string;
+  tip: string;
+  verification: {
+    checkDescription: string;
+    successIndicators: string[];
+    failureIndicators: string[];
+  };
+}
+
 const detailItems = [
   { id: "niche", label: "Niche", key: "niche" as const, icon: Target },
   { id: "target_audience", label: "Target Audience", key: "target_audience" as const, icon: Users },
@@ -70,31 +93,106 @@ const detailItems = [
   { id: "validation_path", label: "Validation Path", key: "validation_path" as const, icon: Zap },
 ];
 
-const quickStartSteps = [
+const quickStartSteps: QuickStartStep[] = [
   { 
     id: "validate", 
     label: "Validate your idea with 3 potential customers",
-    tip: "Reach out via LinkedIn, email, or communities. Ask: 'Would you pay for this?' and 'What's your biggest pain point?'"
+    tip: "Reach out via LinkedIn, email, or communities. Ask: 'Would you pay for this?' and 'What's your biggest pain point?'",
+    verification: {
+      checkDescription: "Confirm validation conversations have occurred with potential customers",
+      successIndicators: [
+        "At least 3 prospect conversations documented",
+        "Clear pain points identified and noted",
+        "Willingness to pay confirmed by prospects",
+        "Feedback incorporated into business plan"
+      ],
+      failureIndicators: [
+        "Fewer than 3 conversations completed",
+        "No clear pain points identified",
+        "Prospects show no interest in paying",
+        "No documentation of feedback received"
+      ]
+    }
   },
   { 
     id: "landing", 
     label: "Create a simple landing page or social profile",
-    tip: "Use Carrd, Notion, or a simple one-page site. Include: headline, benefit, and a way to contact you."
+    tip: "Use Carrd, Notion, or a simple one-page site. Include: headline, benefit, and a way to contact you.",
+    verification: {
+      checkDescription: "Verify landing page or social profile is live and accessible",
+      successIndicators: [
+        "Landing page URL is accessible publicly",
+        "Clear value proposition headline visible",
+        "Contact method or CTA button present",
+        "Mobile-responsive design working"
+      ],
+      failureIndicators: [
+        "Page returns 404 or is password-protected",
+        "No clear headline or value proposition",
+        "No way for visitors to contact you",
+        "Page broken on mobile devices"
+      ]
+    }
   },
   { 
     id: "offer", 
     label: "Define your core offer and pricing",
-    tip: "Start with one clear package. Price based on value delivered, not time. Consider a 'founding client' discount."
+    tip: "Start with one clear package. Price based on value delivered, not time. Consider a 'founding client' discount.",
+    verification: {
+      checkDescription: "Confirm core offer and pricing structure is defined",
+      successIndicators: [
+        "Single clear package defined with deliverables",
+        "Price point established with rationale",
+        "Value-based pricing (not hourly)",
+        "Founding client discount considered"
+      ],
+      failureIndicators: [
+        "Multiple confusing packages without focus",
+        "No price point established",
+        "Hourly rate without value anchoring",
+        "No special offer for early customers"
+      ]
+    }
   },
   { 
     id: "outreach", 
     label: "Reach out to 10 prospects this week",
-    tip: "Use personalized messages. Focus on their problem, not your solution. Follow up 2-3 times."
+    tip: "Use personalized messages. Focus on their problem, not your solution. Follow up 2-3 times.",
+    verification: {
+      checkDescription: "Verify outreach campaign has been executed",
+      successIndicators: [
+        "10 or more personalized messages sent",
+        "Messages focus on prospect's pain points",
+        "Follow-up sequence planned or executed",
+        "Response tracking in place"
+      ],
+      failureIndicators: [
+        "Fewer than 10 prospects contacted",
+        "Generic copy-paste messages used",
+        "No follow-up plan established",
+        "No tracking of responses"
+      ]
+    }
   },
   { 
     id: "first_sale", 
     label: "Close your first paying customer",
-    tip: "Offer a money-back guarantee to reduce risk. Start small, deliver exceptional results, ask for referrals."
+    tip: "Offer a money-back guarantee to reduce risk. Start small, deliver exceptional results, ask for referrals.",
+    verification: {
+      checkDescription: "Confirm first paying customer has been acquired",
+      successIndicators: [
+        "Payment received from first customer",
+        "Clear scope of work agreed upon",
+        "Onboarding process initiated",
+        "Referral ask planned for completion"
+      ],
+      failureIndicators: [
+        "No payment received yet",
+        "Only verbal agreement without commitment",
+        "Unclear deliverables causing scope creep",
+        "No plan for testimonials or referrals"
+      ]
+    }
   },
 ];
 
@@ -124,6 +222,8 @@ export default function BusinessIdeaDialog({
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [savingProgress, setSavingProgress] = useState(false);
   const [generatingMasterJson, setGeneratingMasterJson] = useState(false);
+  const [verificationResults, setVerificationResults] = useState<Map<string, VerificationResult>>(new Map());
+  const [verifyingAll, setVerifyingAll] = useState(false);
 
   useEffect(() => {
     if (open && ideaId) {
@@ -190,13 +290,15 @@ export default function BusinessIdeaDialog({
     }
   }, [user, idea]);
 
-  const toggleStep = (stepId: string) => {
-    const newCompleted = completedSteps.includes(stepId)
-      ? completedSteps.filter((s) => s !== stepId)
-      : [...completedSteps, stepId];
-    setCompletedSteps(newCompleted);
-    saveQuickStartProgress(newCompleted);
-  };
+  const toggleStep = useCallback((stepId: string) => {
+    setCompletedSteps(prev => {
+      const newCompleted = prev.includes(stepId)
+        ? prev.filter((s) => s !== stepId)
+        : [...prev, stepId];
+      saveQuickStartProgress(newCompleted);
+      return newCompleted;
+    });
+  }, [saveQuickStartProgress]);
 
   const quickStartProgress = (completedSteps.length / quickStartSteps.length) * 100;
 
@@ -233,6 +335,95 @@ export default function BusinessIdeaDialog({
       onFavoriteToggle?.(idea.id, !idea.is_favorite);
     } catch (error) {
       console.error("Error toggling favorite:", error);
+    }
+  };
+
+  // Verification functions
+  const handleVerifyStep = async (step: QuickStartStep) => {
+    setVerificationResults(prev => new Map(prev).set(step.id, { status: 'loading' }));
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-step', {
+        body: {
+          stepText: step.label,
+          verificationData: step.verification,
+          stageTitle: "Quick Start Checklist",
+          businessContext: { 
+            businessName: idea?.business_name, 
+            niche: idea?.niche, 
+            targetAudience: idea?.target_audience 
+          }
+        }
+      });
+      
+      if (error) throw error;
+      
+      const statusRaw = data.status?.toUpperCase() || 'MANUAL_CHECK_REQUIRED';
+      const status: VerificationResult['status'] = 
+        statusRaw === 'PASS' ? 'pass' : 
+        statusRaw.includes('ATTENTION') ? 'attention' : 'manual';
+      
+      setVerificationResults(prev => new Map(prev).set(step.id, {
+        status,
+        summary: data.summary,
+        checklist: data.checklist
+      }));
+      
+      // Auto-complete on PASS
+      if (statusRaw === 'PASS' && !completedSteps.includes(step.id)) {
+        toggleStep(step.id);
+        toast.success(`"${step.label.slice(0, 30)}..." verified & auto-completed! ✓`);
+      }
+      
+      return statusRaw;
+    } catch (err) {
+      console.error("Verification failed:", err);
+      toast.error("Verification failed. Please try again.");
+      setVerificationResults(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(step.id);
+        return newMap;
+      });
+      return null;
+    }
+  };
+
+  const resetVerification = (stepId: string) => {
+    setVerificationResults(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(stepId);
+      return newMap;
+    });
+    // Uncheck the step when resetting
+    if (completedSteps.includes(stepId)) {
+      toggleStep(stepId);
+    }
+    toast.info("Step reset - ready to verify again");
+  };
+
+  const handleVerifyAllSteps = async () => {
+    setVerifyingAll(true);
+    let passedCount = 0;
+    
+    for (const step of quickStartSteps) {
+      const result = await handleVerifyStep(step);
+      if (result === 'PASS') passedCount++;
+    }
+    
+    setVerifyingAll(false);
+    toast.success(`Verification complete: ${passedCount}/${quickStartSteps.length} passed`);
+  };
+
+  const getStatusBadge = (status: VerificationResult['status']) => {
+    switch (status) {
+      case 'pass':
+        return <Badge className="bg-green-500 text-white"><CheckCircle2 className="w-3 h-3 mr-1" />PASS</Badge>;
+      case 'attention':
+        return <Badge className="bg-amber-500 text-white"><AlertCircle className="w-3 h-3 mr-1" />NEEDS ATTENTION</Badge>;
+      case 'manual':
+        return <Badge variant="secondary"><ClipboardCheck className="w-3 h-3 mr-1" />MANUAL CHECK</Badge>;
+      default:
+        return null;
     }
   };
 
@@ -524,7 +715,7 @@ export default function BusinessIdeaDialog({
 
             <ScrollArea className="flex-1 min-h-0 -mx-6 px-6 [&>[data-radix-scroll-area-viewport]]:max-h-[50vh]">
               <div className="space-y-4 pb-4 pr-2">
-                {/* Quick Start Checklist */}
+                {/* Quick Start Checklist with Verification */}
                 <Card className="glass border-primary/20">
                   <CardContent className="p-4">
                     <div className="flex items-center justify-between mb-3">
@@ -532,49 +723,212 @@ export default function BusinessIdeaDialog({
                         <Rocket className="w-4 h-4" />
                         <span className="font-medium text-sm">Quick Start Checklist</span>
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {completedSteps.length}/{quickStartSteps.length} complete
-                        {savingProgress && " • Saving..."}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          onClick={handleVerifyAllSteps}
+                          disabled={verifyingAll}
+                        >
+                          {verifyingAll ? (
+                            <>
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                              Verifying...
+                            </>
+                          ) : (
+                            <>
+                              <ClipboardCheck className="w-3 h-3" />
+                              Verify All
+                            </>
+                          )}
+                        </Button>
+                        <span className="text-xs text-muted-foreground">
+                          {completedSteps.length}/{quickStartSteps.length}
+                          {savingProgress && " • Saving..."}
+                        </span>
+                      </div>
                     </div>
                     <Progress value={quickStartProgress} className="h-2 mb-3" />
-                    <TooltipProvider>
-                      <div className="space-y-2">
-                        {quickStartSteps.map((step, index) => (
-                          <Tooltip key={step.id}>
-                            <TooltipTrigger asChild>
-                              <div className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors cursor-help">
-                                <Checkbox
-                                  id={step.id}
-                                  checked={completedSteps.includes(step.id)}
-                                  onCheckedChange={() => toggleStep(step.id)}
-                                />
+                    
+                    <div className="space-y-3">
+                      {quickStartSteps.map((step, index) => {
+                        const completed = completedSteps.includes(step.id);
+                        const result = verificationResults.get(step.id);
+                        
+                        return (
+                          <div key={step.id} className="space-y-1.5">
+                            {/* Step Row */}
+                            <div className="flex items-start gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors">
+                              <Checkbox
+                                id={step.id}
+                                checked={completed}
+                                onCheckedChange={() => toggleStep(step.id)}
+                                className="mt-0.5"
+                              />
+                              <div className="flex-1 min-w-0">
                                 <label
                                   htmlFor={step.id}
-                                  className={`text-sm cursor-pointer flex-1 ${
-                                    completedSteps.includes(step.id)
-                                      ? "line-through text-muted-foreground"
-                                      : ""
+                                  className={`text-sm cursor-pointer block ${
+                                    completed ? "line-through text-muted-foreground" : ""
                                   }`}
                                 >
                                   <span className="font-medium text-primary mr-2">{index + 1}.</span>
                                   {step.label}
                                 </label>
+                                
+                                {/* Auto-completed indicator */}
+                                {completed && result?.status === 'pass' && (
+                                  <span className="text-xs text-green-600 flex items-center gap-1 mt-0.5">
+                                    <CheckCircle2 className="w-3 h-3" />
+                                    Auto-completed on verification
+                                  </span>
+                                )}
                               </div>
-                            </TooltipTrigger>
-                            <TooltipContent
-                              side="left"
-                              align="center"
-                              sideOffset={16}
-                              collisionPadding={16}
-                              className="max-w-xs z-[100]"
-                            >
-                              <p className="text-sm">{step.tip}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        ))}
-                      </div>
-                    </TooltipProvider>
+                            </div>
+                            
+                            {/* Collapsible Pro Tip & Verification */}
+                            <div className="flex flex-wrap gap-2 ml-7">
+                              {/* Pro Tip Collapsible */}
+                              <Collapsible className="w-full">
+                                <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-amber-600 hover:text-amber-700 py-1 px-2 rounded hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-colors group">
+                                  <Lightbulb className="w-3 h-3" />
+                                  <span>Pro Tip</span>
+                                  <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]:rotate-180" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-md p-2.5 mt-1.5">
+                                    {step.tip}
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                              
+                              {/* Verification Collapsible */}
+                              <Collapsible className="w-full">
+                                <CollapsibleTrigger className="flex items-center gap-1.5 text-xs text-primary hover:text-primary/80 py-1 px-2 rounded hover:bg-primary/5 transition-colors group">
+                                  <ClipboardCheck className="w-3 h-3" />
+                                  <span>Verification</span>
+                                  {result && result.status !== 'loading' && (
+                                    <span className="ml-1">{getStatusBadge(result.status)}</span>
+                                  )}
+                                  <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]:rotate-180 ml-auto" />
+                                </CollapsibleTrigger>
+                                <CollapsibleContent>
+                                  <div className="text-xs bg-primary/5 border border-primary/20 rounded-md p-3 mt-1.5 space-y-3">
+                                    <p className="font-medium text-foreground">{step.verification.checkDescription}</p>
+                                    
+                                    {/* Success/Failure Indicators */}
+                                    <div className="grid md:grid-cols-2 gap-3">
+                                      <div className="space-y-1">
+                                        <p className="text-muted-foreground font-medium flex items-center gap-1">
+                                          <CheckCircle2 className="w-3 h-3 text-green-500" /> Success Indicators:
+                                        </p>
+                                        <ul className="text-muted-foreground space-y-0.5">
+                                          {step.verification.successIndicators.map((s, i) => (
+                                            <li key={i} className="flex items-start gap-1">
+                                              <span className="text-green-500 mt-0.5">•</span>
+                                              <span>{s}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                      <div className="space-y-1">
+                                        <p className="text-muted-foreground font-medium flex items-center gap-1">
+                                          <XCircle className="w-3 h-3 text-destructive" /> Failure Indicators:
+                                        </p>
+                                        <ul className="text-muted-foreground space-y-0.5">
+                                          {step.verification.failureIndicators.map((f, i) => (
+                                            <li key={i} className="flex items-start gap-1">
+                                              <span className="text-destructive mt-0.5">•</span>
+                                              <span>{f}</span>
+                                            </li>
+                                          ))}
+                                        </ul>
+                                      </div>
+                                    </div>
+                                    
+                                    {/* Action Buttons */}
+                                    <div className="flex flex-wrap gap-2 pt-2 border-t border-primary/10">
+                                      {result && result.status !== 'loading' ? (
+                                        <>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="h-7 text-xs gap-1"
+                                            onClick={() => resetVerification(step.id)}
+                                          >
+                                            <XCircle className="w-3 h-3" /> Reset
+                                          </Button>
+                                          <Button 
+                                            variant="outline" 
+                                            size="sm" 
+                                            className="h-7 text-xs gap-1"
+                                            onClick={() => handleVerifyStep(step)}
+                                          >
+                                            <RotateCw className="w-3 h-3" /> Verify Again
+                                          </Button>
+                                        </>
+                                      ) : (
+                                        <Button 
+                                          variant="outline" 
+                                          size="sm" 
+                                          className="h-7 text-xs gap-1"
+                                          disabled={result?.status === 'loading'}
+                                          onClick={() => handleVerifyStep(step)}
+                                        >
+                                          {result?.status === 'loading' ? (
+                                            <>
+                                              <Loader2 className="w-3 h-3 animate-spin" />
+                                              Verifying...
+                                            </>
+                                          ) : (
+                                            <>
+                                              <ClipboardCheck className="w-3 h-3" />
+                                              Verify
+                                            </>
+                                          )}
+                                        </Button>
+                                      )}
+                                    </div>
+                                    
+                                    {/* Verification Result Display */}
+                                    {result && result.status !== 'loading' && (
+                                      <div className="border-t border-primary/10 pt-3 space-y-2">
+                                        <div className="flex items-center gap-2">
+                                          {getStatusBadge(result.status)}
+                                        </div>
+                                        {result.summary && (
+                                          <p className="text-muted-foreground">{result.summary}</p>
+                                        )}
+                                        {result.checklist && result.checklist.length > 0 && (
+                                          <div className="space-y-1">
+                                            <p className="font-medium text-muted-foreground">Checklist:</p>
+                                            <ul className="space-y-1">
+                                              {result.checklist.map((item, i) => (
+                                                <li key={i} className="flex items-start gap-2">
+                                                  {item.status === 'check' ? (
+                                                    <CheckCircle2 className="w-3 h-3 text-green-500 mt-0.5 flex-shrink-0" />
+                                                  ) : item.status === 'error' ? (
+                                                    <XCircle className="w-3 h-3 text-destructive mt-0.5 flex-shrink-0" />
+                                                  ) : (
+                                                    <AlertCircle className="w-3 h-3 text-amber-500 mt-0.5 flex-shrink-0" />
+                                                  )}
+                                                  <span className="text-muted-foreground">{item.item}</span>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                </CollapsibleContent>
+                              </Collapsible>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </CardContent>
                 </Card>
 
