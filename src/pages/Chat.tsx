@@ -553,7 +553,7 @@ export default function Chat() {
                       e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
                     }}
                     onKeyDown={handleKeyDown}
-                    placeholder="Ask about business ideas, validation strategies..."
+                placeholder="Ask about business ideas, validation strategies, or anything that needs to be clarified..."
                     className="resize-none min-h-[48px] max-h-[200px]"
                     disabled={isStreaming}
                   />
@@ -828,7 +828,7 @@ export default function Chat() {
                   e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about business ideas, validation strategies..."
+                placeholder="Ask about business ideas, validation strategies, or anything that needs to be clarified..."
                 className="resize-none min-h-[48px] max-h-[200px]"
                 disabled={isStreaming}
               />
