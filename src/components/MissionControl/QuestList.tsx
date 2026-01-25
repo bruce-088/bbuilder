@@ -2,6 +2,11 @@ import { motion } from "framer-motion";
 import { Check, ChevronRight, Lock, Sparkles, Wand2, Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { QUEST_STAGES } from "./types";
 import QuestPromptDialog from "./QuestPromptDialog";
 
@@ -233,28 +238,41 @@ export default function QuestList({
                           questId={quest.id}
                           questTitle={quest.title}
                           trigger={
-                            <Button 
-                              size="sm" 
-                              variant="ghost" 
-                              className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
-                              title="Generate Mya-style prompt"
-                            >
-                              <Wand2 className="w-4 h-4" />
-                            </Button>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button 
+                                  size="sm" 
+                                  variant="ghost" 
+                                  className="h-8 px-2 text-primary hover:text-primary hover:bg-primary/10"
+                                >
+                                  <Wand2 className="w-4 h-4" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Generate a Mya-style prompt for this quest</p>
+                              </TooltipContent>
+                            </Tooltip>
                           }
                         />
                       )}
 
                       {/* Action Button */}
                       {isActive && onQuestAction && (
-                        <Button 
-                          size="sm" 
-                          variant="ghost" 
-                          className="h-8 px-2"
-                          onClick={() => onQuestAction(quest.id)}
-                        >
-                          <ChevronRight className="w-4 h-4" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button 
+                              size="sm" 
+                              variant="ghost" 
+                              className="h-8 px-2"
+                              onClick={() => onQuestAction(quest.id)}
+                            >
+                              <ChevronRight className="w-4 h-4" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Begin working on this quest</p>
+                          </TooltipContent>
+                        </Tooltip>
                       )}
                       
                       {isComplete && (

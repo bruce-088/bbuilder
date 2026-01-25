@@ -24,6 +24,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { 
   Copy, 
   Check, 
@@ -1326,29 +1331,43 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                       >
                         Open n8n <ExternalLink className="w-3 h-3" />
                       </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="gap-2"
-                        onClick={handleExportForAI}
-                      >
-                        <Bot className="w-3 h-3" />
-                        Export for AI Agent
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        className="gap-2"
-                        disabled={generatingMasterJson}
-                        onClick={downloadMasterWorkflowJson}
-                      >
-                        {generatingMasterJson ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : (
-                          <Download className="w-3 h-3" />
-                        )}
-                        {generatingMasterJson ? "Generating..." : "Download Master JSON"}
-                      </Button>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="default"
+                            size="sm"
+                            className="gap-2"
+                            onClick={handleExportForAI}
+                          >
+                            <Bot className="w-3 h-3" />
+                            Export for AI Agent
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Generate a prompt for your AI agent to execute this workflow</p>
+                        </TooltipContent>
+                      </Tooltip>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="gap-2"
+                            disabled={generatingMasterJson}
+                            onClick={downloadMasterWorkflowJson}
+                          >
+                            {generatingMasterJson ? (
+                              <Loader2 className="w-3 h-3 animate-spin" />
+                            ) : (
+                              <Download className="w-3 h-3" />
+                            )}
+                            {generatingMasterJson ? "Generating..." : "Download Master JSON"}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Download the complete n8n workflow as JSON</p>
+                        </TooltipContent>
+                      </Tooltip>
                     </div>
                   </div>
                 </div>
@@ -1464,38 +1483,52 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                               Workflow Prompt (Copy & Paste into n8n)
                             </h4>
                             <div className="flex items-center gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-2 h-8"
-                                disabled={generatingJsonFor === stage.id}
-                                onClick={() => downloadStageWorkflowJson(stage)}
-                              >
-                                {generatingJsonFor === stage.id ? (
-                                  <Loader2 className="w-3 h-3 animate-spin" />
-                                ) : (
-                                  <Download className="w-3 h-3" />
-                                )}
-                                {generatingJsonFor === stage.id ? "Generating..." : "Download JSON"}
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="gap-2 h-8"
-                                onClick={() => copyToClipboard(stage.workflowPrompt, `prompt-${stage.id}`)}
-                              >
-                                {copiedId === `prompt-${stage.id}` ? (
-                                  <>
-                                    <Check className="w-3 h-3" />
-                                    Copied!
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3 h-3" />
-                                    Copy Prompt
-                                  </>
-                                )}
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="gap-2 h-8"
+                                    disabled={generatingJsonFor === stage.id}
+                                    onClick={() => downloadStageWorkflowJson(stage)}
+                                  >
+                                    {generatingJsonFor === stage.id ? (
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                    ) : (
+                                      <Download className="w-3 h-3" />
+                                    )}
+                                    {generatingJsonFor === stage.id ? "Generating..." : "Download JSON"}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Download this stage's n8n workflow as JSON</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="gap-2 h-8"
+                                    onClick={() => copyToClipboard(stage.workflowPrompt, `prompt-${stage.id}`)}
+                                  >
+                                    {copiedId === `prompt-${stage.id}` ? (
+                                      <>
+                                        <Check className="w-3 h-3" />
+                                        Copied!
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Copy className="w-3 h-3" />
+                                        Copy Prompt
+                                      </>
+                                    )}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Copy workflow prompt to clipboard</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           </div>
                           <div className="bg-muted/50 rounded-lg p-3 text-sm font-mono whitespace-pre-wrap max-h-48 overflow-y-auto border">
@@ -1578,80 +1611,108 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                               </ul>
                                             </div>
                                             <div className="flex flex-wrap gap-2 mt-2">
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                className="h-6 text-xs gap-1"
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  const prompt = generateStepVerificationPrompt(
-                                                    { text: step.text, verification: verificationData },
-                                                    i,
-                                                    stage.title,
-                                                    { id: businessIdea.id, businessName: businessIdea.businessName, niche: businessIdea.niche, targetAudience: businessIdea.targetAudience }
-                                                  );
-                                                  navigator.clipboard.writeText(prompt);
-                                                  toast.success("Verification prompt copied!");
-                                                }}
-                                              >
-                                                <Copy className="w-3 h-3" /> Copy Test Prompt
-                                              </Button>
-                                              
-                                              {/* Conditional: Show Verify or Reset+Verify Again based on existing result */}
-                                              {verificationResults.get(`${stage.id}-${i}`) && 
-                                               verificationResults.get(`${stage.id}-${i}`)?.status !== 'loading' ? (
-                                                <>
-                                                  {/* Reset Button - clears result and unchecks step */}
-                                                  <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="h-6 text-xs gap-1 text-muted-foreground"
-                                                    onClick={(e) => {
-                                                      e.stopPropagation();
-                                                      resetVerification(stage.id, i);
-                                                    }}
-                                                  >
-                                                    <XCircle className="w-3 h-3" /> Reset
-                                                  </Button>
-                                                  
-                                                  {/* Verify Again Button */}
+                                              <Tooltip>
+                                                <TooltipTrigger asChild>
                                                   <Button 
                                                     variant="outline" 
                                                     size="sm" 
                                                     className="h-6 text-xs gap-1"
                                                     onClick={(e) => {
                                                       e.stopPropagation();
-                                                      handleRetest(stage.id, i, step, stage.title);
+                                                      const prompt = generateStepVerificationPrompt(
+                                                        { text: step.text, verification: verificationData },
+                                                        i,
+                                                        stage.title,
+                                                        { id: businessIdea.id, businessName: businessIdea.businessName, niche: businessIdea.niche, targetAudience: businessIdea.targetAudience }
+                                                      );
+                                                      navigator.clipboard.writeText(prompt);
+                                                      toast.success("Verification prompt copied!");
                                                     }}
                                                   >
-                                                    <RotateCw className="w-3 h-3" />
-                                                    Verify Again
+                                                    <Copy className="w-3 h-3" /> Copy Test Prompt
                                                   </Button>
+                                                </TooltipTrigger>
+                                                <TooltipContent>
+                                                  <p>Copy AI verification prompt to clipboard</p>
+                                                </TooltipContent>
+                                              </Tooltip>
+                                              
+                                              {/* Conditional: Show Verify or Reset+Verify Again based on existing result */}
+                                              {verificationResults.get(`${stage.id}-${i}`) && 
+                                               verificationResults.get(`${stage.id}-${i}`)?.status !== 'loading' ? (
+                                                <>
+                                                  {/* Reset Button - clears result and unchecks step */}
+                                                  <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="h-6 text-xs gap-1 text-muted-foreground"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          resetVerification(stage.id, i);
+                                                        }}
+                                                      >
+                                                        <XCircle className="w-3 h-3" /> Reset
+                                                      </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                      <p>Clear verification result and uncheck step</p>
+                                                    </TooltipContent>
+                                                  </Tooltip>
+                                                  
+                                                  {/* Verify Again Button */}
+                                                  <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="h-6 text-xs gap-1"
+                                                        onClick={(e) => {
+                                                          e.stopPropagation();
+                                                          handleRetest(stage.id, i, step, stage.title);
+                                                        }}
+                                                      >
+                                                        <RotateCw className="w-3 h-3" />
+                                                        Verify Again
+                                                      </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                      <p>Re-run AI verification for this step</p>
+                                                    </TooltipContent>
+                                                  </Tooltip>
                                                 </>
                                               ) : (
                                                 /* Initial Verify Button - no result yet */
-                                                <Button 
-                                                  variant="outline" 
-                                                  size="sm" 
-                                                  className="h-6 text-xs gap-1"
-                                                  disabled={verificationResults.get(`${stage.id}-${i}`)?.status === 'loading'}
-                                                  onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleRetest(stage.id, i, step, stage.title);
-                                                  }}
-                                                >
-                                                  {verificationResults.get(`${stage.id}-${i}`)?.status === 'loading' ? (
-                                                    <>
-                                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                                      Verifying...
-                                                    </>
-                                                  ) : (
-                                                    <>
-                                                      <ClipboardCheck className="w-3 h-3" />
-                                                      Verify
-                                                    </>
-                                                  )}
-                                                </Button>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Button 
+                                                      variant="outline" 
+                                                      size="sm" 
+                                                      className="h-6 text-xs gap-1"
+                                                      disabled={verificationResults.get(`${stage.id}-${i}`)?.status === 'loading'}
+                                                      onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        handleRetest(stage.id, i, step, stage.title);
+                                                      }}
+                                                    >
+                                                      {verificationResults.get(`${stage.id}-${i}`)?.status === 'loading' ? (
+                                                        <>
+                                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                                          Verifying...
+                                                        </>
+                                                      ) : (
+                                                        <>
+                                                          <ClipboardCheck className="w-3 h-3" />
+                                                          Verify
+                                                        </>
+                                                      )}
+                                                    </Button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p>Run AI verification for this step</p>
+                                                  </TooltipContent>
+                                                </Tooltip>
                                               )}
                                               <FixDiagnosisDialog
                                                 stepText={step.text}
@@ -1665,14 +1726,21 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                                 }}
                                                 stepIndex={i}
                                                 trigger={
-                                                  <Button 
-                                                    variant="outline" 
-                                                    size="sm" 
-                                                    className="h-6 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/50"
-                                                    onClick={(e) => e.stopPropagation()}
-                                                  >
-                                                    <Wrench className="w-3 h-3" /> Fix
-                                                  </Button>
+                                                  <Tooltip>
+                                                    <TooltipTrigger asChild>
+                                                      <Button 
+                                                        variant="outline" 
+                                                        size="sm" 
+                                                        className="h-6 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/50"
+                                                        onClick={(e) => e.stopPropagation()}
+                                                      >
+                                                        <Wrench className="w-3 h-3" /> Fix
+                                                      </Button>
+                                                    </TooltipTrigger>
+                                                    <TooltipContent>
+                                                      <p>Get AI diagnosis and remediation guidance</p>
+                                                    </TooltipContent>
+                                                  </Tooltip>
                                                 }
                                               />
                                             </div>
