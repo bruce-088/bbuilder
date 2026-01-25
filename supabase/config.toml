@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.verify-step]
 verify_jwt = false
+
+[functions.verify-n8n-workflow]
+verify_jwt = false

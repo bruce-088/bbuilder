@@ -17,9 +17,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Progress } from "@/components/ui/progress";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { 
   Copy, 
   Check, 
@@ -45,7 +49,9 @@ import {
   ClipboardCheck,
   Wrench,
   RotateCw,
-  AlertCircle
+  AlertCircle,
+  Link2,
+  Radio
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
@@ -54,6 +60,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getVerificationDataForStages, generateStepVerificationPrompt, VerificationData } from "@/lib/verificationPromptGenerator";
 import FixDiagnosisDialog from "@/components/FixDiagnosisDialog";
+import { isGhostWriterWorkflow, type WorkflowDetails } from "@/lib/n8nWorkflowVerification";
 
 interface BusinessIdeaData {
   id: string;
@@ -669,7 +676,16 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
     checklist?: Array<{ item: string; status: string; howToVerify?: string }>;
     suggestions?: string[];
     commonMistakes?: string[];
+    workflowActive?: boolean;
+    nodeStats?: { found: number; missing: number; configured: number; incomplete: number };
   }>>(new Map());
+  
+  // Live n8n verification state
+  const [useLiveVerification, setUseLiveVerification] = useState(false);
+  const [workflowName, setWorkflowName] = useState("GhostWriter AI: The Authority Engine - Complete Sales Automation");
+  const [mcpConnected, setMcpConnected] = useState(false);
+  const [workflowData, setWorkflowData] = useState<WorkflowDetails | null>(null);
+  const [searchingWorkflow, setSearchingWorkflow] = useState(false);
 
   const stages = generateAutomationStages(businessIdea);
 
@@ -823,6 +839,100 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
       toast.success(`All ${totalChecks} stages verified successfully! 🎉`);
     } else {
       toast.warning(`Verification complete: ${passCount}/${totalChecks} stages passed. Review the results below.`);
+    }
+  };
+
+  // Live n8n workflow verification using MCP
+  const handleLiveVerifyStage = async (stageId: string, stageName: string) => {
+    const key = `${stageId}-live`;
+    setVerificationResults(prev => new Map(prev).set(key, { status: 'loading' }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-n8n-workflow', {
+        body: {
+          workflowData: workflowData,
+          stageId,
+          stageName,
+          businessContext: {
+            businessName: businessIdea.businessName,
+            niche: businessIdea.niche,
+            targetAudience: businessIdea.targetAudience
+          },
+          mcpConnected
+        }
+      });
+
+      if (error) throw error;
+
+      const status = data.status?.toLowerCase() === 'pass' ? 'pass' 
+        : data.status?.toLowerCase() === 'needs_attention' ? 'attention' 
+        : 'manual';
+
+      setVerificationResults(prev => new Map(prev).set(key, {
+        status,
+        summary: data.summary,
+        checklist: data.checklist,
+        suggestions: data.suggestions,
+        workflowActive: data.workflowActive,
+        nodeStats: data.nodeStats
+      }));
+
+      if (data.status === 'PASS') {
+        toast.success(`${stageName} verified against live workflow!`);
+      } else if (data.status === 'NEEDS_ATTENTION') {
+        toast.warning(`${stageName} needs attention - check the results`);
+      } else if (data.connectionRequired) {
+        toast.info('Connect n8n MCP to enable live verification');
+      } else {
+        toast.info(`${stageName} requires manual verification`);
+      }
+    } catch (err) {
+      console.error('Live verification error:', err);
+      setVerificationResults(prev => new Map(prev).set(key, {
+        status: 'manual',
+        summary: 'Unable to connect to n8n. Ensure MCP is connected and the workflow is available.'
+      }));
+      toast.error('Live verification failed');
+    }
+  };
+
+  const handleLiveVerifyAllStages = async () => {
+    if (!useLiveVerification) {
+      // Fall back to AI verification
+      const masterStage = stages.find(s => s.id === 'n8n-master-verification');
+      if (masterStage) {
+        await handleVerifyAllStages(masterStage);
+      }
+      return;
+    }
+
+    setVerifyingAllStages(true);
+    toast.info("Running live verification against your n8n workflow...");
+
+    // Map master verification steps to their corresponding stage IDs
+    const stageMapping = [
+      { id: 'n8n-prospecting', name: 'Lead Prospecting & Discovery' },
+      { id: 'n8n-outreach', name: 'Outreach & Follow-up' },
+      { id: 'n8n-qualification', name: 'Qualification & Discovery' },
+      { id: 'n8n-proposal', name: 'Proposal & Presentation' },
+      { id: 'n8n-closing', name: 'Closing & Payment' },
+      { id: 'n8n-retention', name: 'Client Success & Retention' }
+    ];
+
+    let passCount = 0;
+    for (const stage of stageMapping) {
+      await handleLiveVerifyStage(stage.id, stage.name);
+      const result = verificationResults.get(`${stage.id}-live`);
+      if (result?.status === 'pass') passCount++;
+      await new Promise(resolve => setTimeout(resolve, 300));
+    }
+
+    setVerifyingAllStages(false);
+
+    if (passCount === stageMapping.length) {
+      toast.success(`All 6 stages verified against live workflow! 🎉`);
+    } else {
+      toast.warning(`Live verification: ${passCount}/6 stages passed. Review the results below.`);
     }
   };
 
@@ -1583,12 +1693,64 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                           </div>
                         </div>
 
+                        {/* Live Workflow Connection (Master Stage Only) */}
+                        {isMasterStage && (
+                          <Card className="mb-4 border-primary/30 bg-primary/5">
+                            <CardHeader className="pb-2">
+                              <CardTitle className="text-sm flex items-center gap-2">
+                                <Link2 className="w-4 h-4" />
+                                Live Workflow Connection
+                              </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3">
+                              <div>
+                                <Label className="text-xs">n8n Workflow Name</Label>
+                                <Input 
+                                  value={workflowName}
+                                  onChange={(e) => setWorkflowName(e.target.value)}
+                                  placeholder="GhostWriter AI: The Authority Engine - Complete Sales Automation"
+                                  className="h-9 text-sm"
+                                />
+                              </div>
+                              <div className="flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-2">
+                                  <Switch 
+                                    id="live-verification"
+                                    checked={useLiveVerification}
+                                    onCheckedChange={setUseLiveVerification}
+                                  />
+                                  <Label htmlFor="live-verification" className="text-sm cursor-pointer">
+                                    Use Live Workflow Verification
+                                  </Label>
+                                </div>
+                                <Badge variant={mcpConnected ? "default" : "secondary"} className="gap-1">
+                                  <Radio className={`w-3 h-3 ${mcpConnected ? 'text-green-400' : ''}`} />
+                                  {mcpConnected ? 'MCP Connected' : 'MCP Not Connected'}
+                                </Badge>
+                              </div>
+                              {useLiveVerification && (
+                                <Alert className="py-2">
+                                  <AlertDescription className="text-xs">
+                                    Verification will query your actual n8n workflow via MCP. 
+                                    Ensure the workflow is marked "Available in MCP" in n8n workflow settings.
+                                    {!mcpConnected && (
+                                      <span className="block mt-1 text-amber-600 dark:text-amber-400">
+                                        ⚠️ Connect n8n in Project Settings → Connectors to enable live verification.
+                                      </span>
+                                    )}
+                                  </AlertDescription>
+                                </Alert>
+                              )}
+                            </CardContent>
+                          </Card>
+                        )}
+
                         {/* Verify All Stages Button (Master Stage Only) */}
                         {isMasterStage && (
                           <div className="pt-4">
                             <div className="flex items-center gap-3 flex-wrap">
                               <Button
-                                onClick={() => handleVerifyAllStages(stage)}
+                                onClick={handleLiveVerifyAllStages}
                                 disabled={verifyingAllStages || verifyingStageId !== null}
                                 variant="default"
                                 className="gap-2"
@@ -1596,19 +1758,72 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                 {verifyingAllStages ? (
                                   <>
                                     <Loader2 className="w-4 h-4 animate-spin" />
-                                    Verifying All Stages...
+                                    {useLiveVerification ? 'Verifying Against Live Workflow...' : 'Verifying All Stages...'}
                                   </>
                                 ) : (
                                   <>
-                                    <RotateCw className="w-4 h-4" />
-                                    Verify All Stages
+                                    {useLiveVerification ? <Link2 className="w-4 h-4" /> : <RotateCw className="w-4 h-4" />}
+                                    {useLiveVerification ? 'Verify Against Live Workflow' : 'Verify All Stages'}
                                   </>
                                 )}
                               </Button>
                               <span className="text-xs text-muted-foreground">
-                                Runs AI-powered verification on all 6 stages sequentially
+                                {useLiveVerification 
+                                  ? 'Queries your actual n8n workflow configuration'
+                                  : 'Runs AI-powered verification on all 6 stages sequentially'
+                                }
                               </span>
                             </div>
+                            
+                            {/* Live Verification Results Display */}
+                            {useLiveVerification && (
+                              <div className="mt-4 space-y-2">
+                                {['n8n-prospecting', 'n8n-outreach', 'n8n-qualification', 'n8n-proposal', 'n8n-closing', 'n8n-retention'].map((stageId, idx) => {
+                                  const result = verificationResults.get(`${stageId}-live`);
+                                  if (!result) return null;
+                                  
+                                  const stageNames = [
+                                    'Lead Prospecting',
+                                    'Outreach & Follow-up',
+                                    'Qualification',
+                                    'Proposal',
+                                    'Closing & Payment',
+                                    'Client Success'
+                                  ];
+                                  
+                                  return (
+                                    <div key={stageId} className="text-xs border rounded-md p-2 bg-background">
+                                      <div className="flex items-center justify-between mb-1">
+                                        <span className="font-medium">Stage {idx + 1}: {stageNames[idx]}</span>
+                                        {result.status === 'loading' ? (
+                                          <Loader2 className="w-3 h-3 animate-spin" />
+                                        ) : (
+                                          <Badge 
+                                            variant={result.status === 'pass' ? 'default' : 'secondary'}
+                                            className={result.status === 'pass' ? 'bg-green-500' : result.status === 'attention' ? 'bg-amber-500' : ''}
+                                          >
+                                            {result.status === 'pass' && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                            {result.status === 'attention' && <AlertCircle className="w-3 h-3 mr-1" />}
+                                            {result.status?.toUpperCase()}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      {result.summary && (
+                                        <p className="text-muted-foreground">{result.summary}</p>
+                                      )}
+                                      {result.nodeStats && (
+                                        <div className="flex gap-2 mt-1 text-muted-foreground">
+                                          <span>Nodes: {result.nodeStats.configured}/{result.nodeStats.found + result.nodeStats.missing}</span>
+                                          {result.workflowActive !== undefined && (
+                                            <span>• {result.workflowActive ? '✓ Active' : '⚠️ Inactive'}</span>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         )}
 
