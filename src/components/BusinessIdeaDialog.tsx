@@ -45,7 +45,9 @@ import {
   RotateCw,
   AlertCircle,
   Wrench,
+  FileDown,
 } from "lucide-react";
+import { generateBusinessPlanPDF } from "@/lib/pdfGenerator";
 import FixDiagnosisDialog from "./FixDiagnosisDialog";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
 import BusinessIdeaMasterPromptDialog from "./BusinessIdeaMasterPromptDialog";
@@ -262,6 +264,7 @@ export default function BusinessIdeaDialog({
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [savingProgress, setSavingProgress] = useState(false);
   const [generatingMasterJson, setGeneratingMasterJson] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const [verificationResults, setVerificationResults] = useState<Map<string, VerificationResult>>(new Map());
   const [verifyingAll, setVerifyingAll] = useState(false);
 
@@ -717,6 +720,21 @@ export default function BusinessIdeaDialog({
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!idea) return;
+    
+    setGeneratingPdf(true);
+    try {
+      await generateBusinessPlanPDF(idea, completedSteps);
+      toast.success("Business Plan PDF downloaded!");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to generate PDF. Please try again.");
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
@@ -736,27 +754,49 @@ export default function BusinessIdeaDialog({
                     Created {new Date(idea.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={handleFavoriteToggle}
-                      className="flex-shrink-0"
-                    >
-                      <Star
-                        className={`w-5 h-5 transition-colors ${
-                          idea.is_favorite
-                            ? "fill-yellow-400 text-yellow-400"
-                            : "text-muted-foreground hover:text-yellow-400"
-                        }`}
-                      />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>{idea.is_favorite ? "Remove from favorites" : "Add to favorites"}</p>
-                  </TooltipContent>
-                </Tooltip>
+                <div className="flex items-center gap-1">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleDownloadPdf}
+                        disabled={generatingPdf}
+                        className="flex-shrink-0"
+                      >
+                        {generatingPdf ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <FileDown className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Download as PDF</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={handleFavoriteToggle}
+                        className="flex-shrink-0"
+                      >
+                        <Star
+                          className={`w-5 h-5 transition-colors ${
+                            idea.is_favorite
+                              ? "fill-yellow-400 text-yellow-400"
+                              : "text-muted-foreground hover:text-yellow-400"
+                          }`}
+                        />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{idea.is_favorite ? "Remove from favorites" : "Add to favorites"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </div>
               </div>
             </DialogHeader>
 
