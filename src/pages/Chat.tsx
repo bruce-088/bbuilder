@@ -666,22 +666,30 @@ export default function Chat() {
           )}
 
           {/* Typing indicator */}
-          {isStreaming && messages[messages.length - 1]?.content === "" && (
-            <div className="flex gap-3 mb-6">
-              <img 
-                src={myaAvatar} 
-                alt="Mya" 
-                className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
-              />
-              <div className="message-assistant px-4 py-3">
-                <div className="flex gap-1">
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
-                  <span className="typing-dot" />
+          <AnimatePresence>
+            {isStreaming && (messages.length === 0 || messages[messages.length - 1]?.role === "user" || messages[messages.length - 1]?.content === "") && (
+              <motion.div 
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.2 }}
+                className="flex gap-3 mb-6"
+              >
+                <img 
+                  src={myaAvatar} 
+                  alt="Mya" 
+                  className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
+                />
+                <div className="message-assistant px-4 py-3">
+                  <div className="flex gap-1.5 items-center">
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                    <span className="typing-dot" />
+                  </div>
                 </div>
-              </div>
-            </div>
-          )}
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div ref={messagesEndRef} />
         </div>
