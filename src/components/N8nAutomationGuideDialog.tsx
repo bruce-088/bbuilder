@@ -452,6 +452,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [generatingJsonFor, setGeneratingJsonFor] = useState<string | null>(null);
+  const [generatingMasterJson, setGeneratingMasterJson] = useState(false);
 
   const stages = generateAutomationStages(businessIdea);
 
@@ -496,6 +497,129 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const handleExportForAI = () => {
     setOpen(false);
     navigate("/export-computer-use-prompt");
+  };
+
+  const downloadMasterWorkflowJson = async () => {
+    setGeneratingMasterJson(true);
+    try {
+      toast.info("Generating master workflow... This may take up to 60 seconds.");
+      
+      // Generate workflows for all stages in parallel
+      const stagePromises = stages.map((stage, index) => 
+        supabase.functions.invoke("generate-n8n-workflow-from-prompt", {
+          body: { 
+            workflowPrompt: stage.workflowPrompt,
+            stageName: stage.title,
+            businessName: businessIdea.businessName
+          },
+        }).then(({ data, error }) => {
+          if (error) throw error;
+          const workflow = extractN8nWorkflowJson(data.content, businessIdea.businessName);
+          return { stage, index, workflow };
+        }).catch(err => {
+          console.error(`Error generating workflow for stage ${stage.title}:`, err);
+          return { stage, index, workflow: null };
+        })
+      );
+
+      const results = await Promise.all(stagePromises);
+      
+      // Filter successful workflows and combine them
+      const successfulWorkflows = results.filter(r => r.workflow !== null);
+      
+      if (successfulWorkflows.length === 0) {
+        toast.error("Failed to generate any workflows. Please try again.");
+        return;
+      }
+
+      // Combine all workflows into one master workflow
+      const allNodes: Array<{
+        id: string;
+        name: string;
+        type: string;
+        position: [number, number];
+        parameters?: Record<string, unknown>;
+        typeVersion?: number;
+        [key: string]: unknown;
+      }> = [];
+      const allConnections: Record<string, unknown> = {};
+      
+      successfulWorkflows.forEach(({ index, workflow }) => {
+        if (!workflow) return;
+        
+        const workflowData = workflow as { 
+          nodes?: Array<{ id: string; name: string; type: string; position: [number, number]; [key: string]: unknown }>; 
+          connections?: Record<string, unknown> 
+        };
+        const nodes = workflowData.nodes || [];
+        const connections = workflowData.connections || {};
+        
+        // Offset Y position to stack stages vertically (400px per stage)
+        const yOffset = index * 400;
+        
+        // Prefix node IDs to avoid conflicts and adjust positions
+        const nodeIdMap: Record<string, string> = {};
+        nodes.forEach((node) => {
+          const newId = `stage${index + 1}_${node.id}`;
+          nodeIdMap[node.id] = newId;
+          
+          allNodes.push({
+            ...node,
+            id: newId,
+            name: `[Stage ${index + 1}] ${node.name}`,
+            position: [node.position[0], node.position[1] + yOffset] as [number, number],
+          });
+        });
+        
+        // Update connection references with new node IDs
+        Object.entries(connections).forEach(([sourceNode, targets]) => {
+          const newSourceNode = nodeIdMap[sourceNode] || sourceNode;
+          const updatedTargets: Record<string, Array<Array<{ node: string; type: string; index: number }>>> = {};
+          
+          Object.entries(targets as Record<string, Array<Array<{ node: string; type: string; index: number }>>>).forEach(([outputType, connectionArray]) => {
+            updatedTargets[outputType] = (connectionArray as Array<Array<{ node: string; type: string; index: number }>>).map((connGroup) =>
+              connGroup.map((conn) => ({
+                ...conn,
+                node: nodeIdMap[conn.node] || conn.node,
+              }))
+            );
+          });
+          
+          allConnections[newSourceNode] = updatedTargets;
+        });
+      });
+
+      // Create master workflow
+      const masterWorkflow = {
+        name: `${businessIdea.businessName} - Complete Sales Automation`,
+        nodes: allNodes,
+        connections: allConnections,
+        settings: {
+          executionOrder: "v1"
+        },
+        active: false
+      };
+
+      // Download as JSON
+      const blob = new Blob([JSON.stringify(masterWorkflow, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `n8n-master-workflow-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(
+        `Master workflow downloaded! Includes ${successfulWorkflows.length}/${stages.length} stages. Import via File → Import from File in n8n.`
+      );
+    } catch (error) {
+      console.error("Error generating master workflow:", error);
+      toast.error("Failed to generate master workflow. Please try again.");
+    } finally {
+      setGeneratingMasterJson(false);
+    }
   };
 
   // Calculate overall progress
@@ -734,6 +858,20 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                       >
                         <Bot className="w-3 h-3" />
                         Export for AI Agent
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="gap-2"
+                        disabled={generatingMasterJson}
+                        onClick={downloadMasterWorkflowJson}
+                      >
+                        {generatingMasterJson ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : (
+                          <Download className="w-3 h-3" />
+                        )}
+                        {generatingMasterJson ? "Generating..." : "Download Master JSON"}
                       </Button>
                     </div>
                   </div>
