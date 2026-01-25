@@ -39,7 +39,9 @@ import {
   XCircle,
   RotateCw,
   AlertCircle,
+  Wrench,
 } from "lucide-react";
+import FixDiagnosisDialog from "./FixDiagnosisDialog";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
 import BusinessIdeaMasterPromptDialog from "./BusinessIdeaMasterPromptDialog";
 import { Json } from "@/integrations/supabase/types";
@@ -73,15 +75,18 @@ interface VerificationResult {
   checklist?: Array<{ item: string; status: string; howToVerify: string }>;
 }
 
+interface QuickStartVerification {
+  checkDescription: string;
+  successIndicators: string[];
+  failureIndicators: string[];
+  automatedActions: string[];
+}
+
 interface QuickStartStep {
   id: string;
   label: string;
   tip: string;
-  verification: {
-    checkDescription: string;
-    successIndicators: string[];
-    failureIndicators: string[];
-  };
+  verification: QuickStartVerification;
 }
 
 const detailItems = [
@@ -111,6 +116,12 @@ const quickStartSteps: QuickStartStep[] = [
         "No clear pain points identified",
         "Prospects show no interest in paying",
         "No documentation of feedback received"
+      ],
+      automatedActions: [
+        "Review your conversation notes or CRM for documented customer interactions",
+        "Compile a list of pain points mentioned across all conversations",
+        "Create a summary document with key insights from validation calls",
+        "Schedule additional outreach calls if fewer than 3 conversations completed"
       ]
     }
   },
@@ -131,6 +142,12 @@ const quickStartSteps: QuickStartStep[] = [
         "No clear headline or value proposition",
         "No way for visitors to contact you",
         "Page broken on mobile devices"
+      ],
+      automatedActions: [
+        "Test the landing page URL in an incognito browser window",
+        "Verify the page loads correctly on mobile devices",
+        "Check that all contact forms or buttons are functional",
+        "Review headline for clarity and value proposition"
       ]
     }
   },
@@ -151,6 +168,12 @@ const quickStartSteps: QuickStartStep[] = [
         "No price point established",
         "Hourly rate without value anchoring",
         "No special offer for early customers"
+      ],
+      automatedActions: [
+        "Document your single core offer with clear deliverables",
+        "Research competitor pricing for value-based benchmarking",
+        "Create a pricing rationale document explaining your value",
+        "Draft a founding client discount offer (10-20% off)"
       ]
     }
   },
@@ -171,6 +194,12 @@ const quickStartSteps: QuickStartStep[] = [
         "Generic copy-paste messages used",
         "No follow-up plan established",
         "No tracking of responses"
+      ],
+      automatedActions: [
+        "Create a prospect list with at least 10 qualified leads",
+        "Draft personalized outreach templates for each prospect segment",
+        "Set up a simple tracking spreadsheet for responses",
+        "Schedule follow-up reminders for Day 3 and Day 7"
       ]
     }
   },
@@ -191,6 +220,12 @@ const quickStartSteps: QuickStartStep[] = [
         "Only verbal agreement without commitment",
         "Unclear deliverables causing scope creep",
         "No plan for testimonials or referrals"
+      ],
+      automatedActions: [
+        "Follow up with warm leads from outreach campaign",
+        "Prepare a simple contract or scope of work document",
+        "Set up payment collection via Stripe, PayPal, or invoice",
+        "Create an onboarding checklist for your first client"
       ]
     }
   },
@@ -867,6 +902,30 @@ export default function BusinessIdeaDialog({
                                           >
                                             <RotateCw className="w-3 h-3" /> Verify Again
                                           </Button>
+                                          {/* Fix button - shown when verification is not pass */}
+                                          {result.status !== 'pass' && (
+                                            <FixDiagnosisDialog
+                                              stepText={step.label}
+                                              verificationData={step.verification}
+                                              stageTitle="Quick Start Checklist"
+                                              businessIdea={idea ? {
+                                                businessName: idea.business_name,
+                                                niche: idea.niche,
+                                                targetAudience: idea.target_audience,
+                                                serviceOffering: idea.service_offering
+                                              } : undefined}
+                                              stepIndex={index}
+                                              trigger={
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  className="h-7 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                                                >
+                                                  <Wrench className="w-3 h-3" /> Fix
+                                                </Button>
+                                              }
+                                            />
+                                          )}
                                         </>
                                       ) : (
                                         <Button 
