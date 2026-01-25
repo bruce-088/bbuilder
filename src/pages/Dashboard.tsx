@@ -571,6 +571,8 @@ export default function Dashboard() {
       /#+\s*💡?\s*([^\n]+)/,
       /\*\*(?:Business Name|Name):\*\*\s*([^\n*]+)/i,
       /(?:Business Name|Name):\s*([^\n]+)/i,
+      /^#{1,3}\s+([^#\n💡][^\n]+)/m,
+      /^\*\*([^*\n:]+)\*\*/m,
     ]) || "Untitled Business Idea";
 
     const niche = extractField([
@@ -1196,7 +1198,7 @@ export default function Dashboard() {
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                 </div>
               ) : filteredIdeas.length > 0 ? (
-                <ScrollArea className="h-[420px] pr-3">
+              <ScrollArea className="h-[420px] pr-4">
                   <div className="space-y-3">
                     {filteredIdeas.map((idea) => (
                       <Card 
@@ -1216,7 +1218,7 @@ export default function Dashboard() {
                           }
                         }}
                       >
-                        <CardContent className="p-4 flex items-start gap-3">
+                        <CardContent className="p-4 flex items-start gap-3 overflow-visible">
                           {compareMode && (
                             <div className="pt-0.5">
                               <Checkbox
@@ -1263,7 +1265,7 @@ export default function Dashboard() {
                             </p>
                           </div>
                           {editingIdeaId !== idea.id && (
-                            <div className="flex items-center gap-1 flex-shrink-0">
+                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
                               <Button
                                 variant="ghost"
                                 size="icon"
