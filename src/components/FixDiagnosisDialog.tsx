@@ -269,8 +269,8 @@ export default function FixDiagnosisDialog({
               </Button>
             </div>
 
-            <ScrollArea className="flex-1 max-h-[55vh] rounded-lg border border-border/50 bg-background overflow-hidden">
-              <div className="p-4 pr-6">
+            <ScrollArea className="flex-1 min-h-[200px] max-h-[55vh] rounded-lg border border-border/50 bg-background">
+              <div className="p-4 pr-8 overflow-x-hidden">
                 {isLoading && !diagnosis ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-4">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -279,7 +279,7 @@ export default function FixDiagnosisDialog({
                     </p>
                   </div>
                 ) : (
-                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                  <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-wrap-anywhere [&_a]:break-all [&_code]:break-all [&_pre]:overflow-x-auto [&_pre]:max-w-full">
                     <ReactMarkdown>{diagnosis}</ReactMarkdown>
                     {isLoading && (
                       <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
