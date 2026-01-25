@@ -1726,21 +1726,14 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                                 }}
                                                 stepIndex={i}
                                                 trigger={
-                                                  <Tooltip>
-                                                    <TooltipTrigger asChild>
-                                                      <Button 
-                                                        variant="outline" 
-                                                        size="sm" 
-                                                        className="h-6 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/50"
-                                                        onClick={(e) => e.stopPropagation()}
-                                                      >
-                                                        <Wrench className="w-3 h-3" /> Fix
-                                                      </Button>
-                                                    </TooltipTrigger>
-                                                    <TooltipContent>
-                                                      <p>Get AI diagnosis and remediation guidance</p>
-                                                    </TooltipContent>
-                                                  </Tooltip>
+                                                  <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-6 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/50"
+                                                    title="Get AI diagnosis and remediation guidance"
+                                                  >
+                                                    <Wrench className="w-3 h-3" /> Fix
+                                                  </Button>
                                                 }
                                               />
                                             </div>
