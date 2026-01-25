@@ -203,7 +203,7 @@ export default function FixDiagnosisDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Wrench className="w-5 h-5 text-amber-500" />
@@ -269,7 +269,7 @@ export default function FixDiagnosisDialog({
               </Button>
             </div>
 
-            <ScrollArea className="flex-1 min-h-[200px] max-h-[55vh] rounded-lg border border-border/50 bg-background">
+            <ScrollArea className="flex-1 min-h-0 rounded-lg border border-border/50 bg-background">
               <div className="p-4 pr-8 overflow-x-hidden">
                 {isLoading && !diagnosis ? (
                   <div className="flex flex-col items-center justify-center py-12 gap-4">
@@ -291,7 +291,7 @@ export default function FixDiagnosisDialog({
           </>
         )}
 
-        <div className="mt-4 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20">
+        <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex-shrink-0">
           <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-amber-600">
             <Sparkles className="w-4 h-4" />
             How to Use This Fix
