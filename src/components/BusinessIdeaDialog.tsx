@@ -46,8 +46,16 @@ import {
   AlertCircle,
   Wrench,
   FileDown,
+  Package,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { generateBusinessPlanPDF } from "@/lib/pdfGenerator";
+import { generateBusinessPlanBundle } from "@/lib/bundleGenerator";
 import FixDiagnosisDialog from "./FixDiagnosisDialog";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
 import BusinessIdeaMasterPromptDialog from "./BusinessIdeaMasterPromptDialog";
@@ -265,6 +273,7 @@ export default function BusinessIdeaDialog({
   const [savingProgress, setSavingProgress] = useState(false);
   const [generatingMasterJson, setGeneratingMasterJson] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [generatingBundle, setGeneratingBundle] = useState(false);
   const [verificationResults, setVerificationResults] = useState<Map<string, VerificationResult>>(new Map());
   const [verifyingAll, setVerifyingAll] = useState(false);
 
@@ -735,6 +744,23 @@ export default function BusinessIdeaDialog({
     }
   };
 
+  const handleDownloadBundle = async () => {
+    if (!idea) return;
+    
+    setGeneratingBundle(true);
+    try {
+      await generateBusinessPlanBundle(idea, completedSteps, {
+        onProgress: (message) => toast.info(message),
+      });
+      toast.success("Complete Startup Bundle downloaded!");
+    } catch (error) {
+      console.error("Error generating bundle:", error);
+      toast.error("Failed to generate bundle. Please try again.");
+    } finally {
+      setGeneratingBundle(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
@@ -755,26 +781,36 @@ export default function BusinessIdeaDialog({
                   </p>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
                       <Button
                         variant="ghost"
                         size="icon"
-                        onClick={handleDownloadPdf}
-                        disabled={generatingPdf}
+                        disabled={generatingPdf || generatingBundle}
                         className="flex-shrink-0"
                       >
-                        {generatingPdf ? (
+                        {generatingPdf || generatingBundle ? (
                           <Loader2 className="w-5 h-5 animate-spin" />
                         ) : (
-                          <FileDown className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
+                          <Download className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
                         )}
                       </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Download as PDF</p>
-                    </TooltipContent>
-                  </Tooltip>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={handleDownloadPdf} disabled={generatingPdf}>
+                        <FileDown className="w-4 h-4 mr-2" />
+                        Business Plan (PDF)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleDownloadBundle} disabled={generatingBundle}>
+                        <Package className="w-4 h-4 mr-2" />
+                        Complete Bundle (PDF + n8n + README)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={downloadMasterWorkflowJson} disabled={generatingMasterJson}>
+                        <Bot className="w-4 h-4 mr-2" />
+                        n8n Master Workflow (JSON only)
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
