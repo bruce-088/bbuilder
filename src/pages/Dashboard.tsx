@@ -62,6 +62,8 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import HowToUseDialog from "@/components/HowToUseDialog";
+import GettingStartedCard from "@/components/GettingStartedCard";
+import ProgressIndicator from "@/components/ProgressIndicator";
 import { 
   CountdownTimer, 
   XPProgress, 
@@ -72,6 +74,7 @@ import {
 } from "@/components/MissionControl";
 import { useMissionProgress } from "@/hooks/useMissionProgress";
 import OnboardingTour, { useOnboardingTour } from "@/components/OnboardingTour";
+import { celebrateFirstIdea } from "@/lib/confetti";
 interface BusinessIdea {
   id: string;
   business_name: string;
@@ -407,7 +410,7 @@ export default function Dashboard() {
     }
   };
 
-  const filteredIdeas = businessIdeas.filter(idea => {
+  const filteredIdeas = businessIdeasWithProgress.filter(idea => {
     const matchesFilter = filter === "favorites" ? idea.is_favorite : true;
     const searchLower = ideaSearch.toLowerCase();
     const matchesSearch = ideaSearch === "" || 
@@ -767,56 +770,78 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h1 className="font-display text-2xl md:text-3xl font-bold">
-                      Mission: First Customer
+                      {businessIdeas.length === 0 ? "Welcome to Mya!" : "Mission: First Customer"}
                     </h1>
                     <p className="text-muted-foreground text-sm">
-                      Create a fully functioning $10K/month empire and land your first customer in 14 days or less
+                      {businessIdeas.length === 0 
+                        ? "Your AI business coach. Let's build your $10K/month empire together."
+                        : "Create a fully functioning $10K/month empire and land your first customer in 14 days or less"
+                      }
                     </p>
                   </div>
                 </div>
               </div>
               
-              {/* Current Quest Card */}
-              <CurrentQuestCard 
-                completedQuests={completedQuests}
-                currentStage={currentStage}
-                onAction={() => {
-                  // Navigate based on current quest
-                  const currentQuest = completedQuests.length === 0 ? 'generate_idea' : 
-                    completedQuests.includes('generate_idea') && !completedQuests.includes('save_idea') ? 'save_idea' :
-                    completedQuests.includes('save_idea') && !completedQuests.includes('review_checklist') ? 'review_checklist' :
-                    'generate_idea';
-                  
-                  if (currentQuest === 'generate_idea' || currentQuest === 'save_idea') {
-                    openIndustryDialog();
-                  } else if (currentQuest === 'review_checklist' && businessIdeas.length > 0) {
-                    setSelectedIdeaId(businessIdeas[0].id);
-                  } else {
-                    openIndustryDialog();
-                  }
-                }}
-                businessIdeas={businessIdeasWithProgress}
-                onSelectIdea={(ideaId) => setSelectedIdeaId(ideaId)}
-                activeQuestId={activeQuestId}
-                onSetActiveQuest={(ideaId) => {
-                  setActiveQuestId(ideaId);
-                  toast.success("Quest activated!");
-                }}
-              />
+              {/* Show Getting Started card for new users, Current Quest for returning users */}
+              {businessIdeas.length === 0 ? (
+                <GettingStartedCard 
+                  onGenerateIdea={openIndustryDialog}
+                  onStartChat={handleNewChat}
+                />
+              ) : (
+                <>
+                  {/* Current Quest Card */}
+                  <CurrentQuestCard 
+                    completedQuests={completedQuests}
+                    currentStage={currentStage}
+                    onAction={() => {
+                      // Navigate based on current quest
+                      const currentQuest = completedQuests.length === 0 ? 'generate_idea' : 
+                        completedQuests.includes('generate_idea') && !completedQuests.includes('save_idea') ? 'save_idea' :
+                        completedQuests.includes('save_idea') && !completedQuests.includes('review_checklist') ? 'review_checklist' :
+                        'generate_idea';
+                      
+                      if (currentQuest === 'generate_idea' || currentQuest === 'save_idea') {
+                        openIndustryDialog();
+                      } else if (currentQuest === 'review_checklist' && businessIdeas.length > 0) {
+                        setSelectedIdeaId(businessIdeas[0].id);
+                      } else {
+                        openIndustryDialog();
+                      }
+                    }}
+                    businessIdeas={businessIdeasWithProgress}
+                    onSelectIdea={(ideaId) => setSelectedIdeaId(ideaId)}
+                    activeQuestId={activeQuestId}
+                    onSetActiveQuest={(ideaId) => {
+                      setActiveQuestId(ideaId);
+                      toast.success("Quest activated!");
+                    }}
+                  />
 
-              {/* Achievements - below Current Quest */}
-              <AchievementBadges unlockedAchievements={unlockedAchievements} />
+                  {/* Achievements - only show when user has progress */}
+                  {completedQuests.length > 0 && (
+                    <AchievementBadges unlockedAchievements={unlockedAchievements} />
+                  )}
+                </>
+              )}
             </div>
             
             {/* Right Column: Timer + XP + What's Next */}
             <div className="space-y-4">
-              {mission && (
-                <CountdownTimer 
-                  targetDate={new Date(mission.target_date)} 
-                  label="to First Customer Goal"
-                />
+              {/* Only show timer and XP when user has business ideas */}
+              {businessIdeas.length > 0 && (
+                <>
+                  {mission && (
+                    <CountdownTimer 
+                      targetDate={new Date(mission.target_date)} 
+                      label="to First Customer Goal"
+                    />
+                  )}
+                  {completedQuests.length > 0 && (
+                    <XPProgress currentXP={xpEarned} />
+                  )}
+                </>
               )}
-              <XPProgress currentXP={xpEarned} />
               <WhatsNextCard
                 completedQuests={completedQuests}
                 currentStage={currentStage}
@@ -1287,18 +1312,23 @@ export default function Dashboard() {
                             ) : (
                               <h3 className="font-medium mb-1">{idea.business_name}</h3>
                             )}
-                            <p className="text-xs text-muted-foreground mt-1 flex items-center gap-2">
-                              <span className="flex items-center gap-1">
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <p className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Clock className="w-3 h-3" />
                                 {new Date(idea.created_at).toLocaleDateString()}
-                              </span>
+                              </p>
                               {idea.niche && (
                                 <>
-                                  <span className="text-muted-foreground/50">•</span>
-                                  <span className="truncate">{idea.niche}</span>
+                                  <span className="text-muted-foreground/50 text-xs">•</span>
+                                  <span className="text-xs text-muted-foreground truncate max-w-[120px]">{idea.niche}</span>
                                 </>
                               )}
-                            </p>
+                              <ProgressIndicator 
+                                completedSteps={idea.completedSteps || []} 
+                                isActiveQuest={activeQuestId === idea.id}
+                                compact
+                              />
+                            </div>
                           </div>
                           {editingIdeaId !== idea.id && (
                             <div className="flex items-center gap-1 flex-shrink-0">
