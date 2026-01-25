@@ -37,8 +37,11 @@ import {
   Clock,
   Loader2,
   Bot,
-  Download
+  Download,
+  Lightbulb,
+  ChevronDown
 } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
@@ -62,6 +65,7 @@ interface N8nAutomationGuideDialogProps {
 interface SetupStep {
   text: string;
   links?: { label: string; url: string }[];
+  proTip?: string;
 }
 
 interface AutomationStage {
@@ -107,13 +111,40 @@ const generateAutomationStages = (businessIdea: BusinessIdeaData): AutomationSta
 Trigger: Schedule Trigger
 Key Nodes: HTTP Request, IF, Set, Google Sheets, Slack`,
       setupSteps: [
-        { text: "Sign up for Apollo.io → Go to Settings > Integrations > API Keys → Click 'Create New Key' → Copy and save the key securely for n8n configuration", links: [{ label: "Apollo.io", url: "https://www.apollo.io" }] },
-        { text: "Create a Hunter.io account → Navigate to API section in dashboard → Generate your API key → Note: Free plan includes 25 email verifications/month", links: [{ label: "Hunter.io", url: "https://hunter.io" }] },
-        { text: "Create a new Google Sheet → Add columns: Name, Email, Company, Title, LinkedIn URL, Lead Score, Date Added, Status → Share the sheet with your n8n service account email", links: [{ label: "Google Sheets", url: "https://sheets.google.com" }] },
-        { text: "In n8n, click '+ New Workflow' → Drag 'Schedule Trigger' from the trigger panel → Set to run daily at 9:00 AM → Click the trigger to configure your timezone", links: [{ label: "n8n", url: "https://n8n.io" }] },
-        { text: "Add HTTP Request node → Method: POST → URL: api.apollo.io/v1/mixed_people/search → Add Header 'x-api-key' with your Apollo key → Repeat for Hunter.io: GET api.hunter.io/v2/email-verifier", links: [{ label: "Apollo.io", url: "https://www.apollo.io" }, { label: "Hunter.io", url: "https://hunter.io" }] },
-        { text: "Add IF node after Apollo.io → Create conditions: Company Size > 10 AND < 500, Job Title contains 'Director' or 'VP' → Route matching leads to the next step, others to 'discard'" },
-        { text: "Add Google Sheets node → Select your credentials → Choose 'Append Row' operation → Select your spreadsheet → Map fields: {{$json.name}}, {{$json.email}}, {{$json.company}}, etc.", links: [{ label: "Google Sheets", url: "https://sheets.google.com" }] }
+        { 
+          text: "Sign up for Apollo.io → Go to Settings > Integrations > API Keys → Click 'Create New Key' → Copy and save the key securely for n8n configuration", 
+          links: [{ label: "Apollo.io", url: "https://www.apollo.io" }],
+          proTip: "Apollo.io offers 50 free credits/month. For higher volume, consider their 'Professional' plan. Store your API key in n8n's Credentials manager for security, never hardcode it in workflows."
+        },
+        { 
+          text: "Create a Hunter.io account → Navigate to API section in dashboard → Generate your API key → Note: Free plan includes 25 email verifications/month", 
+          links: [{ label: "Hunter.io", url: "https://hunter.io" }],
+          proTip: "Hunter.io works best for corporate email domains. For Gmail/Yahoo addresses, consider ZeroBounce or NeverBounce as alternatives. Batch your verification requests to stay within free limits."
+        },
+        { 
+          text: "Create a new Google Sheet → Add columns: Name, Email, Company, Title, LinkedIn URL, Lead Score, Date Added, Status → Share the sheet with your n8n service account email", 
+          links: [{ label: "Google Sheets", url: "https://sheets.google.com" }],
+          proTip: "Add data validation to your Status column (dropdown: New, Contacted, Qualified, Disqualified). Freeze the header row for easier navigation. Consider adding conditional formatting to highlight high-score leads."
+        },
+        { 
+          text: "In n8n, click '+ New Workflow' → Drag 'Schedule Trigger' from the trigger panel → Set to run daily at 9:00 AM → Click the trigger to configure your timezone", 
+          links: [{ label: "n8n", url: "https://n8n.io" }],
+          proTip: "Avoid running workflows at exactly :00 minutes (high server load times). Instead, use :05 or :15. For prospecting, Tuesday-Thursday mornings typically have better engagement. Always set your local timezone explicitly."
+        },
+        { 
+          text: "Add HTTP Request node → Method: POST → URL: api.apollo.io/v1/mixed_people/search → Add Header 'x-api-key' with your Apollo key → Repeat for Hunter.io: GET api.hunter.io/v2/email-verifier", 
+          links: [{ label: "Apollo.io", url: "https://www.apollo.io" }, { label: "Hunter.io", url: "https://hunter.io" }],
+          proTip: "Enable 'Always Output Data' on HTTP nodes to prevent workflow failures on empty responses. Add a 1-second Wait node between API calls to avoid rate limiting. Use n8n's 'Retry On Fail' option for resilience."
+        },
+        { 
+          text: "Add IF node after Apollo.io → Create conditions: Company Size > 10 AND < 500, Job Title contains 'Director' or 'VP' → Route matching leads to the next step, others to 'discard'",
+          proTip: "Don't discard non-matching leads permanently—route them to a 'Nurture' sheet for future campaigns. Use 'contains' rather than 'equals' for job titles to catch variations like 'Sr. Director' or 'VP of Sales'."
+        },
+        { 
+          text: "Add Google Sheets node → Select your credentials → Choose 'Append Row' operation → Select your spreadsheet → Map fields: {{$json.name}}, {{$json.email}}, {{$json.company}}, etc.", 
+          links: [{ label: "Google Sheets", url: "https://sheets.google.com" }],
+          proTip: "Add a 'Date Added' column with expression: {{$now.format('YYYY-MM-DD')}}. Enable 'Continue On Fail' to prevent entire workflow from stopping if one lead fails to write. Consider using Airtable for more than 10K records."
+        }
       ]
     },
     {
@@ -148,12 +179,32 @@ Email personalization should include:
 Trigger: Google Sheets (new row)
 Key Nodes: Gmail, Wait, IF, Set, Slack`,
       setupSteps: [
-        { text: "In n8n, go to Credentials → Add new Gmail credential → Sign in with Google → Grant 'Send email' permissions → For SendGrid: Add API key from Settings > API Keys in SendGrid dashboard", links: [{ label: "Gmail", url: "https://mail.google.com" }, { label: "SendGrid", url: "https://sendgrid.com" }, { label: "n8n", url: "https://n8n.io" }] },
-        { text: "Create 3 email templates: Email 1 (intro), Email 2 (case study), Email 3 (final offer) → Use placeholders {{firstName}}, {{companyName}}, {{painPoint}} that n8n will replace dynamically" },
-        { text: "Create a new sheet tab called 'Responded' in your leads spreadsheet → Add columns: Name, Email, Company, Response Date, Response Type, Next Action → This is where replied leads will be moved" },
-        { text: "Add Wait node after each email → Set 'Resume' to 'After Time Interval' → Enter 3 days for Email 1→2, 4 days for Email 2→3 → Tip: Consider adding Code node to skip weekends" },
-        { text: "Add IF node after Wait → Use Gmail Trigger or check inbox via API → Condition: If reply received within wait period → True path: Move to Responded sheet → False path: Continue sequence" },
-        { text: "Add Slack node → Create credentials using OAuth or Webhook URL → Select channel (e.g., #sales-leads) → Message template: '🔥 {{firstName}} from {{company}} replied!'", links: [{ label: "Slack", url: "https://slack.com" }] }
+        { 
+          text: "In n8n, go to Credentials → Add new Gmail credential → Sign in with Google → Grant 'Send email' permissions → For SendGrid: Add API key from Settings > API Keys in SendGrid dashboard", 
+          links: [{ label: "Gmail", url: "https://mail.google.com" }, { label: "SendGrid", url: "https://sendgrid.com" }, { label: "n8n", url: "https://n8n.io" }],
+          proTip: "Use a dedicated email account for outreach (not your personal Gmail). Enable 'Less secure app access' or use OAuth2 for better security. SendGrid's free tier allows 100 emails/day—sufficient for most early-stage outreach."
+        },
+        { 
+          text: "Create 3 email templates: Email 1 (intro), Email 2 (case study), Email 3 (final offer) → Use placeholders {{firstName}}, {{companyName}}, {{painPoint}} that n8n will replace dynamically",
+          proTip: "Keep subject lines under 50 characters. Personalize beyond just names—mention recent company news or specific pain points. A/B test by creating two versions of Email 1 and using an IF node to split traffic."
+        },
+        { 
+          text: "Create a new sheet tab called 'Responded' in your leads spreadsheet → Add columns: Name, Email, Company, Response Date, Response Type, Next Action → This is where replied leads will be moved",
+          proTip: "Add a 'Response Type' dropdown: Interested, Not Now, Unsubscribe, Auto-Reply. Create a Zap or n8n workflow to move positive responses directly to your CRM for faster follow-up."
+        },
+        { 
+          text: "Add Wait node after each email → Set 'Resume' to 'After Time Interval' → Enter 3 days for Email 1→2, 4 days for Email 2→3 → Tip: Consider adding Code node to skip weekends",
+          proTip: "Emails sent Tuesday-Thursday 9-11 AM get highest open rates. Use this Code node to skip weekends: `if ([0,6].includes(new Date().getDay())) { return []; }`. Avoid sending follow-ups on Mondays (inbox overload)."
+        },
+        { 
+          text: "Add IF node after Wait → Use Gmail Trigger or check inbox via API → Condition: If reply received within wait period → True path: Move to Responded sheet → False path: Continue sequence",
+          proTip: "Check for replies by searching Gmail for 'from:[lead-email] after:[send-date]'. Watch for auto-replies (OOO) and filter them separately. Set up a 'bounce' handling path for invalid emails."
+        },
+        { 
+          text: "Add Slack node → Create credentials using OAuth or Webhook URL → Select channel (e.g., #sales-leads) → Message template: '🔥 {{firstName}} from {{company}} replied!'", 
+          links: [{ label: "Slack", url: "https://slack.com" }],
+          proTip: "Include the reply snippet in your Slack message for context. Use thread replies to group conversation history. Add reaction-based actions: 👍 to claim the lead, 📅 to schedule a call."
+        }
       ]
     },
     {
@@ -189,12 +240,34 @@ Key Nodes: Gmail, Wait, IF, Set, Slack`,
 Trigger: Webhook (Calendly booking)
 Key Nodes: HTTP Request, Set, Notion, Gmail, Slack`,
       setupSteps: [
-        { text: "In Calendly, create a 30-min Discovery Call event → Under 'Booking Questions', add fields: Budget range, Timeline, Current solution → OR embed a Typeform for detailed qualification → Copy your Calendly webhook URL", links: [{ label: "Calendly", url: "https://calendly.com" }, { label: "Typeform", url: "https://www.typeform.com" }] },
-        { text: "In Notion, create a new database → Add properties: Lead Name (title), Company (text), Score (number), Call Date (date), Prep Notes (text), Status (select) → Create a template page with your standard prep outline", links: [{ label: "Notion", url: "https://www.notion.so" }] },
-        { text: "Create a scoring rubric: Company Size (0-3 pts), Industry Fit (0-3 pts), Budget Indicated (0-2 pts), Timeline Urgency (0-2 pts) → Total 10 points → 7+ = High priority, 4-6 = Medium, <4 = Low" },
-        { text: "Add Webhook Trigger node in n8n → Copy the webhook URL → In Calendly: Integrations > Webhooks → Paste URL and select 'invitee.created' event → Test with a sample booking", links: [{ label: "n8n", url: "https://n8n.io" }, { label: "Calendly", url: "https://calendly.com" }] },
-        { text: "Add Set node → Create 'score' field → Use expressions: (budget == 'High' ? 3 : 1) + (timeline == 'Urgent' ? 2 : 0) + ... → Add IF node: If score >= 7, route to high-priority notification path" },
-        { text: "Add Gmail node → Subject: 'Confirmed: Discovery Call with [Your Company]' → Body: Meeting link, agenda preview, prep questions → Optionally attach Notion prep doc link", links: [{ label: "Gmail", url: "https://mail.google.com" }] }
+        { 
+          text: "In Calendly, create a 30-min Discovery Call event → Under 'Booking Questions', add fields: Budget range, Timeline, Current solution → OR embed a Typeform for detailed qualification → Copy your Calendly webhook URL", 
+          links: [{ label: "Calendly", url: "https://calendly.com" }, { label: "Typeform", url: "https://www.typeform.com" }],
+          proTip: "Limit available time slots to your peak productivity hours. Add a buffer between calls (15 min) to prep and decompress. Use Calendly's 'Minimum scheduling notice' to avoid same-day bookings."
+        },
+        { 
+          text: "In Notion, create a new database → Add properties: Lead Name (title), Company (text), Score (number), Call Date (date), Prep Notes (text), Status (select) → Create a template page with your standard prep outline", 
+          links: [{ label: "Notion", url: "https://www.notion.so" }],
+          proTip: "Create a call prep template with sections: Company Background, Key Decision Makers, Likely Objections, Tailored Value Props. Add a 'Competitors Mentioned' field for market intelligence."
+        },
+        { 
+          text: "Create a scoring rubric: Company Size (0-3 pts), Industry Fit (0-3 pts), Budget Indicated (0-2 pts), Timeline Urgency (0-2 pts) → Total 10 points → 7+ = High priority, 4-6 = Medium, <4 = Low",
+          proTip: "Weight your scores based on what correlates with closed deals. Review and adjust your rubric quarterly based on win/loss data. Consider adding 'Champion identified' as a high-weight criterion."
+        },
+        { 
+          text: "Add Webhook Trigger node in n8n → Copy the webhook URL → In Calendly: Integrations > Webhooks → Paste URL and select 'invitee.created' event → Test with a sample booking", 
+          links: [{ label: "n8n", url: "https://n8n.io" }, { label: "Calendly", url: "https://calendly.com" }],
+          proTip: "Test your webhook with Calendly's 'Send Test' feature before going live. Add error handling for malformed payloads. Log all incoming webhooks to a debug sheet during initial setup."
+        },
+        { 
+          text: "Add Set node → Create 'score' field → Use expressions: (budget == 'High' ? 3 : 1) + (timeline == 'Urgent' ? 2 : 0) + ... → Add IF node: If score >= 7, route to high-priority notification path",
+          proTip: "Use the Switch node instead of nested IF nodes for cleaner logic with multiple score ranges. Add a 'disqualification' path for scores under 3 to save time on obvious non-fits."
+        },
+        { 
+          text: "Add Gmail node → Subject: 'Confirmed: Discovery Call with [Your Company]' → Body: Meeting link, agenda preview, prep questions → Optionally attach Notion prep doc link", 
+          links: [{ label: "Gmail", url: "https://mail.google.com" }],
+          proTip: "Include 2-3 pre-call questions for the prospect to think about. Add calendar reminder links (Google, Outlook, ICS). Use your company branding in the email signature for professionalism."
+        }
       ]
     },
     {
@@ -230,12 +303,31 @@ Key Nodes: HTTP Request, Set, Notion, Gmail, Slack`,
 Trigger: CRM Webhook (deal stage change)
 Key Nodes: HTTP Request, AI, PandaDoc API, Gmail, Wait, IF`,
       setupSteps: [
-        { text: "In PandaDoc, create new template → Add text fields wrapped in brackets: [client.name], [client.company], [pricing.total] → Add signature block at bottom → Save as 'Service Proposal Template' → Note the template ID from the URL", links: [{ label: "PandaDoc", url: "https://www.pandadoc.com" }] },
-        { text: "Create an AI prompt template: 'Generate a proposal executive summary for {{company}} in {{industry}}. Challenges: {{challenges}}. Our solution: {{valueProposition}}. Include 3 relevant benefits and a case study reference.'" },
-        { text: "In your CRM (HubSpot/Pipedrive), go to Settings > Webhooks → Add n8n webhook URL → Trigger: When deal stage changes to 'Proposal Requested' → Include deal ID and contact info in payload" },
-        { text: "PandaDoc provides view tracking automatically → In n8n, add Wait node (3 days) → Add HTTP Request to check PandaDoc API for document status → If 'viewed' but not 'completed', trigger follow-up path" },
-        { text: "Create 3 follow-up templates: Day 3: 'Checking in - any questions about the proposal?' → Day 7: 'I'd love to walk through the proposal with you' → Day 10: 'Is this still a priority for you?'" },
-        { text: "At end of workflow, add HTTP Request node → Method: POST to your onboarding workflow's webhook URL → Pass client data: name, email, package selected, signed date, start date" }
+        { 
+          text: "In PandaDoc, create new template → Add text fields wrapped in brackets: [client.name], [client.company], [pricing.total] → Add signature block at bottom → Save as 'Service Proposal Template' → Note the template ID from the URL", 
+          links: [{ label: "PandaDoc", url: "https://www.pandadoc.com" }],
+          proTip: "Create multiple pricing table options (Good/Better/Best) to anchor higher prices. Add interactive checkboxes for optional add-ons. Include a 'Valid Until' date field to create urgency—typically 14-21 days."
+        },
+        { 
+          text: "Create an AI prompt template: 'Generate a proposal executive summary for {{company}} in {{industry}}. Challenges: {{challenges}}. Our solution: {{valueProposition}}. Include 3 relevant benefits and a case study reference.'",
+          proTip: "Fine-tune your AI prompts by adding industry-specific context. Include a 'tone' instruction (e.g., 'professional but approachable'). Have the AI suggest potential objections and pre-handle them in the proposal."
+        },
+        { 
+          text: "In your CRM (HubSpot/Pipedrive), go to Settings > Webhooks → Add n8n webhook URL → Trigger: When deal stage changes to 'Proposal Requested' → Include deal ID and contact info in payload",
+          proTip: "Create a dedicated 'Proposal Requested' deal stage rather than using notes. Include deal properties like expected close date and deal value in the webhook payload for better proposal customization."
+        },
+        { 
+          text: "PandaDoc provides view tracking automatically → In n8n, add Wait node (3 days) → Add HTTP Request to check PandaDoc API for document status → If 'viewed' but not 'completed', trigger follow-up path",
+          proTip: "Track which sections prospects spend most time on—this reveals their priorities. Multiple views without signing often indicates they're sharing internally; consider sending a 'team overview' follow-up."
+        },
+        { 
+          text: "Create 3 follow-up templates: Day 3: 'Checking in - any questions about the proposal?' → Day 7: 'I'd love to walk through the proposal with you' → Day 10: 'Is this still a priority for you?'",
+          proTip: "Each follow-up should add new value, not just ask 'Did you see my proposal?' Share relevant case studies, industry insights, or limited-time incentives. The Day 10 email can be your 'break-up' email."
+        },
+        { 
+          text: "At end of workflow, add HTTP Request node → Method: POST to your onboarding workflow's webhook URL → Pass client data: name, email, package selected, signed date, start date",
+          proTip: "Include a small delay (1-2 hours) before triggering onboarding to allow for payment processing. Log the handoff in your CRM for audit trails. Send an internal 'New Client!' celebration notification."
+        }
       ]
     },
     {
@@ -272,12 +364,35 @@ Key Nodes: HTTP Request, AI, PandaDoc API, Gmail, Wait, IF`,
 Trigger: Webhook (document signed)
 Key Nodes: Stripe, Gmail, Google Drive, Airtable, Slack`,
       setupSteps: [
-        { text: "In n8n Credentials, add Stripe → Get API keys from Stripe Dashboard > Developers > API Keys → Use 'Secret key' (starts with sk_) → For testing, use test mode keys first to verify workflow", links: [{ label: "Stripe", url: "https://stripe.com" }, { label: "n8n", url: "https://n8n.io" }] },
-        { text: "In PandaDoc, go to Settings > Integrations > Webhooks → Add n8n webhook URL → Select event: 'document.completed' → In n8n, parse webhook payload to extract client details and document data", links: [{ label: "PandaDoc", url: "https://www.pandadoc.com" }, { label: "DocuSign", url: "https://www.docusign.com" }] },
-        { text: "Draft welcome email: Subject: 'Welcome to [Your Company]!' → Include: Login credentials placeholder, next steps checklist (5 items), support contact, link to onboarding portal, calendar link for kickoff call" },
-        { text: "Create a 'Clients' folder in Google Drive → Create template subfolder structure: /Contracts, /Invoices, /Deliverables, /Communication → In n8n, use Google Drive node to copy template folder and rename with client name", links: [{ label: "Google Drive", url: "https://drive.google.com" }] },
-        { text: "Create new Airtable base → Add tables: Clients (name, email, package, start date, MRR), Invoices (client link, amount, status, date), Health Scores (client link, score, last updated) → Link tables via relationships", links: [{ label: "Airtable", url: "https://airtable.com" }] },
-        { text: "In Slack, create #closed-won channel → In n8n Slack node, use chat.postMessage → Template: 'New client! 🎉 {{clientName}} signed for {{packageName}} - ${{dealValue}}/mo' → Optionally @mention the sales rep", links: [{ label: "Slack", url: "https://slack.com" }] }
+        { 
+          text: "In n8n Credentials, add Stripe → Get API keys from Stripe Dashboard > Developers > API Keys → Use 'Secret key' (starts with sk_) → For testing, use test mode keys first to verify workflow", 
+          links: [{ label: "Stripe", url: "https://stripe.com" }, { label: "n8n", url: "https://n8n.io" }],
+          proTip: "Always test with Stripe test mode first (test keys start with sk_test_). Use Stripe's test card numbers for various scenarios: 4242424242424242 (success), 4000000000000002 (decline). Enable webhook signature verification for security."
+        },
+        { 
+          text: "In PandaDoc, go to Settings > Integrations > Webhooks → Add n8n webhook URL → Select event: 'document.completed' → In n8n, parse webhook payload to extract client details and document data", 
+          links: [{ label: "PandaDoc", url: "https://www.pandadoc.com" }, { label: "DocuSign", url: "https://www.docusign.com" }],
+          proTip: "Add a 5-minute delay after document.completed to allow for any internal processing. Verify the signature is authentic by checking the signer's email matches your expected contact. Archive the signed PDF to Google Drive immediately."
+        },
+        { 
+          text: "Draft welcome email: Subject: 'Welcome to [Your Company]!' → Include: Login credentials placeholder, next steps checklist (5 items), support contact, link to onboarding portal, calendar link for kickoff call",
+          proTip: "Send the welcome email from a personal address (not no-reply@) for better deliverability. Include a direct phone number for urgent questions. Add a 'Reply to this email to confirm receipt' CTA to verify engagement."
+        },
+        { 
+          text: "Create a 'Clients' folder in Google Drive → Create template subfolder structure: /Contracts, /Invoices, /Deliverables, /Communication → In n8n, use Google Drive node to copy template folder and rename with client name", 
+          links: [{ label: "Google Drive", url: "https://drive.google.com" }],
+          proTip: "Use a naming convention like '2024-01_ClientName' for easy sorting. Set folder permissions to 'Viewer' for clients, 'Editor' for team. Create a README file in each client folder with key contacts and project scope."
+        },
+        { 
+          text: "Create new Airtable base → Add tables: Clients (name, email, package, start date, MRR), Invoices (client link, amount, status, date), Health Scores (client link, score, last updated) → Link tables via relationships", 
+          links: [{ label: "Airtable", url: "https://airtable.com" }],
+          proTip: "Add a 'Lifetime Value' rollup field that sums all invoice amounts per client. Create filtered views for 'Active Clients', 'At Risk', and 'Churned'. Use Airtable's Gantt view for visualizing onboarding timelines."
+        },
+        { 
+          text: "In Slack, create #closed-won channel → In n8n Slack node, use chat.postMessage → Template: 'New client! 🎉 {{clientName}} signed for {{packageName}} - ${{dealValue}}/mo' → Optionally @mention the sales rep", 
+          links: [{ label: "Slack", url: "https://slack.com" }],
+          proTip: "Include a celebration GIF using Slack's /giphy integration. Pin closed-won messages monthly for team motivation. Create a running count of deals closed this month in the channel topic."
+        }
       ]
     },
     {
@@ -321,12 +436,33 @@ Key Nodes: Stripe, Gmail, Google Drive, Airtable, Slack`,
 Trigger: Schedule Trigger (weekly)
 Key Nodes: Airtable, HTTP Request, IF, Gmail, Typeform, Slack`,
       setupSteps: [
-        { text: "Add fields to Airtable Clients table: Last Login (date), Feature Usage % (number), Support Tickets (number), NPS Score (number), Health Score (formula) → Formula: (Usage*0.4 + Engagement*0.3 + Satisfaction*0.3)", links: [{ label: "Airtable", url: "https://airtable.com" }] },
-        { text: "Create new Typeform → Add NPS question (0-10 scale): 'How likely are you to recommend us?' → Follow-up: 'What's the main reason for your score?' → Add hidden field client_id to track responses", links: [{ label: "Typeform", url: "https://www.typeform.com" }] },
-        { text: "In n8n Set node, calculate score: loginScore (7 days = 3, 14 days = 2, 30 days = 1, else 0) + usageScore (>80% = 3, >50% = 2, >20% = 1) + ticketScore (0 = 2, 1-2 = 1, 3+ = 0) → Divide by 8 and multiply by 10" },
-        { text: "Create 3 check-in templates: At-risk (score <6): 'We noticed you haven't logged in - can we help?' → Healthy (6-8): 'Quick check-in - how's everything going?' → Champions (9-10): 'You're getting great results! Would you share a testimonial?'" },
-        { text: "Set up renewal sequence: 60 days out → Internal alert to account manager → 45 days → Email about upcoming renewal → 30 days → Send renewal proposal with usage stats → 14 days → Schedule call if not renewed" },
-        { text: "Create Google Sheet with tabs: Overview (MRR, churn rate, NPS avg), Client List (health scores, renewal dates), Trends (monthly charts) → Use n8n to append data weekly → Add charts using built-in graphing", links: [{ label: "Google Sheets", url: "https://sheets.google.com" }] }
+        { 
+          text: "Add fields to Airtable Clients table: Last Login (date), Feature Usage % (number), Support Tickets (number), NPS Score (number), Health Score (formula) → Formula: (Usage*0.4 + Engagement*0.3 + Satisfaction*0.3)", 
+          links: [{ label: "Airtable", url: "https://airtable.com" }],
+          proTip: "Pull login data from your app's analytics API (Mixpanel, Amplitude, or custom). Weight recent activity higher—a login yesterday is worth more than one last week. Create an 'Intervention Required' view for scores below 5."
+        },
+        { 
+          text: "Create new Typeform → Add NPS question (0-10 scale): 'How likely are you to recommend us?' → Follow-up: 'What's the main reason for your score?' → Add hidden field client_id to track responses", 
+          links: [{ label: "Typeform", url: "https://www.typeform.com" }],
+          proTip: "Send NPS surveys at consistent intervals (quarterly works well). Keep the survey to 3 questions max for better completion rates. Segment responses by customer tier—enterprise feedback may differ from SMB."
+        },
+        { 
+          text: "In n8n Set node, calculate score: loginScore (7 days = 3, 14 days = 2, 30 days = 1, else 0) + usageScore (>80% = 3, >50% = 2, >20% = 1) + ticketScore (0 = 2, 1-2 = 1, 3+ = 0) → Divide by 8 and multiply by 10",
+          proTip: "Track score trends over time, not just current scores—a dropping score is an early warning sign. Negative ticket sentiment (angry tone) should count as -1 regardless of count. Adjust thresholds based on your actual churn data."
+        },
+        { 
+          text: "Create 3 check-in templates: At-risk (score <6): 'We noticed you haven't logged in - can we help?' → Healthy (6-8): 'Quick check-in - how's everything going?' → Champions (9-10): 'You're getting great results! Would you share a testimonial?'",
+          proTip: "At-risk emails should offer a free consultation call, not just ask what's wrong. For champions, make the testimonial request specific: 'A 2-sentence quote about [specific benefit]'. Include an incentive for referrals."
+        },
+        { 
+          text: "Set up renewal sequence: 60 days out → Internal alert to account manager → 45 days → Email about upcoming renewal → 30 days → Send renewal proposal with usage stats → 14 days → Schedule call if not renewed",
+          proTip: "Start renewal conversations earlier for enterprise accounts (90+ days). Include a usage summary in renewal emails showing ROI. Offer multi-year discounts to lock in renewals and reduce churn risk."
+        },
+        { 
+          text: "Create Google Sheet with tabs: Overview (MRR, churn rate, NPS avg), Client List (health scores, renewal dates), Trends (monthly charts) → Use n8n to append data weekly → Add charts using built-in graphing", 
+          links: [{ label: "Google Sheets", url: "https://sheets.google.com" }],
+          proTip: "Calculate 'Net Revenue Retention' (NRR) as your north star metric—includes expansion revenue. Create a cohort analysis view to understand retention by signup month. Set up automated email alerts when MRR drops week-over-week."
+        }
       ]
     }
   ];
@@ -1004,27 +1140,46 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                             <ArrowRight className="w-4 h-4 text-primary" />
                             Setup Steps
                           </h4>
-                          <ol className="space-y-2">
+                          <ol className="space-y-3">
                             {stage.setupSteps.map((step, i) => {
                               const completed = isStepCompleted(stage.id, i);
                               return (
-                                <li 
-                                  key={i} 
-                                  className="flex items-start gap-3 text-sm group cursor-pointer"
-                                  onClick={(e) => {
-                                    // Don't toggle if clicking a link
-                                    if ((e.target as HTMLElement).tagName === 'A') return;
-                                    toggleStep(stage.id, i);
-                                  }}
-                                >
-                                  <Checkbox
-                                    checked={completed}
-                                    onCheckedChange={() => toggleStep(stage.id, i)}
-                                    className="mt-0.5"
-                                  />
-                                  <span className={`flex-1 ${completed ? "line-through text-muted-foreground" : ""}`}>
-                                    {renderStepWithLinks(step)}
-                                  </span>
+                                <li key={i} className="space-y-1">
+                                  <div 
+                                    className="flex items-start gap-3 text-sm group cursor-pointer"
+                                    onClick={(e) => {
+                                      // Don't toggle if clicking a link or collapsible trigger
+                                      if ((e.target as HTMLElement).tagName === 'A') return;
+                                      if ((e.target as HTMLElement).closest('[data-pro-tip-trigger]')) return;
+                                      toggleStep(stage.id, i);
+                                    }}
+                                  >
+                                    <Checkbox
+                                      checked={completed}
+                                      onCheckedChange={() => toggleStep(stage.id, i)}
+                                      className="mt-0.5"
+                                    />
+                                    <span className={`flex-1 ${completed ? "line-through text-muted-foreground" : ""}`}>
+                                      {renderStepWithLinks(step)}
+                                    </span>
+                                  </div>
+                                  {step.proTip && (
+                                    <Collapsible>
+                                      <CollapsibleTrigger 
+                                        className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400 hover:text-amber-700 dark:hover:text-amber-300 ml-7 group/tip"
+                                        data-pro-tip-trigger
+                                      >
+                                        <Lightbulb className="w-3 h-3" />
+                                        <span>Pro Tip</span>
+                                        <ChevronDown className="w-3 h-3 transition-transform group-data-[state=open]/tip:rotate-180" />
+                                      </CollapsibleTrigger>
+                                      <CollapsibleContent className="ml-7 mt-1.5">
+                                        <div className="text-xs text-muted-foreground bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/50 rounded-md p-2.5 leading-relaxed">
+                                          {step.proTip}
+                                        </div>
+                                      </CollapsibleContent>
+                                    </Collapsible>
+                                  )}
                                 </li>
                               );
                             })}
