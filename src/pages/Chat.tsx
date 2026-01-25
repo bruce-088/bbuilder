@@ -24,7 +24,8 @@ import {
   Eye,
   X,
   MessageSquare,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ArrowUp
 } from "lucide-react";
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
@@ -68,7 +69,9 @@ export default function Chat() {
   const [businessIdeaDialogOpen, setBusinessIdeaDialogOpen] = useState(false);
   const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const [pastedImages, setPastedImages] = useState<{ file: File; preview: string }[]>([]);
+  const [showScrollToTop, setShowScrollToTop] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const footerTextareaRef = useRef<HTMLTextAreaElement>(null);
   const hasGeneratedRef = useRef(false);
@@ -521,6 +524,23 @@ export default function Chat() {
     }
   };
 
+  // Scroll to top functionality
+  useEffect(() => {
+    const mainElement = mainRef.current;
+    if (!mainElement) return;
+
+    const handleScroll = () => {
+      setShowScrollToTop(mainElement.scrollTop > 200);
+    };
+
+    mainElement.addEventListener('scroll', handleScroll);
+    return () => mainElement.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   if (authLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -563,7 +583,7 @@ export default function Chat() {
       </header>
 
       {/* Messages */}
-      <main className="relative z-10 flex-1 overflow-y-auto">
+      <main ref={mainRef} className="relative z-10 flex-1 overflow-y-auto">
         <div className="container mx-auto max-w-5xl px-4 py-6">
           {loading ? (
             <div className="flex items-center justify-center h-64">
@@ -941,6 +961,34 @@ export default function Chat() {
               </TooltipTrigger>
               <TooltipContent side="left">
                 <p>{toolbarExpanded ? "Close quick actions" : "Open quick actions"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Scroll to Top Button */}
+      <AnimatePresence>
+        {showScrollToTop && messages.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed bottom-24 left-6 z-20"
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm border-primary/20 hover:bg-primary/10"
+                  onClick={scrollToTop}
+                >
+                  <ArrowUp className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Scroll to top of conversation</p>
               </TooltipContent>
             </Tooltip>
           </motion.div>
