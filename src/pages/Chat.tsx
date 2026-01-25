@@ -25,7 +25,8 @@ import {
   X,
   MessageSquare,
   Image as ImageIcon,
-  ArrowUp
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
@@ -70,6 +71,7 @@ export default function Chat() {
   const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const [pastedImages, setPastedImages] = useState<{ file: File; preview: string }[]>([]);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
+  const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -123,7 +125,7 @@ export default function Chat() {
   }, [user, id]);
 
   useEffect(() => {
-    scrollToBottom();
+    scrollToMessagesEnd();
   }, [messages]);
 
   // Auto-generate ideas if requested
@@ -134,7 +136,7 @@ export default function Chat() {
     }
   }, [shouldGenerate, loading, messages.length]);
 
-  const scrollToBottom = () => {
+  const scrollToMessagesEnd = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
@@ -524,21 +526,41 @@ export default function Chat() {
     }
   };
 
-  // Scroll to top functionality
+  // Scroll navigation functionality
   useEffect(() => {
     const mainElement = mainRef.current;
     if (!mainElement) return;
 
     const handleScroll = () => {
-      setShowScrollToTop(mainElement.scrollTop > 200);
+      const scrollTop = mainElement.scrollTop;
+      const scrollHeight = mainElement.scrollHeight;
+      const clientHeight = mainElement.clientHeight;
+      
+      // Show scroll-to-top when scrolled down more than 200px
+      setShowScrollToTop(scrollTop > 200);
+      
+      // Show scroll-to-bottom when NOT near the bottom (more than 200px from bottom)
+      const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
+      setShowScrollToBottom(distanceFromBottom > 200);
     };
 
     mainElement.addEventListener('scroll', handleScroll);
+    
+    // Initial check
+    handleScroll();
+    
     return () => mainElement.removeEventListener('scroll', handleScroll);
-  }, []);
+  }, [messages]);
 
   const scrollToTop = () => {
     mainRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const scrollToBottom = () => {
+    mainRef.current?.scrollTo({ 
+      top: mainRef.current.scrollHeight, 
+      behavior: "smooth" 
+    });
   };
 
   if (authLoading) {
@@ -961,6 +983,34 @@ export default function Chat() {
               </TooltipTrigger>
               <TooltipContent side="left">
                 <p>{toolbarExpanded ? "Close quick actions" : "Open quick actions"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Floating Scroll to Bottom Button */}
+      <AnimatePresence>
+        {showScrollToBottom && messages.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.8 }}
+            className="fixed bottom-40 left-6 z-20"
+          >
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  className="rounded-full shadow-lg bg-background/80 backdrop-blur-sm border-primary/20 hover:bg-primary/10"
+                  onClick={scrollToBottom}
+                >
+                  <ArrowDown className="w-5 h-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">
+                <p>Scroll to latest messages</p>
               </TooltipContent>
             </Tooltip>
           </motion.div>
