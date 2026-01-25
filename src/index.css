@@ -193,6 +193,12 @@
 }
 
 @layer utilities {
+  /* Word wrap utility */
+  .overflow-wrap-anywhere {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
   /* Animation utilities */
   .animate-fade-in {
     animation: fadeIn 0.3s ease-out forwards;
