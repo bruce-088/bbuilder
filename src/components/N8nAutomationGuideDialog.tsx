@@ -767,7 +767,13 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
       }));
 
       if (data.status === 'PASS') {
-        toast.success(`Step ${stepIndex + 1} verification passed!`);
+        // Auto-complete step if verification passes
+        if (!isStepCompleted(stageId, stepIndex)) {
+          toggleStep(stageId, stepIndex);
+          toast.success(`Step ${stepIndex + 1} verified & auto-completed! ✓`);
+        } else {
+          toast.success(`Step ${stepIndex + 1} verification passed!`);
+        }
       } else if (data.status === 'NEEDS_ATTENTION') {
         toast.warning(`Step ${stepIndex + 1} needs attention`);
       } else {
@@ -781,6 +787,22 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
       }));
       toast.error('Verification check failed');
     }
+  };
+
+  const resetVerification = (stageId: string, stepIndex: number) => {
+    const key = `${stageId}-${stepIndex}`;
+    setVerificationResults(prev => {
+      const newMap = new Map(prev);
+      newMap.delete(key);
+      return newMap;
+    });
+    
+    // Uncheck the step when resetting
+    if (isStepCompleted(stageId, stepIndex)) {
+      toggleStep(stageId, stepIndex);
+    }
+    
+    toast.info(`Step ${stepIndex + 1} reset - ready to verify again`);
   };
 
   const handleVerifyAllSteps = async (stage: AutomationStage) => {
@@ -1557,28 +1579,63 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                               >
                                                 <Copy className="w-3 h-3" /> Copy Test Prompt
                                               </Button>
-                                              <Button 
-                                                variant="outline" 
-                                                size="sm" 
-                                                className="h-6 text-xs gap-1"
-                                                disabled={verificationResults.get(`${stage.id}-${i}`)?.status === 'loading'}
-                                                onClick={(e) => {
-                                                  e.stopPropagation();
-                                                  handleRetest(stage.id, i, step, stage.title);
-                                                }}
-                                              >
-                                                {verificationResults.get(`${stage.id}-${i}`)?.status === 'loading' ? (
-                                                  <>
-                                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                                    Testing...
-                                                  </>
-                                                ) : (
-                                                  <>
+                                              
+                                              {/* Conditional: Show Verify or Reset+Verify Again based on existing result */}
+                                              {verificationResults.get(`${stage.id}-${i}`) && 
+                                               verificationResults.get(`${stage.id}-${i}`)?.status !== 'loading' ? (
+                                                <>
+                                                  {/* Reset Button - clears result and unchecks step */}
+                                                  <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-6 text-xs gap-1 text-muted-foreground"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      resetVerification(stage.id, i);
+                                                    }}
+                                                  >
+                                                    <XCircle className="w-3 h-3" /> Reset
+                                                  </Button>
+                                                  
+                                                  {/* Verify Again Button */}
+                                                  <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-6 text-xs gap-1"
+                                                    onClick={(e) => {
+                                                      e.stopPropagation();
+                                                      handleRetest(stage.id, i, step, stage.title);
+                                                    }}
+                                                  >
                                                     <RotateCw className="w-3 h-3" />
-                                                    Retest
-                                                  </>
-                                                )}
-                                              </Button>
+                                                    Verify Again
+                                                  </Button>
+                                                </>
+                                              ) : (
+                                                /* Initial Verify Button - no result yet */
+                                                <Button 
+                                                  variant="outline" 
+                                                  size="sm" 
+                                                  className="h-6 text-xs gap-1"
+                                                  disabled={verificationResults.get(`${stage.id}-${i}`)?.status === 'loading'}
+                                                  onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    handleRetest(stage.id, i, step, stage.title);
+                                                  }}
+                                                >
+                                                  {verificationResults.get(`${stage.id}-${i}`)?.status === 'loading' ? (
+                                                    <>
+                                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                                      Verifying...
+                                                    </>
+                                                  ) : (
+                                                    <>
+                                                      <ClipboardCheck className="w-3 h-3" />
+                                                      Verify
+                                                    </>
+                                                  )}
+                                                </Button>
+                                              )}
                                               <FixDiagnosisDialog
                                                 stepText={step.text}
                                                 verificationData={verificationData}
@@ -1607,7 +1664,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                             {verificationResults.get(`${stage.id}-${i}`) && 
                                              verificationResults.get(`${stage.id}-${i}`)?.status !== 'loading' && (
                                               <div className="mt-3 space-y-2 border-t pt-3">
-                                                <div className="flex items-center gap-2">
+                                                <div className="flex items-center gap-2 flex-wrap">
                                                   <Badge 
                                                     variant={
                                                       verificationResults.get(`${stage.id}-${i}`)?.status === 'pass' ? 'default' : 
@@ -1627,6 +1684,14 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                                     {verificationResults.get(`${stage.id}-${i}`)?.status === 'manual' && <ClipboardCheck className="w-3 h-3 mr-1" />}
                                                     {verificationResults.get(`${stage.id}-${i}`)?.status?.toUpperCase()}
                                                   </Badge>
+                                                  
+                                                  {/* Auto-completed indicator */}
+                                                  {verificationResults.get(`${stage.id}-${i}`)?.status === 'pass' && completed && (
+                                                    <span className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                      <Check className="w-3 h-3" />
+                                                      Auto-completed
+                                                    </span>
+                                                  )}
                                                 </div>
                                                 
                                                 {verificationResults.get(`${stage.id}-${i}`)?.summary && (
