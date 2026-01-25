@@ -28,16 +28,16 @@ import {
   DollarSign,
   Zap,
   Bot,
-  Workflow,
   Star,
   MessageSquare,
   Wand2,
   Rocket,
+  Download,
 } from "lucide-react";
-import N8nWorkflowDialog from "./N8nWorkflowDialog";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
 import BusinessIdeaMasterPromptDialog from "./BusinessIdeaMasterPromptDialog";
 import { Json } from "@/integrations/supabase/types";
+import { toast } from "sonner";
 
 interface BusinessIdea {
   id: string;
@@ -123,6 +123,7 @@ export default function BusinessIdeaDialog({
   const [idea, setIdea] = useState<BusinessIdea | null>(null);
   const [completedSteps, setCompletedSteps] = useState<string[]>([]);
   const [savingProgress, setSavingProgress] = useState(false);
+  const [generatingMasterJson, setGeneratingMasterJson] = useState(false);
 
   useEffect(() => {
     if (open && ideaId) {
@@ -232,6 +233,256 @@ export default function BusinessIdeaDialog({
       onFavoriteToggle?.(idea.id, !idea.is_favorite);
     } catch (error) {
       console.error("Error toggling favorite:", error);
+    }
+  };
+
+  // Generate automation stages for master JSON
+  const generateAutomationStages = () => {
+    if (!idea) return [];
+    return [
+      {
+        id: "n8n-prospecting",
+        title: "Lead Prospecting & Discovery",
+        workflowPrompt: `Create an n8n workflow for ${idea.business_name} that:
+1. Runs on a daily schedule at 9 AM
+2. Calls Apollo.io API to search for ${idea.target_audience} in the ${idea.niche} space
+3. Filters leads by company size, industry relevance, and job title
+4. Enriches each lead with Hunter.io to verify email addresses
+5. Scores leads based on fit with ICP
+6. Adds qualified leads to a Google Sheet
+7. Sends a Slack notification with daily prospecting summary`
+      },
+      {
+        id: "n8n-outreach",
+        title: "Outreach & Follow-up",
+        workflowPrompt: `Create an n8n outreach workflow for ${idea.business_name} that:
+1. Triggers when a new lead is added
+2. Sends personalized cold email introducing ${idea.service_offering}
+3. Waits 3 days, then checks for replies
+4. Sends follow-up sequence
+5. Updates CRM with email status`
+      },
+      {
+        id: "n8n-qualification",
+        title: "Qualification & Discovery",
+        workflowPrompt: `Create an n8n qualification workflow for ${idea.business_name} that:
+1. Triggers when someone books a discovery call
+2. Fetches qualification form responses
+3. Scores the lead
+4. Creates a call prep document
+5. Sends personalized confirmation email`
+      },
+      {
+        id: "n8n-proposal",
+        title: "Proposal & Presentation",
+        workflowPrompt: `Create an n8n proposal workflow for ${idea.business_name} that:
+1. Triggers when a call is marked "Qualified"
+2. Uses AI to generate a customized proposal
+3. Creates the proposal in PandaDoc
+4. Sends proposal email with tracking
+5. Monitors for proposal views`
+      },
+      {
+        id: "n8n-closing",
+        title: "Payment & Invoicing",
+        workflowPrompt: `Create an n8n closing workflow for ${idea.business_name} that:
+1. Triggers when a proposal is signed
+2. Creates a Stripe customer
+3. Generates an invoice
+4. Sends payment link
+5. Updates CRM when paid`
+      },
+      {
+        id: "n8n-client-success",
+        title: "Client Success & Retention",
+        workflowPrompt: `Create an n8n client success workflow for ${idea.business_name} that:
+1. Runs weekly to check on clients
+2. Calculates health score
+3. Sends proactive check-in emails for at-risk clients
+4. Sends NPS surveys at milestones
+5. Handles renewal reminders`
+      }
+    ];
+  };
+
+  // JSON extraction helpers
+  const VALID_N8N_NODE_PREFIXES = [
+    'n8n-nodes-base.manualTrigger',
+    'n8n-nodes-base.scheduleTrigger',
+    'n8n-nodes-base.webhook',
+    'n8n-nodes-base.httpRequest',
+    'n8n-nodes-base.set',
+    'n8n-nodes-base.if',
+    'n8n-nodes-base.switch',
+    'n8n-nodes-base.code',
+    'n8n-nodes-base.wait',
+    'n8n-nodes-base.noOp',
+    'n8n-nodes-base.merge',
+    'n8n-nodes-base.gmail',
+    'n8n-nodes-base.slack',
+    'n8n-nodes-base.notion',
+    'n8n-nodes-base.airtable',
+    '@n8n/n8n-nodes-langchain.agent',
+  ];
+
+  const isValidNodeType = (type: string): boolean => {
+    return VALID_N8N_NODE_PREFIXES.some(prefix => type === prefix || type.startsWith(prefix));
+  };
+
+  const extractN8nWorkflowJson = (markdownContent: string, businessName: string): object | null => {
+    const jsonBlockRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
+    const matches = [...markdownContent.matchAll(jsonBlockRegex)];
+    
+    let bestWorkflow: Record<string, unknown> | null = null;
+    let bestScore = 0;
+    
+    for (const match of matches) {
+      try {
+        const jsonContent = match[1].trim();
+        const parsed = JSON.parse(jsonContent) as Record<string, unknown>;
+        
+        if (!parsed || !Array.isArray(parsed.nodes)) continue;
+        
+        const nodes = parsed.nodes as Array<{ type?: string; name?: string }>;
+        
+        let score = nodes.length;
+        if (parsed.connections) score += 10;
+        if (parsed.settings) score += 5;
+        if (parsed.name) score += 5;
+        
+        const validNodeCount = nodes.filter(n => n.type && isValidNodeType(n.type)).length;
+        score += validNodeCount * 2;
+        
+        if (score > bestScore) {
+          bestWorkflow = parsed;
+          bestScore = score;
+        }
+      } catch {
+        continue;
+      }
+    }
+    
+    if (bestWorkflow) {
+      if (!bestWorkflow.connections) bestWorkflow.connections = {};
+      if (!bestWorkflow.settings) bestWorkflow.settings = { executionOrder: "v1" };
+      if (!bestWorkflow.name) bestWorkflow.name = `${businessName} Automation`;
+      if (bestWorkflow.active === undefined) bestWorkflow.active = false;
+    }
+    
+    return bestWorkflow;
+  };
+
+  const downloadMasterWorkflowJson = async () => {
+    if (!idea) return;
+    
+    setGeneratingMasterJson(true);
+    try {
+      toast.info("Generating master workflow... This may take up to 60 seconds.");
+      
+      const stages = generateAutomationStages();
+      
+      const stagePromises = stages.map((stage, index) => 
+        supabase.functions.invoke("generate-n8n-workflow-from-prompt", {
+          body: { 
+            workflowPrompt: stage.workflowPrompt,
+            stageName: stage.title,
+            businessName: idea.business_name
+          },
+        }).then(({ data, error }) => {
+          if (error) throw error;
+          const workflow = extractN8nWorkflowJson(data.content, idea.business_name);
+          return { stage, index, workflow };
+        }).catch(err => {
+          console.error(`Error generating workflow for stage ${stage.title}:`, err);
+          return { stage, index, workflow: null };
+        })
+      );
+
+      const results = await Promise.all(stagePromises);
+      const successfulWorkflows = results.filter(r => r.workflow !== null);
+      
+      if (successfulWorkflows.length === 0) {
+        toast.error("Failed to generate any workflows. Please try again.");
+        return;
+      }
+
+      const allNodes: Array<{
+        id: string;
+        name: string;
+        type: string;
+        position: [number, number];
+        [key: string]: unknown;
+      }> = [];
+      const allConnections: Record<string, unknown> = {};
+      
+      successfulWorkflows.forEach(({ index, workflow }) => {
+        if (!workflow) return;
+        
+        const workflowData = workflow as { 
+          nodes?: Array<{ id: string; name: string; type: string; position: [number, number]; [key: string]: unknown }>; 
+          connections?: Record<string, unknown> 
+        };
+        const nodes = workflowData.nodes || [];
+        const connections = workflowData.connections || {};
+        
+        const yOffset = index * 400;
+        const nodeIdMap: Record<string, string> = {};
+        
+        nodes.forEach((node) => {
+          const newId = `stage${index + 1}_${node.id}`;
+          nodeIdMap[node.id] = newId;
+          
+          allNodes.push({
+            ...node,
+            id: newId,
+            name: `[Stage ${index + 1}] ${node.name}`,
+            position: [node.position[0], node.position[1] + yOffset] as [number, number],
+          });
+        });
+        
+        Object.entries(connections).forEach(([sourceNode, targets]) => {
+          const newSourceNode = nodeIdMap[sourceNode] || sourceNode;
+          const updatedTargets: Record<string, Array<Array<{ node: string; type: string; index: number }>>> = {};
+          
+          Object.entries(targets as Record<string, Array<Array<{ node: string; type: string; index: number }>>>).forEach(([outputType, connectionArray]) => {
+            updatedTargets[outputType] = (connectionArray as Array<Array<{ node: string; type: string; index: number }>>).map((connGroup) =>
+              connGroup.map((conn) => ({
+                ...conn,
+                node: nodeIdMap[conn.node] || conn.node,
+              }))
+            );
+          });
+          
+          allConnections[newSourceNode] = updatedTargets;
+        });
+      });
+
+      const masterWorkflow = {
+        name: `${idea.business_name} - Complete Sales Automation`,
+        nodes: allNodes,
+        connections: allConnections,
+        settings: { executionOrder: "v1" },
+        active: false
+      };
+
+      const blob = new Blob([JSON.stringify(masterWorkflow, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `n8n-master-workflow-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast.success(
+        `Master workflow downloaded! Includes ${successfulWorkflows.length}/${stages.length} stages. Import via File → Import from File in n8n.`
+      );
+    } catch (error) {
+      console.error("Error generating master workflow:", error);
+      toast.error("Failed to generate master workflow. Please try again.");
+    } finally {
+      setGeneratingMasterJson(false);
     }
   };
 
@@ -392,16 +643,19 @@ export default function BusinessIdeaDialog({
                   </Button>
                 }
               />
-              <N8nWorkflowDialog
-                businessIdeaId={idea.id}
-                businessName={idea.business_name}
-                trigger={
-                  <Button variant="outline" className="w-full gap-2">
-                    <Workflow className="w-4 h-4" />
-                    Generate n8n Workflow
-                  </Button>
-                }
-              />
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                disabled={generatingMasterJson}
+                onClick={downloadMasterWorkflowJson}
+              >
+                {generatingMasterJson ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {generatingMasterJson ? "Generating..." : "Download Master JSON"}
+              </Button>
               <BusinessIdeaMasterPromptDialog
                 businessIdea={{
                   id: idea.id,
