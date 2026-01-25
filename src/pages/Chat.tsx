@@ -576,7 +576,7 @@ export default function Chat() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
       {/* Background glow effect */}
       <div className="fixed inset-0 bg-gradient-glow opacity-50 pointer-events-none" />
 
