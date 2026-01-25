@@ -19,33 +19,33 @@ export default function Landing() {
   const features = [
     {
       icon: Sparkles,
-      title: "AI-Powered Ideas",
-      description: "Generate 5 turn-key business concepts tailored for solopreneurs and introverts",
+      title: "Effortless Ideas",
+      description: "Mya generates turn-key business concepts—you just pick your favorite",
     },
     {
       icon: Target,
-      title: "$10K/Month Blueprint",
-      description: "Clear revenue math and pricing strategies to reach your income goals",
+      title: "$10K/Month Awaits",
+      description: "Clear revenue math shows exactly how you'll hit your goal (it's simpler than you think!)",
     },
     {
       icon: Zap,
-      title: "Fast Validation",
-      description: "Get your first paying customer in 2-4 weeks with proven strategies",
+      title: "Quick Wins",
+      description: "Land your first paying customer in 2-4 weeks—we make it feel like a game",
     },
     {
       icon: Bot,
-      title: "AI Automation",
-      description: "Ready-to-use prompts for automating sales, prospecting, and client management",
+      title: "AI Does the Work",
+      description: "Ready-to-use automation that practically runs your business for you",
     },
     {
       icon: Users,
-      title: "Introvert-Friendly",
-      description: "Business models that minimize cold calling and maximize relationship value",
+      title: "Built for You",
+      description: "Perfect for introverts—no cold calling, just genuine connections",
     },
     {
       icon: TrendingUp,
-      title: "Scalable Systems",
-      description: "Build once, earn repeatedly without proportional time investment",
+      title: "Grow on Autopilot",
+      description: "Build once, earn repeatedly—more income, less hustle",
     },
   ];
 
@@ -97,14 +97,14 @@ export default function Landing() {
             </div>
             
             <h1 className="font-display text-5xl md:text-7xl font-bold mb-6 leading-tight">
-              Turn Your Ideas Into
+              Your <span className="text-gradient-primary">$10K/Month</span>
               <br />
-              <span className="text-gradient-primary">$10K/Month</span> Businesses
+              Business is Waiting
             </h1>
             
             <p className="text-xl text-muted-foreground mb-10 max-w-2xl mx-auto">
-              AI-generated business concepts designed for solopreneurs and introverts. 
-              Complete with revenue math, validation paths, and automation strategies.
+              Let Mya make it effortless—and fun. Complete business plans with 
+              revenue math, validation paths, and automation that runs itself.
             </p>
             
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -140,10 +140,10 @@ export default function Landing() {
             className="text-center mb-16"
           >
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
-              Everything You Need to Launch
+              Success Made Simple
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              From ideation to automation, Mya provides the complete blueprint for your online business success.
+              Everything you need, nothing you don't. Mya handles the complexity so you can enjoy the journey.
             </p>
           </motion.div>
 
@@ -179,10 +179,10 @@ export default function Landing() {
             className="max-w-3xl mx-auto text-center glass rounded-2xl p-12"
           >
             <h2 className="font-display text-3xl md:text-4xl font-bold mb-4">
-              Ready to Build Your Dream Business?
+              Ready for the Fun Part?
             </h2>
             <p className="text-muted-foreground text-lg mb-8">
-              Join thousands of solopreneurs who've discovered their perfect business idea with IdeaForge.
+              Join thousands of solopreneurs who discovered that building a business can actually be enjoyable.
             </p>
             <Button
               onClick={handleGetStarted}
@@ -190,7 +190,7 @@ export default function Landing() {
               className="bg-gradient-accent text-accent-foreground hover:opacity-90 text-lg px-8 py-6 glow-accent btn-glow"
             >
               <Zap className="w-5 h-5 mr-2" />
-              Start Free Today
+              Let's Have Some Fun
             </Button>
           </motion.div>
         </div>
@@ -199,7 +199,7 @@ export default function Landing() {
       {/* Footer */}
       <footer className="relative z-10 border-t border-border/50 py-8">
         <div className="container mx-auto px-6 text-center text-muted-foreground">
-          <p>© 2026 IdeaForge. Built for dreamers, designed for doers.</p>
+          <p>© 2026 Mya. Where success feels effortless and the journey is the reward.</p>
         </div>
       </footer>
     </div>

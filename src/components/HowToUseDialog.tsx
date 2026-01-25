@@ -26,52 +26,52 @@ interface HowToUseDialogProps {
 const steps = [
   {
     icon: MessageSquare,
-    title: "1. Start a Conversation with Mya",
-    description: "Click 'New Chat' to begin brainstorming with Mya, your AI business consultant. Share your interests, skills, and goals to get personalized business ideas.",
+    title: "1. Chat with Mya (The Fun Part!)",
+    description: "Click 'New Chat' and tell Mya about yourself. She'll make the whole process feel like a friendly conversation, not homework.",
     tips: [
-      "Be specific about your background and expertise",
-      "Mention your budget and time constraints",
-      "Share industries you're passionate about"
+      "Just be yourself—there are no wrong answers",
+      "The more you share, the better your plans will fit",
+      "Ask anything—Mya loves to help!"
     ]
   },
   {
     icon: Lightbulb,
-    title: "2. Explore Generated Business Plans",
-    description: "Mya will generate tailored business plans based on your conversation. Each plan includes a niche, target audience, value proposition, and revenue strategy.",
+    title: "2. Pick Your Favorite Plan",
+    description: "Mya creates tailored business plans just for you. Each one is complete with everything you need—just pick the one that excites you most!",
     tips: [
-      "Ask follow-up questions to refine plans",
-      "Request variations or pivots on concepts you like",
-      "Save promising plans to your dashboard"
+      "Go with your gut—the right plan will feel right",
+      "Not quite perfect? Ask Mya to tweak it",
+      "Save the ones you love to your dashboard"
     ]
   },
   {
     icon: Target,
-    title: "3. Review & Compare Plans",
-    description: "Access saved plans from your dashboard. Use the compare feature to evaluate multiple plans side-by-side and identify the best opportunity.",
+    title: "3. Compare & Choose (Easy!)",
+    description: "Can't decide? Compare your saved plans side-by-side. Mya makes it simple to see which opportunity is your best fit.",
     tips: [
-      "Star your favorite plans for quick access",
-      "Use the comparison tool for detailed analysis",
-      "Review the AI automation strategy for each plan"
+      "Star your favorites for quick access",
+      "The comparison tool shows you everything at a glance",
+      "Trust your instincts—you know what's right for you"
     ]
   },
   {
     icon: Settings,
-    title: "4. Generate Implementation Resources",
-    description: "For each business plan, generate detailed implementation guides, n8n automation workflows, and master prompts to accelerate your launch.",
+    title: "4. Unlock Your Superpowers",
+    description: "Each plan comes with implementation guides and automation workflows. It's like having a team working for you—on autopilot!",
     tips: [
-      "Use the 'Full Automation Setup Guide' for step-by-step setup",
-      "Generate n8n workflows for sales automation",
-      "Export the Master Prompt for use in other AI tools"
+      "The automation guide walks you through everything",
+      "n8n workflows do the heavy lifting for you",
+      "Export prompts to use with any AI tool"
     ]
   },
   {
     icon: Rocket,
-    title: "5. Track Your Progress",
-    description: "Use the Quick Start Checklist and implementation guides to track your progress. Mark steps as complete to stay organized and motivated.",
+    title: "5. Watch Your Progress Grow",
+    description: "The Quick Start Checklist makes progress visible and fun. Check things off and celebrate each win on your way to your first customer!",
     tips: [
-      "Complete the 5 validation milestones first",
-      "Focus on getting your first paying customer",
-      "Iterate based on real customer feedback"
+      "Each checkbox is a mini celebration 🎉",
+      "Focus on one step at a time—no rush",
+      "You're closer than you think!"
     ]
   }
 ];
@@ -87,10 +87,10 @@ export default function HowToUseDialog({ open, onOpenChange, onRestartTour }: Ho
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
             <CheckCircle2 className="w-6 h-6 text-primary" />
-            How to Get the Most Value
+            Your Path to Success
           </DialogTitle>
           <DialogDescription>
-            Follow these steps to go from idea to your first paying customer
+            It's easier than you think—just follow these fun steps!
           </DialogDescription>
         </DialogHeader>
         
@@ -130,12 +130,12 @@ export default function HowToUseDialog({ open, onOpenChange, onRestartTour }: Ho
             
             <div className="mt-6 p-4 bg-primary/5 rounded-lg border border-primary/20">
               <h4 className="font-medium text-foreground mb-2">
-                💡 Quick Start Recommendation
+                ✨ The Best Part?
               </h4>
               <p className="text-sm text-muted-foreground">
-                Start with a 10-minute conversation with Mya about your skills and interests. 
-                Don't overthink it – the best insights often come from casual exploration. 
-                You can always refine ideas later!
+                There's no wrong way to start! Just have a 10-minute chat with Mya about what excites you. 
+                She'll handle the rest. No pressure, no stress—just exploration and fun. 
+                Your $10K/month business is already waiting!
               </p>
             </div>
 
