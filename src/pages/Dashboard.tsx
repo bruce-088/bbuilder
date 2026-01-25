@@ -1198,8 +1198,8 @@ export default function Dashboard() {
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                 </div>
               ) : filteredIdeas.length > 0 ? (
-                <ScrollArea className="h-[420px]">
-                  <div className="space-y-3 pr-4">
+                <ScrollArea className="h-[420px] pr-3">
+                  <div className="space-y-3">
                     {filteredIdeas.map((idea) => (
                       <Card 
                         key={idea.id} 
