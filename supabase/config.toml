@@ -14,3 +14,6 @@ verify_jwt = false
 
 [functions.diagnose-fix]
 verify_jwt = false
+
+[functions.verify-step]
+verify_jwt = false

@@ -43,7 +43,9 @@ import {
   CheckCircle2,
   XCircle,
   ClipboardCheck,
-  Wrench
+  Wrench,
+  RotateCw,
+  AlertCircle
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
@@ -596,6 +598,13 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const [isLoading, setIsLoading] = useState(false);
   const [generatingJsonFor, setGeneratingJsonFor] = useState<string | null>(null);
   const [generatingMasterJson, setGeneratingMasterJson] = useState(false);
+  const [verificationResults, setVerificationResults] = useState<Map<string, {
+    status: 'loading' | 'pass' | 'attention' | 'manual';
+    summary?: string;
+    checklist?: Array<{ item: string; status: string; howToVerify?: string }>;
+    suggestions?: string[];
+    commonMistakes?: string[];
+  }>>(new Map());
 
   const stages = generateAutomationStages(businessIdea);
 
@@ -640,6 +649,57 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const handleExportForAI = () => {
     setOpen(false);
     navigate("/export-computer-use-prompt");
+  };
+
+  const handleRetest = async (
+    stageId: string,
+    stepIndex: number,
+    step: SetupStep,
+    stageTitle: string
+  ) => {
+    const key = `${stageId}-${stepIndex}`;
+    setVerificationResults(prev => new Map(prev).set(key, { status: 'loading' }));
+
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-step', {
+        body: {
+          stepText: step.text,
+          verificationData: step.verification,
+          stageTitle,
+          businessContext: {
+            businessName: businessIdea.businessName,
+            niche: businessIdea.niche,
+            targetAudience: businessIdea.targetAudience
+          }
+        }
+      });
+
+      if (error) throw error;
+
+      const status = (data.status as string)?.toLowerCase().replace('_', '') || 'manual';
+      setVerificationResults(prev => new Map(prev).set(key, {
+        status: status === 'pass' ? 'pass' : status === 'needs_attention' || status === 'needsattention' ? 'attention' : 'manual',
+        summary: data.summary,
+        checklist: data.checklist,
+        suggestions: data.suggestions,
+        commonMistakes: data.commonMistakes
+      }));
+
+      if (data.status === 'PASS') {
+        toast.success(`Step ${stepIndex + 1} verification passed!`);
+      } else if (data.status === 'NEEDS_ATTENTION') {
+        toast.warning(`Step ${stepIndex + 1} needs attention`);
+      } else {
+        toast.info(`Step ${stepIndex + 1} requires manual verification`);
+      }
+    } catch (err) {
+      console.error('Verification error:', err);
+      setVerificationResults(prev => new Map(prev).set(key, {
+        status: 'manual',
+        summary: 'Unable to verify automatically. Please check manually using the criteria above.'
+      }));
+      toast.error('Verification check failed');
+    }
   };
 
   const downloadMasterWorkflowJson = async () => {
@@ -1215,7 +1275,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                                 {verificationData.failureIndicators.slice(0, 2).map((f, idx) => <li key={idx}>• {f}</li>)}
                                               </ul>
                                             </div>
-                                            <div className="flex gap-2 mt-2">
+                                            <div className="flex flex-wrap gap-2 mt-2">
                                               <Button 
                                                 variant="outline" 
                                                 size="sm" 
@@ -1233,6 +1293,28 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                                 }}
                                               >
                                                 <Copy className="w-3 h-3" /> Copy Test Prompt
+                                              </Button>
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-6 text-xs gap-1"
+                                                disabled={verificationResults.get(`${stage.id}-${i}`)?.status === 'loading'}
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  handleRetest(stage.id, i, step, stage.title);
+                                                }}
+                                              >
+                                                {verificationResults.get(`${stage.id}-${i}`)?.status === 'loading' ? (
+                                                  <>
+                                                    <Loader2 className="w-3 h-3 animate-spin" />
+                                                    Testing...
+                                                  </>
+                                                ) : (
+                                                  <>
+                                                    <RotateCw className="w-3 h-3" />
+                                                    Retest
+                                                  </>
+                                                )}
                                               </Button>
                                               <FixDiagnosisDialog
                                                 stepText={step.text}
@@ -1257,6 +1339,74 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                                 }
                                               />
                                             </div>
+                                            
+                                            {/* Verification Result Display */}
+                                            {verificationResults.get(`${stage.id}-${i}`) && 
+                                             verificationResults.get(`${stage.id}-${i}`)?.status !== 'loading' && (
+                                              <div className="mt-3 space-y-2 border-t pt-3">
+                                                <div className="flex items-center gap-2">
+                                                  <Badge 
+                                                    variant={
+                                                      verificationResults.get(`${stage.id}-${i}`)?.status === 'pass' ? 'default' : 
+                                                      verificationResults.get(`${stage.id}-${i}`)?.status === 'attention' ? 'secondary' : 
+                                                      'outline'
+                                                    } 
+                                                    className={
+                                                      verificationResults.get(`${stage.id}-${i}`)?.status === 'pass' 
+                                                        ? 'bg-green-500 text-white' 
+                                                        : verificationResults.get(`${stage.id}-${i}`)?.status === 'attention'
+                                                        ? 'bg-yellow-500 text-white'
+                                                        : ''
+                                                    }
+                                                  >
+                                                    {verificationResults.get(`${stage.id}-${i}`)?.status === 'pass' && <CheckCircle2 className="w-3 h-3 mr-1" />}
+                                                    {verificationResults.get(`${stage.id}-${i}`)?.status === 'attention' && <AlertCircle className="w-3 h-3 mr-1" />}
+                                                    {verificationResults.get(`${stage.id}-${i}`)?.status === 'manual' && <ClipboardCheck className="w-3 h-3 mr-1" />}
+                                                    {verificationResults.get(`${stage.id}-${i}`)?.status?.toUpperCase()}
+                                                  </Badge>
+                                                </div>
+                                                
+                                                {verificationResults.get(`${stage.id}-${i}`)?.summary && (
+                                                  <p className="text-xs text-muted-foreground">
+                                                    {verificationResults.get(`${stage.id}-${i}`)?.summary}
+                                                  </p>
+                                                )}
+                                                
+                                                {verificationResults.get(`${stage.id}-${i}`)?.checklist && 
+                                                 verificationResults.get(`${stage.id}-${i}`)!.checklist!.length > 0 && (
+                                                  <div className="space-y-1.5">
+                                                    <p className="text-xs font-medium">Verification Checklist:</p>
+                                                    <ul className="text-xs space-y-1">
+                                                      {verificationResults.get(`${stage.id}-${i}`)!.checklist!.map((item, idx) => (
+                                                        <li key={idx} className="flex items-start gap-1.5">
+                                                          {item.status === 'check' && <CheckCircle2 className="w-3 h-3 text-green-500 mt-0.5 shrink-0" />}
+                                                          {item.status === 'warning' && <AlertCircle className="w-3 h-3 text-yellow-500 mt-0.5 shrink-0" />}
+                                                          {item.status === 'error' && <XCircle className="w-3 h-3 text-destructive mt-0.5 shrink-0" />}
+                                                          <div>
+                                                            <span>{item.item}</span>
+                                                            {item.howToVerify && (
+                                                              <p className="text-muted-foreground mt-0.5">{item.howToVerify}</p>
+                                                            )}
+                                                          </div>
+                                                        </li>
+                                                      ))}
+                                                    </ul>
+                                                  </div>
+                                                )}
+                                                
+                                                {verificationResults.get(`${stage.id}-${i}`)?.suggestions && 
+                                                 verificationResults.get(`${stage.id}-${i}`)!.suggestions!.length > 0 && (
+                                                  <div className="bg-muted/50 rounded p-2">
+                                                    <p className="text-xs font-medium mb-1">💡 Suggestions:</p>
+                                                    <ul className="text-xs text-muted-foreground space-y-0.5">
+                                                      {verificationResults.get(`${stage.id}-${i}`)!.suggestions!.map((s, idx) => (
+                                                        <li key={idx}>• {s}</li>
+                                                      ))}
+                                                    </ul>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
                                           </div>
                                         </CollapsibleContent>
                                       </Collapsible>
