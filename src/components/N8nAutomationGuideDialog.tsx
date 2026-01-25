@@ -662,6 +662,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const [generatingJsonFor, setGeneratingJsonFor] = useState<string | null>(null);
   const [generatingMasterJson, setGeneratingMasterJson] = useState(false);
   const [verifyingAllStages, setVerifyingAllStages] = useState(false);
+  const [verifyingStageId, setVerifyingStageId] = useState<string | null>(null);
   const [verificationResults, setVerificationResults] = useState<Map<string, {
     status: 'loading' | 'pass' | 'attention' | 'manual';
     summary?: string;
@@ -763,6 +764,35 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
         summary: 'Unable to verify automatically. Please check manually using the criteria above.'
       }));
       toast.error('Verification check failed');
+    }
+  };
+
+  const handleVerifyAllSteps = async (stage: AutomationStage) => {
+    setVerifyingStageId(stage.id);
+    toast.info(`Running verification for all ${stage.title} steps...`);
+    
+    for (let i = 0; i < stage.setupSteps.length; i++) {
+      const step = stage.setupSteps[i];
+      await handleRetest(stage.id, i, step, stage.title);
+      
+      // Small delay between requests to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    // Count passes after all verifications complete
+    let passCount = 0;
+    for (let i = 0; i < stage.setupSteps.length; i++) {
+      const result = verificationResults.get(`${stage.id}-${i}`);
+      if (result?.status === 'pass') passCount++;
+    }
+    
+    setVerifyingStageId(null);
+    
+    const totalChecks = stage.setupSteps.length;
+    if (passCount === totalChecks) {
+      toast.success(`All ${totalChecks} steps in ${stage.title} verified! 🎉`);
+    } else {
+      toast.warning(`${passCount}/${totalChecks} steps passed. Review the results below.`);
     }
   };
 
@@ -1526,13 +1556,40 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                           </ol>
                         </div>
 
+                        {/* Verify All Steps Button (All Stages) */}
+                        <div className="pt-4 border-t">
+                          <div className="flex items-center gap-3 flex-wrap">
+                            <Button
+                              onClick={() => handleVerifyAllSteps(stage)}
+                              disabled={verifyingStageId === stage.id || verifyingAllStages}
+                              variant="outline"
+                              className="gap-2"
+                            >
+                              {verifyingStageId === stage.id ? (
+                                <>
+                                  <Loader2 className="w-4 h-4 animate-spin" />
+                                  Verifying Steps...
+                                </>
+                              ) : (
+                                <>
+                                  <RotateCw className="w-4 h-4" />
+                                  Verify All Steps
+                                </>
+                              )}
+                            </Button>
+                            <span className="text-xs text-muted-foreground">
+                              Runs AI verification on all {stage.setupSteps.length} setup steps
+                            </span>
+                          </div>
+                        </div>
+
                         {/* Verify All Stages Button (Master Stage Only) */}
                         {isMasterStage && (
-                          <div className="pt-4 border-t">
+                          <div className="pt-4">
                             <div className="flex items-center gap-3 flex-wrap">
                               <Button
                                 onClick={() => handleVerifyAllStages(stage)}
-                                disabled={verifyingAllStages}
+                                disabled={verifyingAllStages || verifyingStageId !== null}
                                 variant="default"
                                 className="gap-2"
                               >
