@@ -782,20 +782,27 @@ export default function BusinessIdeaDialog({
                 </div>
                 <div className="flex items-center gap-1">
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        disabled={generatingPdf || generatingBundle}
-                        className="flex-shrink-0"
-                      >
-                        {generatingPdf || generatingBundle ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <Download className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
-                        )}
-                      </Button>
-                    </DropdownMenuTrigger>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            disabled={generatingPdf || generatingBundle}
+                            className="flex-shrink-0"
+                          >
+                            {generatingPdf || generatingBundle ? (
+                              <Loader2 className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <Download className="w-5 h-5 text-muted-foreground hover:text-primary transition-colors" />
+                            )}
+                          </Button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Download business plan or automation bundle</p>
+                      </TooltipContent>
+                    </Tooltip>
                     <DropdownMenuContent align="end">
                       <DropdownMenuItem onClick={handleDownloadPdf} disabled={generatingPdf}>
                         <FileDown className="w-4 h-4 mr-2" />
