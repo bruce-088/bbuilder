@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.generate-n8n-workflow-from-prompt]
 verify_jwt = false
+
+[functions.diagnose-fix]
+verify_jwt = false

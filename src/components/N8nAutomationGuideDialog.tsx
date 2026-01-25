@@ -42,7 +42,8 @@ import {
   ChevronDown,
   CheckCircle2,
   XCircle,
-  ClipboardCheck
+  ClipboardCheck,
+  Wrench
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
@@ -50,6 +51,7 @@ import { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { getVerificationDataForStages, generateStepVerificationPrompt, VerificationData } from "@/lib/verificationPromptGenerator";
+import FixDiagnosisDialog from "@/components/FixDiagnosisDialog";
 
 interface BusinessIdeaData {
   id: string;
@@ -1213,24 +1215,48 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                                 {verificationData.failureIndicators.slice(0, 2).map((f, idx) => <li key={idx}>• {f}</li>)}
                                               </ul>
                                             </div>
-                                            <Button 
-                                              variant="outline" 
-                                              size="sm" 
-                                              className="h-6 text-xs mt-2 gap-1"
-                                              onClick={(e) => {
-                                                e.stopPropagation();
-                                                const prompt = generateStepVerificationPrompt(
-                                                  { text: step.text, verification: verificationData },
-                                                  i,
-                                                  stage.title,
-                                                  { id: businessIdea.id, businessName: businessIdea.businessName, niche: businessIdea.niche, targetAudience: businessIdea.targetAudience }
-                                                );
-                                                navigator.clipboard.writeText(prompt);
-                                                toast.success("Verification prompt copied!");
-                                              }}
-                                            >
-                                              <Copy className="w-3 h-3" /> Copy Test Prompt
-                                            </Button>
+                                            <div className="flex gap-2 mt-2">
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-6 text-xs gap-1"
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  const prompt = generateStepVerificationPrompt(
+                                                    { text: step.text, verification: verificationData },
+                                                    i,
+                                                    stage.title,
+                                                    { id: businessIdea.id, businessName: businessIdea.businessName, niche: businessIdea.niche, targetAudience: businessIdea.targetAudience }
+                                                  );
+                                                  navigator.clipboard.writeText(prompt);
+                                                  toast.success("Verification prompt copied!");
+                                                }}
+                                              >
+                                                <Copy className="w-3 h-3" /> Copy Test Prompt
+                                              </Button>
+                                              <FixDiagnosisDialog
+                                                stepText={step.text}
+                                                verificationData={verificationData}
+                                                stageTitle={stage.title}
+                                                businessIdea={{
+                                                  businessName: businessIdea.businessName,
+                                                  niche: businessIdea.niche || "",
+                                                  targetAudience: businessIdea.targetAudience || "",
+                                                  serviceOffering: businessIdea.serviceOffering
+                                                }}
+                                                stepIndex={i}
+                                                trigger={
+                                                  <Button 
+                                                    variant="outline" 
+                                                    size="sm" 
+                                                    className="h-6 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:text-amber-400 dark:border-amber-700 dark:hover:bg-amber-950/50"
+                                                    onClick={(e) => e.stopPropagation()}
+                                                  >
+                                                    <Wrench className="w-3 h-3" /> Fix
+                                                  </Button>
+                                                }
+                                              />
+                                            </div>
                                           </div>
                                         </CollapsibleContent>
                                       </Collapsible>
