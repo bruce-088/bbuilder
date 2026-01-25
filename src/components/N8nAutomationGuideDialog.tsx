@@ -473,6 +473,69 @@ Key Nodes: Airtable, HTTP Request, IF, Gmail, Typeform, Slack`,
           proTip: "Calculate 'Net Revenue Retention' (NRR) as your north star metric—includes expansion revenue. Create a cohort analysis view to understand retention by signup month. Set up automated email alerts when MRR drops week-over-week."
         }
       ]
+    },
+    {
+      id: "n8n-master-verification",
+      title: "Master Workflow Verification",
+      icon: <Shield className="w-5 h-5" />,
+      description: `End-to-end verification of ${businessName}'s complete automation pipeline`,
+      estimatedTime: "1-2 hours",
+      n8nNodes: [
+        "All Stage 1-6 workflows combined",
+        "Cross-stage data flow validation",
+        "End-to-end test execution",
+        "Performance and error monitoring"
+      ],
+      workflowPrompt: `Verify the complete n8n automation pipeline for ${businessName}:
+
+This is a VERIFICATION ONLY task. Do NOT create or modify any workflows.
+
+1. Execute end-to-end test from lead prospecting to client retention
+2. Verify data flows correctly between all 6 stages
+3. Confirm all API integrations are operational
+4. Validate webhook triggers and scheduled tasks
+5. Check error handling and fallback paths
+6. Monitor execution logs for any issues
+
+Run each stage's workflow with test data and confirm:
+- Stage 1 (Prospecting): Leads are discovered and stored
+- Stage 2 (Outreach): Emails are sent and replies detected
+- Stage 3 (Qualification): Bookings trigger scoring and prep docs
+- Stage 4 (Proposal): Proposals are generated and tracked
+- Stage 5 (Closing): Payments process and onboarding triggers
+- Stage 6 (Client Success): Health scores calculate and alerts fire`,
+      setupSteps: [
+        {
+          text: "Verify Stage 1: Lead Prospecting & Discovery - Confirm Apollo.io API, Hunter.io, Google Sheets, Schedule Trigger, HTTP Request nodes, IF filters, and lead append operations are all functioning correctly",
+          links: [{ label: "Apollo.io", url: "https://www.apollo.io" }, { label: "Hunter.io", url: "https://hunter.io" }, { label: "Google Sheets", url: "https://sheets.google.com" }],
+          proTip: "Run a manual test by triggering the prospecting workflow. Verify that sample leads appear in your Google Sheet with correct data in all columns. Check Apollo.io dashboard for API usage to confirm the connection is working. This is the foundation—if prospecting fails, all downstream stages will have no leads to process."
+        },
+        {
+          text: "Verify Stage 2: Outreach & Follow-up - Confirm Gmail/SendGrid credentials, email templates with personalization, Wait nodes with correct delays, reply detection IF nodes, and Slack notifications are all operational",
+          links: [{ label: "Gmail", url: "https://mail.google.com" }, { label: "SendGrid", url: "https://sendgrid.com" }, { label: "Slack", url: "https://slack.com" }],
+          proTip: "Send a test outreach sequence to yourself or a test email address. Verify you receive all 3 emails with proper personalization (your name, company). Check that the Wait nodes are configured correctly and that the reply detection logic works by replying to one of the test emails."
+        },
+        {
+          text: "Verify Stage 3: Qualification & Discovery - Confirm Calendly webhook, Notion database setup, scoring rubric implementation, Set node calculations, and Gmail confirmation emails are all correctly configured",
+          links: [{ label: "Calendly", url: "https://calendly.com" }, { label: "Notion", url: "https://www.notion.so" }],
+          proTip: "Book a test discovery call through your Calendly link. Verify the webhook fires, the lead is scored correctly, a Notion prep doc is created, and you receive the confirmation email. Check that high-score leads (7+) trigger the priority Slack alert."
+        },
+        {
+          text: "Verify Stage 4: Proposal & Presentation - Confirm PandaDoc template, AI prompt configuration, CRM webhook trigger, proposal tracking logic, follow-up sequences, and onboarding workflow trigger are all working",
+          links: [{ label: "PandaDoc", url: "https://www.pandadoc.com" }],
+          proTip: "Create a test deal in your CRM and move it to 'Proposal Requested' stage. Verify the proposal is generated with AI-customized content, sent to the test contact, and that the tracking detects when you open it. Sign the test proposal and confirm the onboarding workflow triggers."
+        },
+        {
+          text: "Verify Stage 5: Closing & Payment - Confirm Stripe API credentials, PandaDoc signature webhook, welcome email templates, Google Drive folder creation, Airtable client records, and Slack #closed-won notifications are all functioning",
+          links: [{ label: "Stripe", url: "https://stripe.com" }, { label: "Google Drive", url: "https://drive.google.com" }, { label: "Airtable", url: "https://airtable.com" }],
+          proTip: "Complete the end-to-end closing flow with a test payment (use Stripe test mode). Verify the welcome email is sent, client folder is created in Google Drive, Airtable record is added with correct fields, and the #closed-won Slack notification includes all deal details."
+        },
+        {
+          text: "Verify Stage 6: Client Success & Retention - Confirm Airtable health score fields and formula, Typeform NPS survey, score calculation logic, check-in email templates for each segment, renewal sequence, and reporting dashboard are all operational",
+          links: [{ label: "Airtable", url: "https://airtable.com" }, { label: "Typeform", url: "https://www.typeform.com" }],
+          proTip: "Add a test client to Airtable with varying health score inputs. Verify the formula calculates correctly, the appropriate check-in email is sent based on score, and NPS surveys are triggered at milestones. Check that the renewal sequence fires 60 days before a test renewal date."
+        }
+      ]
     }
   ];
 };
@@ -598,6 +661,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const [isLoading, setIsLoading] = useState(false);
   const [generatingJsonFor, setGeneratingJsonFor] = useState<string | null>(null);
   const [generatingMasterJson, setGeneratingMasterJson] = useState(false);
+  const [verifyingAllStages, setVerifyingAllStages] = useState(false);
   const [verificationResults, setVerificationResults] = useState<Map<string, {
     status: 'loading' | 'pass' | 'attention' | 'manual';
     summary?: string;
@@ -699,6 +763,36 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
         summary: 'Unable to verify automatically. Please check manually using the criteria above.'
       }));
       toast.error('Verification check failed');
+    }
+  };
+
+  const handleVerifyAllStages = async (masterStage: AutomationStage) => {
+    setVerifyingAllStages(true);
+    toast.info("Running complete verification suite... This may take a minute.");
+    
+    let passCount = 0;
+    let totalChecks = masterStage.setupSteps.length;
+    
+    for (let i = 0; i < masterStage.setupSteps.length; i++) {
+      const step = masterStage.setupSteps[i];
+      await handleRetest(masterStage.id, i, step, masterStage.title);
+      
+      // Small delay between requests to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    
+    // Count passes after all verifications complete
+    for (let i = 0; i < masterStage.setupSteps.length; i++) {
+      const result = verificationResults.get(`${masterStage.id}-${i}`);
+      if (result?.status === 'pass') passCount++;
+    }
+    
+    setVerifyingAllStages(false);
+    
+    if (passCount === totalChecks) {
+      toast.success(`All ${totalChecks} stages verified successfully! 🎉`);
+    } else {
+      toast.warning(`Verification complete: ${passCount}/${totalChecks} stages passed. Review the results below.`);
     }
   };
 
@@ -1098,21 +1192,35 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                     if (isStepCompleted(stage.id, i)) stepsCompleted++;
                   }
                   
+                  const isMasterStage = stage.id === 'n8n-master-verification';
+                  
                   return (
                     <AccordionItem
                       key={stage.id}
                       value={stage.id}
-                      className={`border rounded-lg px-4 bg-card ${stageComplete ? 'border-green-500/50 bg-green-500/5' : ''}`}
+                      className={`border rounded-lg px-4 bg-card ${
+                        stageComplete 
+                          ? 'border-green-500/50 bg-green-500/5' 
+                          : isMasterStage 
+                          ? 'border-primary/50 bg-primary/5' 
+                          : ''
+                      }`}
                     >
                       <AccordionTrigger className="hover:no-underline py-4">
                         <div className="flex items-center gap-3 text-left flex-1">
-                          <div className={`flex items-center justify-center w-8 h-8 rounded-full ${stageComplete ? 'bg-green-500/20 text-green-500' : 'bg-primary/10 text-primary'}`}>
+                          <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                            stageComplete 
+                              ? 'bg-green-500/20 text-green-500' 
+                              : isMasterStage 
+                              ? 'bg-primary/20 text-primary' 
+                              : 'bg-primary/10 text-primary'
+                          }`}>
                             {stageComplete ? <Check className="w-5 h-5" /> : stage.icon}
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className="text-xs">
-                                Stage {index + 1}
+                              <Badge variant="outline" className={`text-xs ${isMasterStage ? 'border-primary text-primary' : ''}`}>
+                                {isMasterStage ? 'Final Stage' : `Stage ${index + 1}`}
                               </Badge>
                               <span className="font-medium">{stage.title}</span>
                               <Badge variant="secondary" className="text-xs gap-1">
@@ -1418,12 +1526,41 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                           </ol>
                         </div>
 
+                        {/* Verify All Stages Button (Master Stage Only) */}
+                        {isMasterStage && (
+                          <div className="pt-4 border-t">
+                            <div className="flex items-center gap-3 flex-wrap">
+                              <Button
+                                onClick={() => handleVerifyAllStages(stage)}
+                                disabled={verifyingAllStages}
+                                variant="default"
+                                className="gap-2"
+                              >
+                                {verifyingAllStages ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                    Verifying All Stages...
+                                  </>
+                                ) : (
+                                  <>
+                                    <RotateCw className="w-4 h-4" />
+                                    Verify All Stages
+                                  </>
+                                )}
+                              </Button>
+                              <span className="text-xs text-muted-foreground">
+                                Runs AI-powered verification on all 6 stages sequentially
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
                         {/* Mark Stage Complete Button */}
-                        <div className="pt-4 border-t">
+                        <div className={`pt-4 ${isMasterStage ? '' : 'border-t'}`}>
                           {stageComplete ? (
                             <div className="flex items-center gap-2 text-green-500 text-sm font-medium">
                               <Check className="w-4 h-4" />
-                              Stage validated and complete
+                              {isMasterStage ? 'Full pipeline validated and complete' : 'Stage validated and complete'}
                             </div>
                           ) : (
                             <Button
@@ -1433,7 +1570,9 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                               variant={allStepsDone ? 'default' : 'outline'}
                             >
                               <Check className="w-4 h-4 mr-2" />
-                              {allStepsDone ? 'Mark Stage Complete' : `Complete all ${stage.setupSteps.length - stepsCompleted} remaining steps first`}
+                              {allStepsDone 
+                                ? (isMasterStage ? 'Mark Full Pipeline Complete' : 'Mark Stage Complete') 
+                                : `Complete all ${stage.setupSteps.length - stepsCompleted} remaining steps first`}
                             </Button>
                           )}
                         </div>

@@ -982,6 +982,170 @@ export function getVerificationDataForStages(): Map<string, VerificationData[]> 
           "Stale/no data"
         ]
       }
+    ]],
+    ["n8n-master-verification", [
+      {
+        checkDescription: "Complete verification of Stage 1: Lead Prospecting & Discovery",
+        automatedActions: [
+          "Navigate to n8n and open the prospecting workflow",
+          "Verify Schedule Trigger is active and set to 9 AM daily",
+          "Test Apollo.io API connection with a sample search",
+          "Verify leads are being appended to Google Sheets",
+          "Check IF node filters are correctly routing leads by ICP criteria",
+          "Confirm Slack notification is sent with daily prospecting summary"
+        ],
+        successIndicators: [
+          "Prospecting workflow runs on schedule without errors",
+          "Apollo.io returns leads matching ICP criteria",
+          "Hunter.io successfully verifies email addresses",
+          "Google Sheet contains new leads with all required fields",
+          "High-score leads (7+) are properly flagged",
+          "Daily Slack summary is received"
+        ],
+        failureIndicators: [
+          "Workflow fails to execute on schedule",
+          "API authentication errors from Apollo.io or Hunter.io",
+          "No new leads appearing in Google Sheet",
+          "Missing data in required columns",
+          "IF node not filtering correctly",
+          "No Slack notifications"
+        ]
+      },
+      {
+        checkDescription: "Complete verification of Stage 2: Outreach & Follow-up",
+        automatedActions: [
+          "Verify Gmail/SendGrid credentials are connected and working",
+          "Send test outreach sequence to a test email address",
+          "Check all 3 email templates have correct personalization",
+          "Verify Wait nodes are configured for 3 and 4 day delays",
+          "Test reply detection by replying to a test email",
+          "Confirm leads move to 'Responded' sheet on reply"
+        ],
+        successIndicators: [
+          "Test emails sent successfully with personalization",
+          "Wait nodes pause workflow for correct duration",
+          "Reply detection correctly identifies responses",
+          "Leads are moved to Responded sheet with all data",
+          "Slack notification received for replies",
+          "Email sequence stops after reply detected"
+        ],
+        failureIndicators: [
+          "Email sending fails or shows authentication error",
+          "Personalization shows raw placeholders like {{firstName}}",
+          "Wait nodes have incorrect timing",
+          "Replies not detected or missed",
+          "Leads stuck in sequence after replying",
+          "No Slack notifications for responses"
+        ]
+      },
+      {
+        checkDescription: "Complete verification of Stage 3: Qualification & Discovery",
+        automatedActions: [
+          "Book a test discovery call through Calendly",
+          "Verify webhook triggers n8n workflow",
+          "Check lead is scored according to rubric",
+          "Verify Notion prep doc is created with correct data",
+          "Confirm confirmation email is sent with agenda",
+          "For high scores (7+), verify priority Slack alert fires"
+        ],
+        successIndicators: [
+          "Calendly webhook triggers workflow immediately",
+          "Lead score calculates correctly based on form responses",
+          "Notion prep doc created with all lead information",
+          "Confirmation email received with meeting details and agenda",
+          "High-priority leads trigger Slack alerts",
+          "All routing based on score works correctly"
+        ],
+        failureIndicators: [
+          "Webhook not received by n8n",
+          "Scoring formula returns incorrect values",
+          "Notion database not updated or missing fields",
+          "No confirmation email sent",
+          "Priority alerts not firing for high scores",
+          "IF node routing broken"
+        ]
+      },
+      {
+        checkDescription: "Complete verification of Stage 4: Proposal & Presentation",
+        automatedActions: [
+          "Create test deal and move to 'Proposal Requested' stage",
+          "Verify CRM webhook triggers proposal workflow",
+          "Check AI generates customized proposal content",
+          "Verify PandaDoc document is created with correct fields",
+          "Test proposal tracking by viewing the document",
+          "Verify follow-up emails are scheduled correctly"
+        ],
+        successIndicators: [
+          "CRM webhook triggers workflow on stage change",
+          "AI generates relevant, customized proposal content",
+          "PandaDoc document created with all client fields filled",
+          "Proposal sent to correct email address",
+          "Document views are tracked and trigger alerts",
+          "Follow-up emails sent after 3/7/10 days if unsigned"
+        ],
+        failureIndicators: [
+          "CRM webhook not received",
+          "AI returns generic or error content",
+          "PandaDoc fields not populated correctly",
+          "Proposal not sent or sent to wrong address",
+          "View tracking not working",
+          "No follow-up automation triggered"
+        ]
+      },
+      {
+        checkDescription: "Complete verification of Stage 5: Closing & Payment",
+        automatedActions: [
+          "Complete a test proposal signature in PandaDoc",
+          "Verify signature webhook triggers closing workflow",
+          "Process a test payment through Stripe (test mode)",
+          "Verify welcome email is sent with login credentials",
+          "Check Google Drive client folder is created",
+          "Confirm Airtable client record is added correctly"
+        ],
+        successIndicators: [
+          "PandaDoc signature webhook triggers instantly",
+          "Stripe payment processes successfully",
+          "Welcome email sent with all required information",
+          "Client folder created with correct structure",
+          "Airtable record contains complete client data",
+          "Slack #closed-won notification received"
+        ],
+        failureIndicators: [
+          "Signature webhook not received",
+          "Stripe payment fails or credentials invalid",
+          "Welcome email not sent or missing information",
+          "Client folder not created or wrong structure",
+          "Airtable record missing or incomplete",
+          "No Slack celebration notification"
+        ]
+      },
+      {
+        checkDescription: "Complete verification of Stage 6: Client Success & Retention",
+        automatedActions: [
+          "Add test client to Airtable with health score inputs",
+          "Verify health score formula calculates correctly",
+          "Check NPS survey is sent at milestone dates",
+          "Test check-in email for each score segment (<6, 6-8, 9-10)",
+          "Verify renewal sequence triggers 60 days before renewal",
+          "Confirm reporting dashboard updates with new data"
+        ],
+        successIndicators: [
+          "Health score calculates using correct formula",
+          "NPS surveys sent at 30/60/90 day milestones",
+          "At-risk emails sent for scores below 6",
+          "Champion emails request testimonials for scores 9+",
+          "Renewal reminders fire at 60/45/30/14 days",
+          "Dashboard shows updated metrics"
+        ],
+        failureIndicators: [
+          "Health score formula is wrong or missing fields",
+          "NPS surveys not triggered at milestones",
+          "Same generic email sent regardless of score",
+          "Renewal sequence not firing or wrong timing",
+          "Dashboard not updating with new data",
+          "Weekly schedule trigger not running"
+        ]
+      }
     ]]
   ]);
 }
