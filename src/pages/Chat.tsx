@@ -193,6 +193,8 @@ export default function Chat() {
       /#+\s*💡?\s*([^\n]+)/,
       /\*\*(?:Business Name|Name):\*\*\s*([^\n*]+)/i,
       /(?:Business Name|Name):\s*([^\n]+)/i,
+      /^#{1,3}\s+([^#\n💡][^\n]+)/m,
+      /^\*\*([^*\n:]+)\*\*/m,
     ]) || "Untitled Business Idea";
 
     const niche = extractField([
