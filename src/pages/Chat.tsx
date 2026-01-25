@@ -648,10 +648,10 @@ export default function Chat() {
                 className="w-16 h-16 rounded-2xl object-cover mb-6"
               />
               <h2 className="font-display text-2xl font-bold mb-2 text-center">
-                How can I help you today?
+                Let's make something amazing! ✨
               </h2>
               <p className="text-muted-foreground mb-6 max-w-md text-center">
-                Ask me about business ideas, validation strategies, pricing, or anything related to building your $10K/month business.
+                Ask me anything about building your $10K/month business. I'm here to make it easy—and fun!
               </p>
               
               {/* Starter prompts */}

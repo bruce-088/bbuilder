@@ -12,15 +12,15 @@ export default function GettingStartedCard({ onGenerateIdea, onStartChat }: Gett
   const steps = [
     {
       icon: Sparkles,
-      title: "Generate Your First Idea",
-      description: "AI creates a complete $10K/month business plan",
+      title: "Get Your First Plan",
+      description: "One click, and Mya creates your $10K/month blueprint",
       action: onGenerateIdea,
       primary: true,
     },
     {
       icon: Target,
-      title: "Ask Mya Anything",
-      description: "Get personalized advice and refine ideas",
+      title: "Chat with Mya",
+      description: "Ask anything—she makes everything feel easy",
       action: onStartChat,
       primary: false,
     },
@@ -34,10 +34,10 @@ export default function GettingStartedCard({ onGenerateIdea, onStartChat }: Gett
           <div className="w-8 h-8 rounded-lg bg-gradient-accent flex items-center justify-center">
             <Rocket className="w-4 h-4 text-accent-foreground" />
           </div>
-          Let's Get Started!
+          Let's Have Some Fun!
         </CardTitle>
         <p className="text-sm text-muted-foreground mt-1">
-          Your first business idea is just one click away
+          Your $10K/month plan is just one click away ✨
         </p>
       </CardHeader>
       <CardContent className="relative space-y-3">
@@ -89,7 +89,7 @@ export default function GettingStartedCard({ onGenerateIdea, onStartChat }: Gett
           className="flex items-center gap-2 pt-2 text-xs text-muted-foreground"
         >
           <Lightbulb className="w-3 h-3" />
-          <span>Pro tip: Generate an idea first, then refine it with Mya</span>
+          <span>This is going to be fun! Start with a plan, then make it yours</span>
         </motion.div>
       </CardContent>
     </Card>

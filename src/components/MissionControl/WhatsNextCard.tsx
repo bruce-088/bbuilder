@@ -170,11 +170,11 @@ export default function WhatsNextCard({
     if (!completedQuests.includes('generate_idea')) {
       return {
         id: 'generate_idea',
-          title: "Generate Your First Business Plan",
-          description: "Let AI create a tailored, revenue-ready business concept just for you",
+          title: "The Fun Begins Here! ✨",
+          description: "One click, and Mya creates your perfect business plan—easy!",
         icon: <Lightbulb className="w-5 h-5" />,
         action: onGenerateIdea,
-        actionLabel: "Generate Idea",
+        actionLabel: "Let's Go!",
         gradient: "from-amber-500/20 to-orange-500/20",
       };
     }
@@ -182,11 +182,11 @@ export default function WhatsNextCard({
     if (!completedQuests.includes('save_idea')) {
       return {
         id: 'save_idea',
-          title: "Save Your Favorite Plan",
-          description: "Bookmark your best plan to unlock the Implementation Guide and automation tools",
+          title: "Found One You Love?",
+          description: "Save it to unlock your implementation toolkit—you're already ahead!",
         icon: <Bookmark className="w-5 h-5" />,
         action: onStartChat,
-        actionLabel: "Review Ideas",
+        actionLabel: "Pick a Winner",
         gradient: "from-blue-500/20 to-cyan-500/20",
       };
     }
@@ -270,11 +270,11 @@ export default function WhatsNextCard({
     // All complete
     return {
       id: 'complete',
-      title: "Mission Accomplished! 🎉",
-      description: "You've completed all quests. Now scale your empire!",
+      title: "You Did It! 🎉",
+      description: "All quests complete! Ready for your next adventure?",
       icon: <Trophy className="w-5 h-5" />,
       action: () => setShowVentureDialog(true),
-      actionLabel: "Start New Venture",
+      actionLabel: "New Adventure",
       gradient: "from-emerald-500/20 to-green-500/20",
     };
   };
