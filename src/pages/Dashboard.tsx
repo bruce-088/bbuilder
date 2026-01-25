@@ -1198,8 +1198,8 @@ export default function Dashboard() {
                   <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
                 </div>
               ) : filteredIdeas.length > 0 ? (
-              <ScrollArea className="h-[420px] pr-4">
-                  <div className="space-y-3">
+                <ScrollArea className="h-[420px]">
+                  <div className="space-y-3 pr-4">
                     {filteredIdeas.map((idea) => (
                       <Card 
                         key={idea.id} 
@@ -1218,7 +1218,7 @@ export default function Dashboard() {
                           }
                         }}
                       >
-                        <CardContent className="p-4 flex items-start gap-3 overflow-visible">
+                        <CardContent className="p-4 flex items-start gap-3">
                           {compareMode && (
                             <div className="pt-0.5">
                               <Checkbox
@@ -1265,7 +1265,7 @@ export default function Dashboard() {
                             </p>
                           </div>
                           {editingIdeaId !== idea.id && (
-                            <div className="flex items-center gap-1 flex-shrink-0 ml-2">
+                            <div className="flex items-center gap-1 flex-shrink-0">
                               <Button
                                 variant="ghost"
                                 size="icon"
