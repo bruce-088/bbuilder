@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,8 @@ import {
   Wrench,
   Eye,
   X,
-  MessageSquare
+  MessageSquare,
+  Image as ImageIcon
 } from "lucide-react";
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
@@ -61,9 +62,50 @@ export default function Chat() {
   const [hasExistingWorkflow, setHasExistingWorkflow] = useState(false);
   const [businessIdeaDialogOpen, setBusinessIdeaDialogOpen] = useState(false);
   const [toolbarExpanded, setToolbarExpanded] = useState(false);
+  const [pastedImages, setPastedImages] = useState<{ file: File; preview: string }[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const footerTextareaRef = useRef<HTMLTextAreaElement>(null);
   const hasGeneratedRef = useRef(false);
+
+  // Handle paste event for screenshots
+  const handlePaste = useCallback((e: React.ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+
+    const imageFiles: { file: File; preview: string }[] = [];
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          const preview = URL.createObjectURL(file);
+          imageFiles.push({ file, preview });
+        }
+      }
+    }
+
+    if (imageFiles.length > 0) {
+      setPastedImages((prev) => [...prev, ...imageFiles].slice(0, 5)); // Max 5 images
+    }
+  }, []);
+
+  // Clean up object URLs on unmount
+  useEffect(() => {
+    return () => {
+      pastedImages.forEach((img) => URL.revokeObjectURL(img.preview));
+    };
+  }, []);
+
+  const removeImage = (index: number) => {
+    setPastedImages((prev) => {
+      const removed = prev[index];
+      if (removed) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
 
   useEffect(() => {
     if (user && id) {
@@ -370,24 +412,37 @@ export default function Chat() {
   };
 
   const handleSend = async () => {
-    if (!input.trim() || isStreaming || !user) return;
+    if ((!input.trim() && pastedImages.length === 0) || isStreaming || !user) return;
 
     const userContent = input.trim();
+    const hasImages = pastedImages.length > 0;
+    
+    // Build content with image descriptions
+    let messageContent = userContent;
+    if (hasImages) {
+      const imageDescriptions = pastedImages.map((_, i) => `[Screenshot ${i + 1}]`).join(" ");
+      messageContent = userContent ? `${userContent}\n\n${imageDescriptions}` : imageDescriptions;
+    }
+
     setInput("");
+    setPastedImages([]);
 
     // Resize textarea
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
     }
+    if (footerTextareaRef.current) {
+      footerTextareaRef.current.style.height = "auto";
+    }
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: userContent,
+      content: messageContent,
     };
 
     setMessages((prev) => [...prev, userMessage]);
-    await saveMessage("user", userContent);
+    await saveMessage("user", messageContent);
 
     setIsStreaming(true);
 
@@ -545,6 +600,30 @@ export default function Chat() {
               
               {/* Centered chat input for empty state */}
               <div className="w-full max-w-2xl mb-6">
+                {/* Pasted images preview */}
+                {pastedImages.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3 p-3 bg-muted/50 rounded-lg border border-border/50">
+                    {pastedImages.map((img, index) => (
+                      <div key={index} className="relative group">
+                        <img
+                          src={img.preview}
+                          alt={`Pasted screenshot ${index + 1}`}
+                          className="h-16 w-auto rounded-md object-cover border border-border"
+                        />
+                        <button
+                          onClick={() => removeImage(index)}
+                          className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                    <div className="flex items-center text-xs text-muted-foreground">
+                      <ImageIcon className="w-3 h-3 mr-1" />
+                      {pastedImages.length}/5 images
+                    </div>
+                  </div>
+                )}
                 <div className="flex gap-3">
                   <Textarea
                     ref={textareaRef}
@@ -555,13 +634,14 @@ export default function Chat() {
                       e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
                     }}
                     onKeyDown={handleKeyDown}
-                    placeholder="I'm here to help! Ask me anything..."
+                    onPaste={handlePaste}
+                    placeholder="I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"
                     className="resize-none min-h-[48px] max-h-[200px]"
                     disabled={isStreaming}
                   />
                   <Button
                     onClick={handleSend}
-                    disabled={!input.trim() || isStreaming}
+                    disabled={(!input.trim() && pastedImages.length === 0) || isStreaming}
                     className="bg-gradient-primary hover:opacity-90 btn-glow h-12 px-4"
                   >
                     {isStreaming ? (
@@ -820,6 +900,30 @@ export default function Chat() {
       {messages.length > 0 && (
         <footer className="relative z-10 border-t border-border/50 backdrop-blur-xl">
           <div className="container mx-auto max-w-5xl px-4 py-4">
+            {/* Pasted images preview in footer */}
+            {pastedImages.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3 p-3 bg-muted/50 rounded-lg border border-border/50">
+                {pastedImages.map((img, index) => (
+                  <div key={index} className="relative group">
+                    <img
+                      src={img.preview}
+                      alt={`Pasted screenshot ${index + 1}`}
+                      className="h-16 w-auto rounded-md object-cover border border-border"
+                    />
+                    <button
+                      onClick={() => removeImage(index)}
+                      className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+                <div className="flex items-center text-xs text-muted-foreground">
+                  <ImageIcon className="w-3 h-3 mr-1" />
+                  {pastedImages.length}/5 images
+                </div>
+              </div>
+            )}
             <div className="flex gap-3">
               <Button
                 variant="outline"
@@ -830,7 +934,7 @@ export default function Chat() {
                 Dashboard
               </Button>
               <Textarea
-                ref={textareaRef}
+                ref={footerTextareaRef}
                 value={input}
                 onChange={(e) => {
                   setInput(e.target.value);
@@ -838,13 +942,14 @@ export default function Chat() {
                   e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder="I'm here to help! Ask me anything..."
+                onPaste={handlePaste}
+                placeholder="I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"
                 className="resize-none min-h-[48px] max-h-[200px]"
                 disabled={isStreaming}
               />
               <Button
                 onClick={handleSend}
-                disabled={!input.trim() || isStreaming}
+                disabled={(!input.trim() && pastedImages.length === 0) || isStreaming}
                 className="bg-gradient-primary hover:opacity-90 btn-glow h-12 px-4"
               >
                 {isStreaming ? (
