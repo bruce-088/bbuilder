@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.generate-n8n-workflow]
 verify_jwt = false
+
+[functions.generate-n8n-workflow-from-prompt]
+verify_jwt = false

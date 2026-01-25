@@ -376,6 +376,73 @@ const renderStepWithLinks = (step: SetupStep): React.ReactNode => {
   return result.length > 0 ? result : step.text;
 };
 
+// Known valid n8n node type prefixes for JSON validation
+const VALID_N8N_NODE_PREFIXES = [
+  'n8n-nodes-base.manualTrigger',
+  'n8n-nodes-base.scheduleTrigger',
+  'n8n-nodes-base.webhook',
+  'n8n-nodes-base.httpRequest',
+  'n8n-nodes-base.set',
+  'n8n-nodes-base.if',
+  'n8n-nodes-base.switch',
+  'n8n-nodes-base.code',
+  'n8n-nodes-base.wait',
+  'n8n-nodes-base.noOp',
+  'n8n-nodes-base.merge',
+  'n8n-nodes-base.gmail',
+  'n8n-nodes-base.slack',
+  'n8n-nodes-base.notion',
+  'n8n-nodes-base.airtable',
+  '@n8n/n8n-nodes-langchain.agent',
+];
+
+const isValidNodeType = (type: string): boolean => {
+  return VALID_N8N_NODE_PREFIXES.some(prefix => type === prefix || type.startsWith(prefix));
+};
+
+const extractN8nWorkflowJson = (markdownContent: string, businessName: string): object | null => {
+  const jsonBlockRegex = /```(?:json)?\s*\n([\s\S]*?)\n```/g;
+  const matches = [...markdownContent.matchAll(jsonBlockRegex)];
+  
+  let bestWorkflow: Record<string, unknown> | null = null;
+  let bestScore = 0;
+  
+  for (const match of matches) {
+    try {
+      const jsonContent = match[1].trim();
+      const parsed = JSON.parse(jsonContent) as Record<string, unknown>;
+      
+      if (!parsed || !Array.isArray(parsed.nodes)) continue;
+      
+      const nodes = parsed.nodes as Array<{ type?: string; name?: string }>;
+      
+      let score = nodes.length;
+      if (parsed.connections) score += 10;
+      if (parsed.settings) score += 5;
+      if (parsed.name) score += 5;
+      
+      const validNodeCount = nodes.filter(n => n.type && isValidNodeType(n.type)).length;
+      score += validNodeCount * 2;
+      
+      if (score > bestScore) {
+        bestWorkflow = parsed;
+        bestScore = score;
+      }
+    } catch {
+      continue;
+    }
+  }
+  
+  if (bestWorkflow) {
+    if (!bestWorkflow.connections) bestWorkflow.connections = {};
+    if (!bestWorkflow.settings) bestWorkflow.settings = { executionOrder: "v1" };
+    if (!bestWorkflow.name) bestWorkflow.name = `${businessName} Automation`;
+    if (bestWorkflow.active === undefined) bestWorkflow.active = false;
+  }
+  
+  return bestWorkflow;
+};
+
 export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nAutomationGuideDialogProps) {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -384,8 +451,47 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const [completedSteps, setCompletedSteps] = useState<CompletedSteps>({});
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [generatingJsonFor, setGeneratingJsonFor] = useState<string | null>(null);
 
   const stages = generateAutomationStages(businessIdea);
+
+  const downloadStageWorkflowJson = async (stage: AutomationStage) => {
+    setGeneratingJsonFor(stage.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-n8n-workflow-from-prompt", {
+        body: { 
+          workflowPrompt: stage.workflowPrompt,
+          stageName: stage.title,
+          businessName: businessIdea.businessName
+        },
+      });
+      
+      if (error) throw error;
+      
+      const workflowJson = extractN8nWorkflowJson(data.content, businessIdea.businessName);
+      if (!workflowJson) {
+        toast.error("Could not generate valid n8n workflow JSON. Please try again.");
+        return;
+      }
+      
+      const blob = new Blob([JSON.stringify(workflowJson, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `n8n-${stage.id}-${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      toast.success("n8n workflow downloaded! Import via File → Import from File in n8n.");
+    } catch (error) {
+      console.error("Error generating workflow JSON:", error);
+      toast.error("Failed to generate workflow. Please try again.");
+    } finally {
+      setGeneratingJsonFor(null);
+    }
+  };
 
   const handleExportForAI = () => {
     setOpen(false);
@@ -719,21 +825,15 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                 variant="ghost"
                                 size="sm"
                                 className="gap-2 h-8"
-                                onClick={() => {
-                                  const blob = new Blob([stage.workflowPrompt], { type: "text/plain" });
-                                  const url = URL.createObjectURL(blob);
-                                  const a = document.createElement("a");
-                                  a.href = url;
-                                  a.download = `n8n-prompt-${stage.id}-${Date.now()}.txt`;
-                                  document.body.appendChild(a);
-                                  a.click();
-                                  document.body.removeChild(a);
-                                  URL.revokeObjectURL(url);
-                                  toast.success("Prompt downloaded!");
-                                }}
+                                disabled={generatingJsonFor === stage.id}
+                                onClick={() => downloadStageWorkflowJson(stage)}
                               >
-                                <Download className="w-3 h-3" />
-                                Download Prompt
+                                {generatingJsonFor === stage.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <Download className="w-3 h-3" />
+                                )}
+                                {generatingJsonFor === stage.id ? "Generating..." : "Download JSON"}
                               </Button>
                               <Button
                                 variant="ghost"
