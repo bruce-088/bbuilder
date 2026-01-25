@@ -22,11 +22,13 @@ import {
   Shield,
   Handshake,
   Heart,
-  Wand2
+  Wand2,
+  CheckCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateComputerUsePrompt, generateStagePrompt, generateAutomationStages, BusinessIdeaData } from "@/lib/computerUsePromptGenerator";
 import { generateDirectorAiPrompt } from "@/lib/directorAiPromptGenerator";
+import { generateFullVerificationPrompt, getVerificationDataForStages, VerifiableStage } from "@/lib/verificationPromptGenerator";
 
 interface DbBusinessIdea {
   id: string;
@@ -53,7 +55,7 @@ export default function ExportComputerUsePrompt() {
   const [businessIdeas, setBusinessIdeas] = useState<DbBusinessIdea[]>([]);
   const [selectedIdeaId, setSelectedIdeaId] = useState<string>("");
   const [selectedStageId, setSelectedStageId] = useState<string>("all");
-  const [exportFormat, setExportFormat] = useState<"computer-use" | "director-ai">("computer-use");
+  const [exportFormat, setExportFormat] = useState<"computer-use" | "director-ai" | "verification">("computer-use");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -105,12 +107,39 @@ export default function ExportComputerUsePrompt() {
 
   const stages = transformedIdea ? generateAutomationStages(transformedIdea) : [];
 
+  // Build verifiable stages for verification prompt
+  const buildVerifiableStages = (): VerifiableStage[] => {
+    if (!transformedIdea) return [];
+    const verificationData = getVerificationDataForStages();
+    const automationStages = generateAutomationStages(transformedIdea);
+    
+    return automationStages.map(stage => {
+      const stageVerifications = verificationData.get(stage.id) || [];
+      return {
+        id: stage.id,
+        title: stage.title,
+        // Note: setupSteps from computerUsePromptGenerator are plain strings
+        steps: stage.setupSteps.map((stepText, index) => ({
+          text: stepText,
+          verification: stageVerifications[index] || {
+            checkDescription: `Verify step ${index + 1} is completed correctly`,
+            automatedActions: ["Navigate to relevant service", "Check configuration", "Verify settings match requirements"],
+            successIndicators: ["Configuration exists", "Settings are correct"],
+            failureIndicators: ["Configuration missing", "Settings incorrect"]
+          }
+        }))
+      };
+    });
+  };
+
   const generatedPrompt = transformedIdea 
-    ? exportFormat === "director-ai"
-      ? generateDirectorAiPrompt(transformedIdea, selectedStageId)
-      : (selectedStageId === "all" 
-          ? generateComputerUsePrompt(transformedIdea) 
-          : generateStagePrompt(transformedIdea, selectedStageId))
+    ? exportFormat === "verification"
+      ? generateFullVerificationPrompt(buildVerifiableStages(), transformedIdea)
+      : exportFormat === "director-ai"
+        ? generateDirectorAiPrompt(transformedIdea, selectedStageId)
+        : (selectedStageId === "all" 
+            ? generateComputerUsePrompt(transformedIdea) 
+            : generateStagePrompt(transformedIdea, selectedStageId))
     : "";
 
   const copyToClipboard = async () => {
@@ -156,7 +185,9 @@ export default function ExportComputerUsePrompt() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              {exportFormat === "director-ai" ? (
+              {exportFormat === "verification" ? (
+                <CheckCircle2 className="w-6 h-6 text-accent" />
+              ) : exportFormat === "director-ai" ? (
                 <Wand2 className="w-6 h-6 text-accent" />
               ) : (
                 <Bot className="w-6 h-6 text-accent" />
@@ -164,9 +195,11 @@ export default function ExportComputerUsePrompt() {
               Export for AI Agent
             </h1>
             <p className="text-muted-foreground">
-              {exportFormat === "director-ai" 
-                ? "Generate prompts optimized for Director.ai automation"
-                : "Generate prompts for Claude Cowork or Gemini 2.5 Computer Use"}
+              {exportFormat === "verification"
+                ? "Generate verification prompts to test your automation setup"
+                : exportFormat === "director-ai" 
+                  ? "Generate prompts optimized for Director.ai automation"
+                  : "Generate prompts for Claude Cowork or Gemini 2.5 Computer Use"}
             </p>
           </div>
         </div>
@@ -188,15 +221,22 @@ export default function ExportComputerUsePrompt() {
                 {/* Export Format Select */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Export Format</label>
-                  <Tabs value={exportFormat} onValueChange={(v) => setExportFormat(v as "computer-use" | "director-ai")}>
-                    <TabsList className="w-full">
-                      <TabsTrigger value="computer-use" className="flex-1 gap-1">
+                  <Tabs value={exportFormat} onValueChange={(v) => setExportFormat(v as "computer-use" | "director-ai" | "verification")}>
+                    <TabsList className="w-full grid grid-cols-3">
+                      <TabsTrigger value="computer-use" className="gap-1 text-xs px-2">
                         <Bot className="w-3 h-3" />
-                        Computer Use
+                        <span className="hidden sm:inline">Computer Use</span>
+                        <span className="sm:hidden">Build</span>
                       </TabsTrigger>
-                      <TabsTrigger value="director-ai" className="flex-1 gap-1">
+                      <TabsTrigger value="director-ai" className="gap-1 text-xs px-2">
                         <Wand2 className="w-3 h-3" />
-                        Director.ai
+                        <span className="hidden sm:inline">Director.ai</span>
+                        <span className="sm:hidden">Auto</span>
+                      </TabsTrigger>
+                      <TabsTrigger value="verification" className="gap-1 text-xs px-2">
+                        <CheckCircle2 className="w-3 h-3" />
+                        <span className="hidden sm:inline">Verification</span>
+                        <span className="sm:hidden">Test</span>
                       </TabsTrigger>
                     </TabsList>
                   </Tabs>
@@ -316,7 +356,30 @@ export default function ExportComputerUsePrompt() {
                 <CardTitle className="text-lg">How to Use</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                {exportFormat === "director-ai" ? (
+                {exportFormat === "verification" ? (
+                  <>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">1</Badge>
+                      <span>Complete your N8N automation setup first</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">2</Badge>
+                      <span>Copy the verification prompt</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">3</Badge>
+                      <span>Paste into Director.ai or your AI agent</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">4</Badge>
+                      <span>AI will systematically verify each step</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">5</Badge>
+                      <span>Review report and fix any failures</span>
+                    </div>
+                  </>
+                ) : exportFormat === "director-ai" ? (
                   <>
                     <div className="flex gap-2">
                       <Badge variant="outline" className="shrink-0">1</Badge>
