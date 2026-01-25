@@ -1,0 +1,280 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
+interface ExpectedNode {
+  type: string;
+  purpose: string;
+  required: boolean;
+}
+
+interface StageRequirements {
+  name: string;
+  requiredNodes: ExpectedNode[];
+}
+
+// Stage-to-node mapping (mirrors the frontend lib)
+const stageNodeRequirements: Record<string, StageRequirements> = {
+  "n8n-prospecting": {
+    name: "Lead Prospecting & Discovery",
+    requiredNodes: [
+      { type: "n8n-nodes-base.scheduleTrigger", purpose: "Daily trigger", required: true },
+      { type: "n8n-nodes-base.httpRequest", purpose: "API calls", required: true },
+      { type: "n8n-nodes-base.googleSheets", purpose: "Lead storage", required: true },
+      { type: "n8n-nodes-base.if", purpose: "ICP filtering", required: true }
+    ]
+  },
+  "n8n-outreach": {
+    name: "Outreach & Follow-up",
+    requiredNodes: [
+      { type: "n8n-nodes-base.gmail", purpose: "Email sending", required: true },
+      { type: "n8n-nodes-base.wait", purpose: "Follow-up delays", required: true },
+      { type: "n8n-nodes-base.if", purpose: "Reply detection", required: true }
+    ]
+  },
+  "n8n-qualification": {
+    name: "Qualification & Discovery",
+    requiredNodes: [
+      { type: "n8n-nodes-base.webhook", purpose: "Calendly webhook", required: true },
+      { type: "n8n-nodes-base.set", purpose: "Lead scoring", required: true },
+      { type: "n8n-nodes-base.gmail", purpose: "Confirmation email", required: true }
+    ]
+  },
+  "n8n-proposal": {
+    name: "Proposal & Presentation",
+    requiredNodes: [
+      { type: "n8n-nodes-base.webhook", purpose: "CRM webhook", required: true },
+      { type: "n8n-nodes-base.httpRequest", purpose: "AI/PandaDoc API", required: true },
+      { type: "n8n-nodes-base.gmail", purpose: "Proposal delivery", required: true }
+    ]
+  },
+  "n8n-closing": {
+    name: "Closing & Payment",
+    requiredNodes: [
+      { type: "n8n-nodes-base.webhook", purpose: "Signature webhook", required: true },
+      { type: "n8n-nodes-base.httpRequest", purpose: "Stripe API", required: true },
+      { type: "n8n-nodes-base.gmail", purpose: "Welcome email", required: true }
+    ]
+  },
+  "n8n-retention": {
+    name: "Client Success & Retention",
+    requiredNodes: [
+      { type: "n8n-nodes-base.scheduleTrigger", purpose: "Health score schedule", required: true },
+      { type: "n8n-nodes-base.airtable", purpose: "Client data", required: true },
+      { type: "n8n-nodes-base.set", purpose: "Health score formula", required: true },
+      { type: "n8n-nodes-base.if", purpose: "Score routing", required: true }
+    ]
+  }
+};
+
+interface WorkflowNode {
+  id: string;
+  name: string;
+  type: string;
+  parameters?: Record<string, unknown>;
+  credentials?: Record<string, { id: string; name: string }>;
+}
+
+interface WorkflowData {
+  id: string;
+  name: string;
+  active: boolean;
+  nodes: WorkflowNode[];
+  connections?: Record<string, unknown>;
+}
+
+interface VerificationRequest {
+  workflowData: WorkflowData | null;
+  stageId: string;
+  stageName: string;
+  businessContext: {
+    businessName: string;
+    niche?: string;
+    targetAudience?: string;
+  };
+  mcpConnected: boolean;
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const {
+      workflowData,
+      stageId,
+      stageName,
+      businessContext,
+      mcpConnected
+    }: VerificationRequest = await req.json();
+
+    // If MCP is not connected or no workflow data, return guidance
+    if (!mcpConnected || !workflowData) {
+      return new Response(
+        JSON.stringify({
+          status: "MCP_NOT_CONNECTED",
+          confidence: "low",
+          summary: mcpConnected 
+            ? "Workflow not found. Ensure 'GhostWriter AI: The Authority Engine' is marked as 'Available in MCP' in n8n workflow settings."
+            : "n8n MCP not connected. Connect your n8n instance in Project Settings → Connectors to enable live verification.",
+          workflowActive: false,
+          nodeVerification: [],
+          suggestions: [
+            mcpConnected 
+              ? "Open your n8n workflow → Settings → Toggle 'Available in MCP' → Save"
+              : "Go to Project Settings → Connectors → Connect n8n",
+            "Ensure your n8n instance has MCP access enabled (Settings → MCP access)"
+          ],
+          connectionRequired: !mcpConnected
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Get stage requirements
+    const requirements = stageNodeRequirements[stageId];
+    if (!requirements) {
+      return new Response(
+        JSON.stringify({
+          status: "UNKNOWN_STAGE",
+          confidence: "low",
+          summary: `Unknown stage: ${stageId}`,
+          workflowActive: workflowData.active,
+          nodeVerification: [],
+          suggestions: ["Verify the stage ID is correct"]
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Verify nodes against requirements
+    const nodeVerification: Array<{
+      type: string;
+      purpose: string;
+      found: boolean;
+      status: "configured" | "missing" | "incomplete";
+      matchedNode?: string;
+      issues?: string[];
+    }> = [];
+
+    let passCount = 0;
+    let requiredCount = 0;
+
+    for (const expected of requirements.requiredNodes) {
+      if (expected.required) requiredCount++;
+
+      // Find matching node by type
+      const matchedNode = workflowData.nodes.find(node =>
+        node.type === expected.type ||
+        node.type.startsWith(expected.type.split('.')[0])
+      );
+
+      if (matchedNode) {
+        const issues: string[] = [];
+
+        // Check for credentials on nodes that typically need them
+        const needsCredentials = ['gmail', 'slack', 'notion', 'googleSheets', 'airtable']
+          .some(t => expected.type.includes(t));
+        
+        if (needsCredentials && !matchedNode.credentials) {
+          issues.push('Credentials may not be configured');
+        }
+
+        nodeVerification.push({
+          type: expected.type,
+          purpose: expected.purpose,
+          found: true,
+          status: issues.length === 0 ? 'configured' : 'incomplete',
+          matchedNode: matchedNode.name,
+          issues: issues.length > 0 ? issues : undefined
+        });
+
+        if (issues.length === 0 && expected.required) passCount++;
+      } else {
+        nodeVerification.push({
+          type: expected.type,
+          purpose: expected.purpose,
+          found: false,
+          status: 'missing',
+          issues: [expected.required ? 'Required node not found in workflow' : 'Optional node not configured']
+        });
+      }
+    }
+
+    // Generate suggestions
+    const suggestions: string[] = [];
+
+    const missingRequired = nodeVerification.filter(r => !r.found && r.issues?.some(i => i.includes('Required')));
+    if (missingRequired.length > 0) {
+      suggestions.push(`Add missing nodes: ${missingRequired.map(r => r.purpose).join(', ')}`);
+    }
+
+    const incomplete = nodeVerification.filter(r => r.status === 'incomplete');
+    if (incomplete.length > 0) {
+      suggestions.push(`Complete configuration for: ${incomplete.map(r => r.matchedNode || r.type.split('.').pop()).join(', ')}`);
+    }
+
+    if (!workflowData.active) {
+      suggestions.push('Activate the workflow in n8n to enable scheduled execution');
+    }
+
+    // Determine overall status
+    let status: 'PASS' | 'NEEDS_ATTENTION' | 'FAIL';
+    if (passCount === requiredCount && workflowData.active) {
+      status = 'PASS';
+    } else if (passCount >= requiredCount * 0.5) {
+      status = 'NEEDS_ATTENTION';
+    } else {
+      status = 'FAIL';
+    }
+
+    // Generate summary
+    let summary: string;
+    if (status === 'PASS') {
+      summary = `Stage "${stageName}" is fully configured with all ${requiredCount} required nodes. Workflow is ${workflowData.active ? 'active' : 'inactive'}.`;
+    } else if (status === 'NEEDS_ATTENTION') {
+      summary = `Stage "${stageName}" has ${passCount}/${requiredCount} required nodes configured. Review the missing or incomplete items below.`;
+    } else {
+      summary = `Stage "${stageName}" needs setup. Only ${passCount}/${requiredCount} required nodes found. Add the missing nodes to complete this stage.`;
+    }
+
+    return new Response(
+      JSON.stringify({
+        status,
+        confidence: 'high',
+        summary,
+        workflowName: workflowData.name,
+        workflowActive: workflowData.active,
+        nodeVerification,
+        nodeStats: {
+          found: nodeVerification.filter(n => n.found).length,
+          missing: nodeVerification.filter(n => !n.found).length,
+          configured: nodeVerification.filter(n => n.status === 'configured').length,
+          incomplete: nodeVerification.filter(n => n.status === 'incomplete').length
+        },
+        suggestions,
+        checklist: nodeVerification.map(n => ({
+          item: `${n.purpose} (${n.type.split('.').pop()})`,
+          status: n.found ? (n.status === 'configured' ? 'check' : 'warning') : 'error',
+          howToVerify: n.found 
+            ? `Node "${n.matchedNode}" found. ${n.issues?.join('. ') || 'Configuration looks good.'}`
+            : `Add a ${n.type.split('.').pop()} node for: ${n.purpose}`
+        }))
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  } catch (error) {
+    console.error("verify-n8n-workflow error:", error);
+    return new Response(
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : "Unknown error",
+        status: "ERROR"
+      }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
