@@ -20,6 +20,11 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Loader2,
   Target,
   Users,
@@ -731,20 +736,27 @@ export default function BusinessIdeaDialog({
                     Created {new Date(idea.created_at).toLocaleDateString()}
                   </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleFavoriteToggle}
-                  className="flex-shrink-0"
-                >
-                  <Star
-                    className={`w-5 h-5 transition-colors ${
-                      idea.is_favorite
-                        ? "fill-yellow-400 text-yellow-400"
-                        : "text-muted-foreground hover:text-yellow-400"
-                    }`}
-                  />
-                </Button>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleFavoriteToggle}
+                      className="flex-shrink-0"
+                    >
+                      <Star
+                        className={`w-5 h-5 transition-colors ${
+                          idea.is_favorite
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-muted-foreground hover:text-yellow-400"
+                        }`}
+                      />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>{idea.is_favorite ? "Remove from favorites" : "Add to favorites"}</p>
+                  </TooltipContent>
+                </Tooltip>
               </div>
             </DialogHeader>
 
@@ -759,25 +771,32 @@ export default function BusinessIdeaDialog({
                         <span className="font-medium text-sm">Quick Start Checklist</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 text-xs gap-1"
-                          onClick={handleVerifyAllSteps}
-                          disabled={verifyingAll}
-                        >
-                          {verifyingAll ? (
-                            <>
-                              <Loader2 className="w-3 h-3 animate-spin" />
-                              Verifying...
-                            </>
-                          ) : (
-                            <>
-                              <ClipboardCheck className="w-3 h-3" />
-                              Verify All
-                            </>
-                          )}
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-7 text-xs gap-1"
+                              onClick={handleVerifyAllSteps}
+                              disabled={verifyingAll}
+                            >
+                              {verifyingAll ? (
+                                <>
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  Verifying...
+                                </>
+                              ) : (
+                                <>
+                                  <ClipboardCheck className="w-3 h-3" />
+                                  Verify All
+                                </>
+                              )}
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Run AI verification on all checklist steps</p>
+                          </TooltipContent>
+                        </Tooltip>
                         <span className="text-xs text-muted-foreground">
                           {completedSteps.length}/{quickStartSteps.length}
                           {savingProgress && " • Saving..."}
@@ -886,22 +905,36 @@ export default function BusinessIdeaDialog({
                                     <div className="flex flex-wrap gap-2 pt-2 border-t border-primary/10">
                                       {result && result.status !== 'loading' ? (
                                         <>
-                                          <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="h-7 text-xs gap-1"
-                                            onClick={() => resetVerification(step.id)}
-                                          >
-                                            <XCircle className="w-3 h-3" /> Reset
-                                          </Button>
-                                          <Button 
-                                            variant="outline" 
-                                            size="sm" 
-                                            className="h-7 text-xs gap-1"
-                                            onClick={() => handleVerifyStep(step)}
-                                          >
-                                            <RotateCw className="w-3 h-3" /> Verify Again
-                                          </Button>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-7 text-xs gap-1"
+                                                onClick={() => resetVerification(step.id)}
+                                              >
+                                                <XCircle className="w-3 h-3" /> Reset
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Clear verification result and uncheck step</p>
+                                            </TooltipContent>
+                                          </Tooltip>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Button 
+                                                variant="outline" 
+                                                size="sm" 
+                                                className="h-7 text-xs gap-1"
+                                                onClick={() => handleVerifyStep(step)}
+                                              >
+                                                <RotateCw className="w-3 h-3" /> Verify Again
+                                              </Button>
+                                            </TooltipTrigger>
+                                            <TooltipContent>
+                                              <p>Re-run AI verification for this step</p>
+                                            </TooltipContent>
+                                          </Tooltip>
                                           {/* Fix button - shown when verification is not pass */}
                                           {result.status !== 'pass' && (
                                             <FixDiagnosisDialog
@@ -916,37 +949,51 @@ export default function BusinessIdeaDialog({
                                               } : undefined}
                                               stepIndex={index}
                                               trigger={
-                                                <Button 
-                                                  variant="outline" 
-                                                  size="sm" 
-                                                  className="h-7 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
-                                                >
-                                                  <Wrench className="w-3 h-3" /> Fix
-                                                </Button>
+                                                <Tooltip>
+                                                  <TooltipTrigger asChild>
+                                                    <Button 
+                                                      variant="outline" 
+                                                      size="sm" 
+                                                      className="h-7 text-xs gap-1 text-amber-600 border-amber-300 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                                                    >
+                                                      <Wrench className="w-3 h-3" /> Fix
+                                                    </Button>
+                                                  </TooltipTrigger>
+                                                  <TooltipContent>
+                                                    <p>Get AI-powered guidance to fix this step</p>
+                                                  </TooltipContent>
+                                                </Tooltip>
                                               }
                                             />
                                           )}
                                         </>
                                       ) : (
-                                        <Button 
-                                          variant="outline" 
-                                          size="sm" 
-                                          className="h-7 text-xs gap-1"
-                                          disabled={result?.status === 'loading'}
-                                          onClick={() => handleVerifyStep(step)}
-                                        >
-                                          {result?.status === 'loading' ? (
-                                            <>
-                                              <Loader2 className="w-3 h-3 animate-spin" />
-                                              Verifying...
-                                            </>
-                                          ) : (
-                                            <>
-                                              <ClipboardCheck className="w-3 h-3" />
-                                              Verify
-                                            </>
-                                          )}
-                                        </Button>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Button 
+                                              variant="outline" 
+                                              size="sm" 
+                                              className="h-7 text-xs gap-1"
+                                              disabled={result?.status === 'loading'}
+                                              onClick={() => handleVerifyStep(step)}
+                                            >
+                                              {result?.status === 'loading' ? (
+                                                <>
+                                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                                  Verifying...
+                                                </>
+                                              ) : (
+                                                <>
+                                                  <ClipboardCheck className="w-3 h-3" />
+                                                  Verify
+                                                </>
+                                              )}
+                                            </Button>
+                                          </TooltipTrigger>
+                                          <TooltipContent>
+                                            <p>Run AI verification for this step</p>
+                                          </TooltipContent>
+                                        </Tooltip>
                                       )}
                                     </div>
                                     

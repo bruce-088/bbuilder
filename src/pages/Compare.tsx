@@ -6,6 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { 
   ArrowLeft, 
   Loader2,
@@ -138,9 +143,16 @@ export default function Compare() {
       {/* Header */}
       <header className="relative z-10 border-b border-border/50 backdrop-blur-xl sticky top-0">
         <div className="container mx-auto px-4 py-3 flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="icon" onClick={() => navigate("/dashboard")}>
+                <ArrowLeft className="w-5 h-5" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Return to dashboard</p>
+            </TooltipContent>
+          </Tooltip>
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
               <Scale className="w-5 h-5 text-primary-foreground" />
@@ -225,14 +237,21 @@ export default function Compare() {
                       transition={{ delay: index * 0.1 }}
                     >
                       <Card className="glass relative group">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
-                          onClick={() => handleRemoveIdea(idea.id)}
-                        >
-                          <X className="w-3 h-3" />
-                        </Button>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-destructive text-destructive-foreground opacity-0 group-hover:opacity-100 transition-opacity"
+                              onClick={() => handleRemoveIdea(idea.id)}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Remove this plan from comparison</p>
+                          </TooltipContent>
+                        </Tooltip>
                         <CardHeader className="p-4 pb-2">
                           <CardTitle className="text-lg font-display">
                             {idea.business_name}

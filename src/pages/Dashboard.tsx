@@ -957,14 +957,21 @@ export default function Dashboard() {
                     className="pl-9 h-9"
                   />
                   {conversationSearch && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                      onClick={() => setConversationSearch("")}
-                    >
-                      <XIcon className="w-3 h-3" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                          onClick={() => setConversationSearch("")}
+                        >
+                          <XIcon className="w-3 h-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Clear search</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
               </div>
@@ -1047,39 +1054,60 @@ export default function Dashboard() {
                                   <p>{savedConversationIds.has(conv.id) ? "Already saved as idea" : "Save as Business Idea to unlock guides & automation"}</p>
                                 </TooltipContent>
                               </Tooltip>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleConversationFavorite(conv.id, conv.is_favorite);
-                                }}
-                              >
-                                <Star 
-                                  className={`w-4 h-4 transition-colors ${
-                                    conv.is_favorite 
-                                      ? "fill-yellow-400 text-yellow-400" 
-                                      : "text-muted-foreground hover:text-yellow-400"
-                                  }`} 
-                                />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={(e) => startEditingConversation(conv, e)}
-                              >
-                                <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                                onClick={(e) => confirmDeleteConversation(conv.id, e)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleConversationFavorite(conv.id, conv.is_favorite);
+                                    }}
+                                  >
+                                    <Star 
+                                      className={`w-4 h-4 transition-colors ${
+                                        conv.is_favorite 
+                                          ? "fill-yellow-400 text-yellow-400" 
+                                          : "text-muted-foreground hover:text-yellow-400"
+                                      }`} 
+                                    />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{conv.is_favorite ? "Remove from favorites" : "Add to favorites"}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={(e) => startEditingConversation(conv, e)}
+                                  >
+                                    <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Rename conversation</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                    onClick={(e) => confirmDeleteConversation(conv.id, e)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Delete conversation</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           )}
                         </CardContent>
@@ -1143,14 +1171,21 @@ export default function Dashboard() {
                     className="pl-9 h-9"
                   />
                   {ideaSearch && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
-                      onClick={() => setIdeaSearch("")}
-                    >
-                      <XIcon className="w-3 h-3" />
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute right-1 top-1/2 -translate-y-1/2 h-7 w-7"
+                          onClick={() => setIdeaSearch("")}
+                        >
+                          <XIcon className="w-3 h-3" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Clear search</p>
+                      </TooltipContent>
+                    </Tooltip>
                   )}
                 </div>
                 {businessIdeas.length >= 2 && !compareMode && (
@@ -1267,50 +1302,78 @@ export default function Dashboard() {
                           </div>
                           {editingIdeaId !== idea.id && (
                             <div className="flex items-center gap-1 flex-shrink-0">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedIdeaId(idea.id);
-                                }}
-                              >
-                                <Eye className="w-4 h-4 text-muted-foreground hover:text-primary" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  toggleFavorite(idea.id, idea.is_favorite);
-                                }}
-                              >
-                                <Star 
-                                  className={`w-4 h-4 transition-colors ${
-                                    idea.is_favorite 
-                                      ? "fill-yellow-400 text-yellow-400" 
-                                      : "text-muted-foreground hover:text-yellow-400"
-                                  }`} 
-                                />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={(e) => startEditingIdea(idea, e)}
-                              >
-                                <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
-                                onClick={(e) => confirmDeleteIdea(idea.id, e)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setSelectedIdeaId(idea.id);
+                                    }}
+                                  >
+                                    <Eye className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>View business plan details</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleFavorite(idea.id, idea.is_favorite);
+                                    }}
+                                  >
+                                    <Star 
+                                      className={`w-4 h-4 transition-colors ${
+                                        idea.is_favorite 
+                                          ? "fill-yellow-400 text-yellow-400" 
+                                          : "text-muted-foreground hover:text-yellow-400"
+                                      }`} 
+                                    />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>{idea.is_favorite ? "Remove from favorites" : "Add to favorites"}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    onClick={(e) => startEditingIdea(idea, e)}
+                                  >
+                                    <Pencil className="w-4 h-4 text-muted-foreground hover:text-foreground" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Rename business plan</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8 text-destructive/60 hover:text-destructive hover:bg-destructive/10"
+                                    onClick={(e) => confirmDeleteIdea(idea.id, e)}
+                                  >
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Delete business plan</p>
+                                </TooltipContent>
+                              </Tooltip>
                             </div>
                           )}
                           {compareMode && selectedForCompare.includes(idea.id) && (
