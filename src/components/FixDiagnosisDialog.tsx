@@ -208,7 +208,7 @@ export default function FixDiagnosisDialog({
       <DialogContent className={cn(
         "flex flex-col transition-all duration-200",
         isExpanded 
-          ? "h-[98vh] w-[98vw] max-w-[98vw]" 
+          ? "h-[100vh] w-[100vw] max-w-[100vw] rounded-none m-0" 
           : "max-w-4xl h-[90vh]"
       )}>
         <DialogHeader className="flex-shrink-0">
@@ -233,7 +233,10 @@ export default function FixDiagnosisDialog({
           </div>
         </DialogHeader>
 
-        <div className="mb-4 p-3 rounded-lg bg-muted/50 border border-border/50">
+        <div className={cn(
+          "p-3 rounded-lg bg-muted/50 border border-border/50",
+          isExpanded ? "mb-2" : "mb-4"
+        )}>
           <p className="text-sm text-muted-foreground">
             <strong>Failed Check:</strong> {verificationData.checkDescription}
           </p>
@@ -249,7 +252,7 @@ export default function FixDiagnosisDialog({
           </div>
         ) : (
           <>
-            <div className="flex gap-2 mb-4">
+            <div className={cn("flex gap-2", isExpanded ? "mb-2" : "mb-4")}>
               <Button
                 onClick={() => copyToClipboard(diagnosis, "Diagnosis")}
                 variant="outline"
@@ -291,25 +294,50 @@ export default function FixDiagnosisDialog({
               </Button>
             </div>
 
-            <ScrollArea className="flex-1 min-h-0 rounded-lg border border-border/50 bg-background">
-              <div className="p-4 pr-8 overflow-x-hidden">
-                {isLoading && !diagnosis ? (
-                  <div className="flex flex-col items-center justify-center py-12 gap-4">
-                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                    <p className="text-muted-foreground animate-pulse">
-                      Analyzing failure and generating fix...
-                    </p>
-                  </div>
-                ) : (
-                  <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-wrap-anywhere [&_a]:break-all [&_code]:break-all [&_pre]:overflow-x-auto [&_pre]:max-w-full">
-                    <ReactMarkdown>{diagnosis}</ReactMarkdown>
-                    {isLoading && (
-                      <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+            <div className={cn(
+              "flex-1 rounded-lg border border-border/50 bg-background",
+              isExpanded ? "overflow-y-auto" : "min-h-0"
+            )}>
+              {!isExpanded ? (
+                <ScrollArea className="h-full">
+                  <div className="p-4 pr-8 overflow-x-hidden">
+                    {isLoading && !diagnosis ? (
+                      <div className="flex flex-col items-center justify-center py-12 gap-4">
+                        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        <p className="text-muted-foreground animate-pulse">
+                          Analyzing failure and generating fix...
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-wrap-anywhere [&_a]:break-all [&_code]:break-all [&_pre]:overflow-x-auto [&_pre]:max-w-full">
+                        <ReactMarkdown>{diagnosis}</ReactMarkdown>
+                        {isLoading && (
+                          <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                        )}
+                      </div>
                     )}
                   </div>
-                )}
-              </div>
-            </ScrollArea>
+                </ScrollArea>
+              ) : (
+                <div className="p-4 pr-8 overflow-x-hidden h-full">
+                  {isLoading && !diagnosis ? (
+                    <div className="flex flex-col items-center justify-center py-12 gap-4">
+                      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                      <p className="text-muted-foreground animate-pulse">
+                        Analyzing failure and generating fix...
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="prose prose-sm dark:prose-invert max-w-none break-words overflow-wrap-anywhere [&_a]:break-all [&_code]:break-all [&_pre]:overflow-x-auto [&_pre]:max-w-full">
+                      <ReactMarkdown>{diagnosis}</ReactMarkdown>
+                      {isLoading && (
+                        <span className="inline-block w-2 h-4 bg-primary animate-pulse ml-1" />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </>
         )}
 
