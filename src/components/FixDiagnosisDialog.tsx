@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
-import { Copy, Check, Wrench, Loader2, AlertTriangle, Sparkles } from "lucide-react";
+import { Copy, Check, Wrench, Loader2, AlertTriangle, Sparkles, Maximize2, Minimize2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -44,6 +45,7 @@ export default function FixDiagnosisDialog({
   const [error, setError] = useState<string | null>(null);
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   useEffect(() => {
     if (open && !hasStartedGeneration) {
@@ -203,12 +205,32 @@ export default function FixDiagnosisDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Wrench className="w-5 h-5 text-amber-500" />
-            Fix: Step {stepIndex + 1} - {stageTitle}
-          </DialogTitle>
+      <DialogContent className={cn(
+        "flex flex-col transition-all duration-200",
+        isExpanded 
+          ? "h-[98vh] w-[98vw] max-w-[98vw]" 
+          : "max-w-4xl h-[90vh]"
+      )}>
+        <DialogHeader className="flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <Wrench className="w-5 h-5 text-amber-500" />
+              Fix: Step {stepIndex + 1} - {stageTitle}
+            </DialogTitle>
+            <Button
+              onClick={() => setIsExpanded(!isExpanded)}
+              variant="ghost"
+              size="sm"
+              className="gap-1 mr-6"
+              title={isExpanded ? "Collapse" : "Expand to fullscreen"}
+            >
+              {isExpanded ? (
+                <><Minimize2 className="w-4 h-4" /> Collapse</>
+              ) : (
+                <><Maximize2 className="w-4 h-4" /> Expand</>
+              )}
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="mb-4 p-3 rounded-lg bg-muted/50 border border-border/50">
@@ -291,19 +313,21 @@ export default function FixDiagnosisDialog({
           </>
         )}
 
-        <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex-shrink-0">
-          <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-amber-600">
-            <Sparkles className="w-4 h-4" />
-            How to Use This Fix
-          </h4>
-          <ul className="text-sm text-muted-foreground space-y-1">
-            <li>1. Review the root cause analysis to understand the issue</li>
-            <li>2. Follow the manual fix instructions, OR</li>
-            <li>3. Copy the Director.ai prompt and paste into Director.ai</li>
-            <li>4. Director.ai will automate the fix steps</li>
-            <li>5. Re-run verification to confirm the fix worked</li>
-          </ul>
-        </div>
+        {!isExpanded && (
+          <div className="mt-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 flex-shrink-0">
+            <h4 className="font-semibold text-sm mb-2 flex items-center gap-2 text-amber-600">
+              <Sparkles className="w-4 h-4" />
+              How to Use This Fix
+            </h4>
+            <ul className="text-sm text-muted-foreground space-y-1">
+              <li>1. Review the root cause analysis to understand the issue</li>
+              <li>2. Follow the manual fix instructions, OR</li>
+              <li>3. Copy the Director.ai prompt and paste into Director.ai</li>
+              <li>4. Director.ai will automate the fix steps</li>
+              <li>5. Re-run verification to confirm the fix worked</li>
+            </ul>
+          </div>
+        )}
       </DialogContent>
     </Dialog>
   );
