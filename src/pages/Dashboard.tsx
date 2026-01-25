@@ -1199,11 +1199,11 @@ export default function Dashboard() {
                 </div>
               ) : filteredIdeas.length > 0 ? (
                 <ScrollArea className="h-[420px] pr-3">
-                  <div className="space-y-3">
+                  <div className="space-y-3 pr-2">
                     {filteredIdeas.map((idea) => (
                       <Card 
                         key={idea.id} 
-                        className={`glass card-hover cursor-pointer transition-all ${
+                        className={`glass card-hover cursor-pointer ${
                           compareMode && selectedForCompare.includes(idea.id) 
                             ? "ring-2 ring-primary" 
                             : ""
