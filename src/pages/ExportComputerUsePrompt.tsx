@@ -21,10 +21,12 @@ import {
   Presentation,
   Shield,
   Handshake,
-  Heart
+  Heart,
+  Wand2
 } from "lucide-react";
 import { toast } from "sonner";
 import { generateComputerUsePrompt, generateStagePrompt, generateAutomationStages, BusinessIdeaData } from "@/lib/computerUsePromptGenerator";
+import { generateDirectorAiPrompt } from "@/lib/directorAiPromptGenerator";
 
 interface DbBusinessIdea {
   id: string;
@@ -51,6 +53,7 @@ export default function ExportComputerUsePrompt() {
   const [businessIdeas, setBusinessIdeas] = useState<DbBusinessIdea[]>([]);
   const [selectedIdeaId, setSelectedIdeaId] = useState<string>("");
   const [selectedStageId, setSelectedStageId] = useState<string>("all");
+  const [exportFormat, setExportFormat] = useState<"computer-use" | "director-ai">("computer-use");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -103,9 +106,11 @@ export default function ExportComputerUsePrompt() {
   const stages = transformedIdea ? generateAutomationStages(transformedIdea) : [];
 
   const generatedPrompt = transformedIdea 
-    ? (selectedStageId === "all" 
-        ? generateComputerUsePrompt(transformedIdea) 
-        : generateStagePrompt(transformedIdea, selectedStageId))
+    ? exportFormat === "director-ai"
+      ? generateDirectorAiPrompt(transformedIdea, selectedStageId)
+      : (selectedStageId === "all" 
+          ? generateComputerUsePrompt(transformedIdea) 
+          : generateStagePrompt(transformedIdea, selectedStageId))
     : "";
 
   const copyToClipboard = async () => {
@@ -151,11 +156,17 @@ export default function ExportComputerUsePrompt() {
           </Button>
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Bot className="w-6 h-6 text-accent" />
+              {exportFormat === "director-ai" ? (
+                <Wand2 className="w-6 h-6 text-accent" />
+              ) : (
+                <Bot className="w-6 h-6 text-accent" />
+              )}
               Export for AI Agent
             </h1>
             <p className="text-muted-foreground">
-              Generate prompts for Claude Cowork or Gemini 2.5 Computer Use
+              {exportFormat === "director-ai" 
+                ? "Generate prompts optimized for Director.ai automation"
+                : "Generate prompts for Claude Cowork or Gemini 2.5 Computer Use"}
             </p>
           </div>
         </div>
@@ -174,6 +185,23 @@ export default function ExportComputerUsePrompt() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Export Format Select */}
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Export Format</label>
+                  <Tabs value={exportFormat} onValueChange={(v) => setExportFormat(v as "computer-use" | "director-ai")}>
+                    <TabsList className="w-full">
+                      <TabsTrigger value="computer-use" className="flex-1 gap-1">
+                        <Bot className="w-3 h-3" />
+                        Computer Use
+                      </TabsTrigger>
+                      <TabsTrigger value="director-ai" className="flex-1 gap-1">
+                        <Wand2 className="w-3 h-3" />
+                        Director.ai
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </div>
+
                 {/* Business Idea Select */}
                 <div className="space-y-2">
                   <label className="text-sm font-medium">Business Plan</label>
@@ -288,22 +316,49 @@ export default function ExportComputerUsePrompt() {
                 <CardTitle className="text-lg">How to Use</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm text-muted-foreground">
-                <div className="flex gap-2">
-                  <Badge variant="outline" className="shrink-0">1</Badge>
-                  <span>Copy or download the generated prompt</span>
-                </div>
-                <div className="flex gap-2">
-                  <Badge variant="outline" className="shrink-0">2</Badge>
-                  <span>Open Claude Cowork or Gemini 2.5 with Computer Use</span>
-                </div>
-                <div className="flex gap-2">
-                  <Badge variant="outline" className="shrink-0">3</Badge>
-                  <span>Paste the prompt and let the AI build your workflows</span>
-                </div>
-                <div className="flex gap-2">
-                  <Badge variant="outline" className="shrink-0">4</Badge>
-                  <span>Monitor progress and provide credentials when asked</span>
-                </div>
+                {exportFormat === "director-ai" ? (
+                  <>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">1</Badge>
+                      <span>Copy the generated prompt</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">2</Badge>
+                      <span>Go to director.ai and sign in</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">3</Badge>
+                      <span>Paste prompt in task description</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">4</Badge>
+                      <span>Configure credentials in 1Password</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">5</Badge>
+                      <span>Run or schedule the workflow</span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">1</Badge>
+                      <span>Copy or download the generated prompt</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">2</Badge>
+                      <span>Open Claude Cowork or Gemini 2.5 with Computer Use</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">3</Badge>
+                      <span>Paste the prompt and let the AI build your workflows</span>
+                    </div>
+                    <div className="flex gap-2">
+                      <Badge variant="outline" className="shrink-0">4</Badge>
+                      <span>Monitor progress and provide credentials when asked</span>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </div>
