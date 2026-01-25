@@ -36,7 +36,8 @@ import {
   Cloud,
   Clock,
   Loader2,
-  Bot
+  Bot,
+  Download
 } from "lucide-react";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
@@ -713,24 +714,46 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                               <Zap className="w-4 h-4 text-primary" />
                               Workflow Prompt (Copy & Paste into n8n)
                             </h4>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="gap-2 h-8"
-                              onClick={() => copyToClipboard(stage.workflowPrompt, `prompt-${stage.id}`)}
-                            >
-                              {copiedId === `prompt-${stage.id}` ? (
-                                <>
-                                  <Check className="w-3 h-3" />
-                                  Copied!
-                                </>
-                              ) : (
-                                <>
-                                  <Copy className="w-3 h-3" />
-                                  Copy Prompt
-                                </>
-                              )}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-2 h-8"
+                                onClick={() => {
+                                  const blob = new Blob([stage.workflowPrompt], { type: "text/plain" });
+                                  const url = URL.createObjectURL(blob);
+                                  const a = document.createElement("a");
+                                  a.href = url;
+                                  a.download = `n8n-prompt-${stage.id}-${Date.now()}.txt`;
+                                  document.body.appendChild(a);
+                                  a.click();
+                                  document.body.removeChild(a);
+                                  URL.revokeObjectURL(url);
+                                  toast.success("Prompt downloaded!");
+                                }}
+                              >
+                                <Download className="w-3 h-3" />
+                                Download Prompt
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="gap-2 h-8"
+                                onClick={() => copyToClipboard(stage.workflowPrompt, `prompt-${stage.id}`)}
+                              >
+                                {copiedId === `prompt-${stage.id}` ? (
+                                  <>
+                                    <Check className="w-3 h-3" />
+                                    Copied!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Copy className="w-3 h-3" />
+                                    Copy Prompt
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           </div>
                           <div className="bg-muted/50 rounded-lg p-3 text-sm font-mono whitespace-pre-wrap max-h-48 overflow-y-auto border">
                             {stage.workflowPrompt}
