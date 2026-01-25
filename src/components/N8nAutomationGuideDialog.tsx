@@ -900,7 +900,24 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
       }));
 
       if (data.status === 'PASS') {
-        toast.success(`${stageName} verified against live workflow!`);
+        // Auto-complete all steps in this stage when live verification passes
+        const stage = stages.find(s => s.id === stageId);
+        if (stage) {
+          let autoCompletedCount = 0;
+          for (let i = 0; i < stage.setupSteps.length; i++) {
+            if (!isStepCompleted(stageId, i)) {
+              toggleStep(stageId, i);
+              autoCompletedCount++;
+            }
+          }
+          if (autoCompletedCount > 0) {
+            toast.success(`${stageName} verified - ${autoCompletedCount} steps auto-completed! ✓`);
+          } else {
+            toast.success(`${stageName} verified against live workflow!`);
+          }
+        } else {
+          toast.success(`${stageName} verified against live workflow!`);
+        }
       } else if (data.status === 'NEEDS_ATTENTION') {
         toast.warning(`${stageName} needs attention - check the results`);
       } else if (data.connectionRequired) {
