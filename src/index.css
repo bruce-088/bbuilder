@@ -177,8 +177,10 @@
 
   /* Typing indicator */
   .typing-dot {
-    @apply w-2 h-2 rounded-full bg-muted-foreground;
+    @apply w-2 h-2 rounded-full;
+    background: linear-gradient(135deg, hsl(239 84% 67%), hsl(270 84% 60%));
     animation: typing 1.4s infinite ease-in-out both;
+    box-shadow: 0 0 8px hsl(239 84% 67% / 0.5);
   }
 
   .typing-dot:nth-child(1) {
@@ -251,11 +253,13 @@
 
 @keyframes typing {
   0%, 80%, 100% {
-    transform: scale(0.8);
-    opacity: 0.5;
+    transform: scale(0.7);
+    opacity: 0.4;
+    box-shadow: 0 0 4px hsl(239 84% 67% / 0.3);
   }
   40% {
-    transform: scale(1);
+    transform: scale(1.1);
     opacity: 1;
+    box-shadow: 0 0 12px hsl(239 84% 67% / 0.7);
   }
 }
