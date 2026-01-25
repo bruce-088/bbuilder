@@ -205,12 +205,16 @@ export default function FixDiagnosisDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
-      <DialogContent className={cn(
-        "flex flex-col transition-all duration-200",
-        isExpanded 
-          ? "h-[100vh] w-[100vw] max-w-[100vw] rounded-none m-0" 
-          : "max-w-4xl h-[90vh]"
-      )}>
+      <DialogContent 
+        className={cn(
+          "flex flex-col transition-all duration-200",
+          isExpanded 
+            ? "h-[100vh] w-[100vw] max-w-[100vw] rounded-none m-0" 
+            : "max-w-4xl h-[90vh]"
+        )}
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
