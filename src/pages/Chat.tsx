@@ -31,10 +31,13 @@ import {
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
+import SavePromptBanner from "@/components/SavePromptBanner";
+import PostSaveDialog from "@/components/PostSaveDialog";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import myaAvatar from "@/assets/mya-avatar.png";
+import { celebrateSave, celebrateFirstIdea } from "@/lib/confetti";
 
 interface ChatMessage {
   id: string;
@@ -72,6 +75,8 @@ export default function Chat() {
   const [pastedImages, setPastedImages] = useState<{ file: File; preview: string }[]>([]);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [showPostSaveDialog, setShowPostSaveDialog] = useState(false);
+  const [isFirstSave, setIsFirstSave] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -302,6 +307,15 @@ export default function Chat() {
     setSavingIdeaId(messageId);
 
     try {
+      // Check if this is the user's first save
+      const { count } = await supabase
+        .from("business_ideas")
+        .select("id", { count: 'exact', head: true })
+        .eq("user_id", user.id);
+      
+      const isFirst = (count || 0) === 0;
+      setIsFirstSave(isFirst);
+
       const parsed = parseBusinessIdea(content);
 
       const { data, error } = await supabase.from("business_ideas").insert({
@@ -323,7 +337,18 @@ export default function Chat() {
       if (data) {
         setSavedBusinessIdea(data);
       }
-      toast.success("Business plan saved! You can now compare it with others.");
+      
+      // Celebration and dialog
+      if (isFirst) {
+        celebrateFirstIdea();
+        toast.success("🎉 Your first business plan! You're on your way!");
+      } else {
+        celebrateSave();
+        toast.success("Business plan saved!");
+      }
+      
+      // Show the post-save dialog
+      setShowPostSaveDialog(true);
     } catch (error) {
       console.error("Error saving business idea:", error);
       toast.error("Failed to save business plan");
@@ -752,42 +777,43 @@ export default function Chat() {
                         <p className="whitespace-pre-wrap">{message.content}</p>
                       )}
                     </div>
-                    {/* Save as Business Idea button for assistant messages with business ideas */}
+                    {/* Save prompt banner or save button for business idea messages */}
                     {message.role === "assistant" && 
                      message.content && 
                      isBusinessIdeaMessage(message.content) && 
                      !isStreaming && (
-                      <div className="flex flex-wrap gap-2 justify-start">
-                        {!savedBusinessIdea && (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className={`gap-2 ${savedIdeaMessageIds.has(message.id) ? "text-green-500 border-green-500/50" : ""}`}
-                            onClick={() => saveAsBusinessIdea(message.id, message.content)}
-                            disabled={savingIdeaId === message.id || savedIdeaMessageIds.has(message.id)}
-                          >
-                            {savingIdeaId === message.id ? (
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                            ) : savedIdeaMessageIds.has(message.id) ? (
-                              <BookmarkCheck className="w-4 h-4" />
-                            ) : (
-                              <Bookmark className="w-4 h-4" />
-                            )}
-                            {savedIdeaMessageIds.has(message.id) ? "Saved to Ideas" : "Save as Business Idea"}
-                          </Button>
-                        )}
-                        {savedBusinessIdea && (
-                          <N8nWorkflowDialog
-                            businessIdeaId={savedBusinessIdea.id}
-                            businessName={savedBusinessIdea.business_name}
-                            trigger={
-                              <Button variant="outline" size="sm" className="gap-2">
-                                <Workflow className="w-4 h-4" />
-                                {hasExistingWorkflow ? "View n8n Workflow" : "Generate n8n Workflow"}
-                              </Button>
-                            }
+                      <div className="space-y-2">
+                        {!savedBusinessIdea && !savedIdeaMessageIds.has(message.id) && (
+                          <SavePromptBanner
+                            onSave={() => saveAsBusinessIdea(message.id, message.content)}
+                            isSaving={savingIdeaId === message.id}
                           />
                         )}
+                        <div className="flex flex-wrap gap-2 justify-start">
+                          {!savedBusinessIdea && savedIdeaMessageIds.has(message.id) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-2 text-primary border-primary/50"
+                              disabled
+                            >
+                              <BookmarkCheck className="w-4 h-4" />
+                              Saved to Ideas
+                            </Button>
+                          )}
+                          {savedBusinessIdea && (
+                            <N8nWorkflowDialog
+                              businessIdeaId={savedBusinessIdea.id}
+                              businessName={savedBusinessIdea.business_name}
+                              trigger={
+                                <Button variant="outline" size="sm" className="gap-2">
+                                  <Workflow className="w-4 h-4" />
+                                  {hasExistingWorkflow ? "View n8n Workflow" : "Generate n8n Workflow"}
+                                </Button>
+                              }
+                            />
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -1118,6 +1144,23 @@ export default function Chat() {
           ideaId={savedBusinessIdea.id}
           open={businessIdeaDialogOpen}
           onOpenChange={setBusinessIdeaDialogOpen}
+        />
+      )}
+
+      {/* Post-Save Dialog */}
+      {savedBusinessIdea && (
+        <PostSaveDialog
+          open={showPostSaveDialog}
+          onOpenChange={setShowPostSaveDialog}
+          businessName={savedBusinessIdea.business_name}
+          onOpenChecklist={() => {
+            setShowPostSaveDialog(false);
+            setBusinessIdeaDialogOpen(true);
+          }}
+          onKeepChatting={() => {
+            setShowPostSaveDialog(false);
+            textareaRef.current?.focus();
+          }}
         />
       )}
     </div>
