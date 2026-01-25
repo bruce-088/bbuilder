@@ -114,7 +114,7 @@ export default function Landing() {
                 className="bg-gradient-primary hover:opacity-90 text-lg px-8 py-6 glow-primary btn-glow"
               >
                 <Sparkles className="w-5 h-5 mr-2" />
-                Generate Business Ideas
+                Generate Business Plans
               </Button>
               <Button
                 onClick={() => document.getElementById("features")?.scrollIntoView({ behavior: "smooth" })}

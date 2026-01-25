@@ -77,7 +77,7 @@ export default function Compare() {
       setAllIdeas(data || []);
     } catch (error) {
       console.error("Error fetching ideas:", error);
-      toast.error("Failed to load business ideas");
+      toast.error("Failed to load business plans");
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ export default function Compare() {
 
   const handleAddIdea = (id: string) => {
     if (selectedIds.length >= 4) {
-      toast.error("Maximum 4 ideas can be compared at once");
+      toast.error("Maximum 4 plans can be compared at once");
       return;
     }
     const newIds = [...selectedIds, id];
@@ -145,11 +145,11 @@ export default function Compare() {
             <div className="w-8 h-8 rounded-lg bg-gradient-primary flex items-center justify-center">
               <Scale className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="font-display font-bold">Compare Ideas</span>
+            <span className="font-display font-bold">Compare Plans</span>
           </div>
           <div className="ml-auto flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              {selectedIds.length}/4 ideas selected
+              {selectedIds.length}/4 plans selected
             </span>
             {selectedIds.length < 4 && availableIdeas.length > 0 && (
               <Button 
@@ -158,7 +158,7 @@ export default function Compare() {
                 className="bg-gradient-primary"
               >
                 <Plus className="w-4 h-4 mr-1" />
-                Add Idea
+                Add Plan
               </Button>
             )}
           </div>
@@ -180,10 +180,10 @@ export default function Compare() {
               <Scale className="w-8 h-8 text-primary" />
             </div>
             <h2 className="font-display text-2xl font-bold mb-2">
-              Compare Business Ideas
+              Compare Business Plans
             </h2>
             <p className="text-muted-foreground mb-8 max-w-md mx-auto">
-              Select up to 4 business ideas to compare side by side
+              Select up to 4 business plans to compare side by side
             </p>
             {allIdeas.length > 0 ? (
               <Button
@@ -191,12 +191,12 @@ export default function Compare() {
                 className="bg-gradient-accent text-accent-foreground hover:opacity-90 btn-glow"
               >
                 <Plus className="w-4 h-4 mr-2" />
-                Select Ideas to Compare
+                Select Plans to Compare
               </Button>
             ) : (
               <div>
                 <p className="text-muted-foreground mb-4">
-                  No business ideas yet. Generate some first!
+                  No business plans yet. Generate some first!
                 </p>
                 <Button
                   onClick={() => navigate("/dashboard")}
@@ -215,7 +215,7 @@ export default function Compare() {
                 {/* Header Row - Business Names */}
                 <div className="grid gap-4 mb-6" style={{ gridTemplateColumns: `200px repeat(${selectedIdeas.length}, 1fr)` }}>
                   <div className="font-display font-semibold text-muted-foreground">
-                    Business Idea
+                    Business Plan
                   </div>
                   {selectedIdeas.map((idea, index) => (
                     <motion.div
@@ -327,7 +327,7 @@ export default function Compare() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-display text-xl font-bold">Select Ideas to Compare</h3>
+                <h3 className="font-display text-xl font-bold">Select Plans to Compare</h3>
                 <Button variant="ghost" size="icon" onClick={() => setShowSelector(false)}>
                   <X className="w-5 h-5" />
                 </Button>
@@ -336,7 +336,7 @@ export default function Compare() {
                 <div className="space-y-2 pr-4">
                   {availableIdeas.length === 0 ? (
                     <p className="text-muted-foreground text-center py-8">
-                      All ideas are already selected
+                      All plans are already selected
                     </p>
                   ) : (
                     availableIdeas.map((idea) => (

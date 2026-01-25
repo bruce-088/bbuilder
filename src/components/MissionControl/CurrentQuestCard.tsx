@@ -357,10 +357,10 @@ export default function CurrentQuestCard({
                 <div className="w-12 h-12 mx-auto rounded-full bg-muted/30 flex items-center justify-center mb-3">
                   <Lightbulb className="w-6 h-6 text-muted-foreground" />
                 </div>
-                <p className="text-muted-foreground text-sm mb-3">No business ideas yet</p>
+                <p className="text-muted-foreground text-sm mb-3">No business plans yet</p>
                 <Button onClick={onAction} variant="outline" size="sm">
                   <Zap className="w-4 h-4 mr-2" />
-                  Generate Your First Idea
+                  Generate Your First Plan
                 </Button>
               </div>
             ) : selectedIdea ? (

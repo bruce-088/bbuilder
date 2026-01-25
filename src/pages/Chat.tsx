@@ -195,7 +195,7 @@ export default function Chat() {
       /(?:Business Name|Name):\s*([^\n]+)/i,
       /^#{1,3}\s+([^#\n💡][^\n]+)/m,
       /^\*\*([^*\n:]+)\*\*/m,
-    ]) || "Untitled Business Idea";
+    ]) || "Untitled Business Plan";
 
     const niche = extractField([
       /##\s*🎯?\s*(?:The )?Niche[^\n]*\n+([^\n#]+)/i,
@@ -271,10 +271,10 @@ export default function Chat() {
       if (data) {
         setSavedBusinessIdea(data);
       }
-      toast.success("Business idea saved! You can now compare it with others.");
+      toast.success("Business plan saved! You can now compare it with others.");
     } catch (error) {
       console.error("Error saving business idea:", error);
-      toast.error("Failed to save business idea");
+      toast.error("Failed to save business plan");
     } finally {
       setSavingIdeaId(null);
     }
@@ -289,7 +289,7 @@ export default function Chat() {
         || content.match(/(?:Business Name|Name):\s*([^\n]+)/i)
         || content.match(/^#+\s*(.+)/m);
       
-      let title = "New Business Idea";
+      let title = "New Business Plan";
       
       if (businessNameMatch && businessNameMatch[1]) {
         title = businessNameMatch[1].trim().replace(/\*+/g, '').substring(0, 50);

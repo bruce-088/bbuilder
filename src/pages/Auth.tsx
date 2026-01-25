@@ -120,8 +120,8 @@ export default function Auth() {
           </h1>
           <p className="text-muted-foreground text-center mb-8">
             {isLogin
-              ? "Sign in to access your business ideas"
-              : "Start generating your $10K/month business ideas"}
+              ? "Sign in to access your business plans"
+              : "Start generating your $10K/month business plans"}
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-4">

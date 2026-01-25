@@ -504,10 +504,10 @@ export default function Dashboard() {
           idea.id === id ? { ...idea, business_name: editingIdeaName.trim() } : idea
         )
       );
-      toast.success("Business idea renamed");
+      toast.success("Business plan renamed");
     } catch (error) {
       console.error("Error updating business idea name:", error);
-      toast.error("Failed to rename business idea");
+      toast.error("Failed to rename business plan");
     } finally {
       cancelEditingIdea();
     }
@@ -573,7 +573,7 @@ export default function Dashboard() {
       /(?:Business Name|Name):\s*([^\n]+)/i,
       /^#{1,3}\s+([^#\n💡][^\n]+)/m,
       /^\*\*([^*\n:]+)\*\*/m,
-    ]) || "Untitled Business Idea";
+    ]) || "Untitled Business Plan";
 
     const niche = extractField([
       /##\s*🎯?\s*(?:The )?Niche[^\n]*\n+([^\n#]+)/i,
@@ -641,7 +641,7 @@ export default function Dashboard() {
       if (fetchError) throw fetchError;
 
       if (!messages || messages.length === 0) {
-        toast.error("No business idea found in this conversation");
+        toast.error("No business plan found in this conversation");
         return;
       }
 
@@ -674,10 +674,10 @@ export default function Dashboard() {
       
       if (ideasData) setBusinessIdeas(ideasData);
       
-      toast.success("Business idea saved! You can now compare it with others.");
+      toast.success("Business plan saved! You can now compare it with others.");
     } catch (error) {
       console.error("Error saving business idea:", error);
-      toast.error("Failed to save business idea");
+      toast.error("Failed to save business plan");
     } finally {
       setSavingIdeaFromConv(null);
     }
@@ -1118,7 +1118,7 @@ export default function Dashboard() {
               <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                 <h2 className="font-display text-xl font-semibold flex items-center gap-2">
                   <Lightbulb className="w-5 h-5 text-primary" />
-                  Business Ideas
+                  Business Plans
                 </h2>
                 <div className="flex items-center gap-2">
                   <Tabs value={filter} onValueChange={(v) => setFilter(v as "all" | "favorites")}>
@@ -1165,7 +1165,7 @@ export default function Dashboard() {
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      <p>Compare up to 4 ideas side-by-side to find your best fit</p>
+                      <p>Compare up to 4 plans side-by-side to find your best fit</p>
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -1315,7 +1315,7 @@ export default function Dashboard() {
                 <Card className="glass">
                   <CardContent className="p-8 text-center">
                     <Star className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
-                    <p className="text-muted-foreground">No favorite ideas yet</p>
+                    <p className="text-muted-foreground">No favorite plans yet</p>
                     <p className="text-sm text-muted-foreground mt-1">
                       Click the star icon on any idea to add it to favorites
                     </p>
@@ -1325,16 +1325,16 @@ export default function Dashboard() {
                 <Card className="glass">
                   <CardContent className="p-8 text-center">
                     <Lightbulb className="w-10 h-10 text-primary mx-auto mb-4" />
-                    <p className="font-medium text-foreground mb-1">No business ideas yet</p>
+                    <p className="font-medium text-foreground mb-1">No business plans yet</p>
                     <p className="text-sm text-muted-foreground mb-4 max-w-xs mx-auto">
-                      Start by chatting with Mya to discover your perfect $10K/month business idea
+                      Start by chatting with Mya to discover your perfect $10K/month business plan
                     </p>
                     <Button 
                       className="bg-gradient-primary hover:opacity-90"
                       onClick={handleGenerateIdeas}
                     >
                       <Lightbulb className="w-4 h-4 mr-2" />
-                      Generate Your First Idea
+                      Generate Your First Plan
                     </Button>
                   </CardContent>
                 </Card>
@@ -1348,9 +1348,9 @@ export default function Dashboard() {
       <AlertDialog open={!!ideaToDelete} onOpenChange={(open) => !open && setIdeaToDelete(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Business Idea</AlertDialogTitle>
+            <AlertDialogTitle>Delete Business Plan</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete this business idea? This action cannot be undone.
+              Are you sure you want to delete this business plan? This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

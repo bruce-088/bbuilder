@@ -36,28 +36,28 @@ const steps = [
   },
   {
     icon: Lightbulb,
-    title: "2. Explore Generated Business Ideas",
-    description: "Mya will generate tailored business ideas based on your conversation. Each idea includes a niche, target audience, value proposition, and revenue strategy.",
+    title: "2. Explore Generated Business Plans",
+    description: "Mya will generate tailored business plans based on your conversation. Each plan includes a niche, target audience, value proposition, and revenue strategy.",
     tips: [
-      "Ask follow-up questions to refine ideas",
+      "Ask follow-up questions to refine plans",
       "Request variations or pivots on concepts you like",
-      "Save promising ideas to your dashboard"
+      "Save promising plans to your dashboard"
     ]
   },
   {
     icon: Target,
-    title: "3. Review & Compare Ideas",
-    description: "Access saved ideas from your dashboard. Use the compare feature to evaluate multiple ideas side-by-side and identify the best opportunity.",
+    title: "3. Review & Compare Plans",
+    description: "Access saved plans from your dashboard. Use the compare feature to evaluate multiple plans side-by-side and identify the best opportunity.",
     tips: [
-      "Star your favorite ideas for quick access",
+      "Star your favorite plans for quick access",
       "Use the comparison tool for detailed analysis",
-      "Review the AI automation strategy for each idea"
+      "Review the AI automation strategy for each plan"
     ]
   },
   {
     icon: Settings,
     title: "4. Generate Implementation Resources",
-    description: "For each business idea, generate detailed implementation guides, n8n automation workflows, and master prompts to accelerate your launch.",
+    description: "For each business plan, generate detailed implementation guides, n8n automation workflows, and master prompts to accelerate your launch.",
     tips: [
       "Use the 'Full Automation Setup Guide' for step-by-step setup",
       "Generate n8n workflows for sales automation",

@@ -32,8 +32,8 @@ export interface MissionProgress {
 
 // Achievement definitions
 export const ACHIEVEMENTS: Achievement[] = [
-  { id: 'first_idea', title: 'Idea Generator', description: 'Generate your first business idea', icon: '💡' },
-  { id: 'idea_saved', title: 'Idea Keeper', description: 'Save a business idea to your library', icon: '📚' },
+  { id: 'first_idea', title: 'Plan Generator', description: 'Generate your first business plan', icon: '💡' },
+  { id: 'idea_saved', title: 'Plan Keeper', description: 'Save a business plan to your library', icon: '📚' },
   { id: 'deep_dive', title: 'Deep Diver', description: 'Complete the Quick Start Checklist', icon: '🤿' },
   { id: 'automator', title: 'Automator', description: 'Generate your first n8n workflow', icon: '⚙️' },
   { id: 'implementer', title: 'Implementer', description: 'Complete 3 implementation steps', icon: '🛠️' },
@@ -47,8 +47,8 @@ export const QUEST_STAGES = [
     stage: 1,
     title: 'Foundation',
     quests: [
-      { id: 'generate_idea', title: 'Generate Your First Idea', description: 'Use AI to create a tailored business concept', xp: 100, icon: '💡' },
-      { id: 'save_idea', title: 'Save to Library', description: 'Save your favorite idea for implementation', xp: 50, icon: '📌' },
+      { id: 'generate_idea', title: 'Generate Your First Plan', description: 'Use AI to create a tailored business concept', xp: 100, icon: '💡' },
+      { id: 'save_idea', title: 'Save to Library', description: 'Save your favorite plan for implementation', xp: 50, icon: '📌' },
     ]
   },
   {
@@ -56,7 +56,7 @@ export const QUEST_STAGES = [
     title: 'Validation',
     quests: [
       { id: 'review_checklist', title: 'Review Quick Start', description: 'Open the Quick Start Checklist', xp: 50, icon: '✅' },
-      { id: 'complete_validation', title: 'Validate Your Idea', description: 'Complete the validation milestone', xp: 150, icon: '🔬' },
+      { id: 'complete_validation', title: 'Validate Your Plan', description: 'Complete the validation milestone', xp: 150, icon: '🔬' },
     ]
   },
   {

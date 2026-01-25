@@ -79,7 +79,7 @@ export default function ExportComputerUsePrompt() {
         }
       } catch (e) {
         console.error("Error loading business ideas:", e);
-        toast.error("Failed to load business ideas");
+        toast.error("Failed to load business plans");
       } finally {
         setLoading(false);
       }
@@ -176,10 +176,10 @@ export default function ExportComputerUsePrompt() {
               <CardContent className="space-y-4">
                 {/* Business Idea Select */}
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">Business Idea</label>
+                  <label className="text-sm font-medium">Business Plan</label>
                   <Select value={selectedIdeaId} onValueChange={setSelectedIdeaId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Select a business idea" />
+                      <SelectValue placeholder="Select a business plan" />
                     </SelectTrigger>
                     <SelectContent>
                       {businessIdeas.map((idea) => (
@@ -334,7 +334,7 @@ export default function ExportComputerUsePrompt() {
                 <div className="h-[600px] flex items-center justify-center text-muted-foreground">
                   <div className="text-center">
                     <Bot className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>Select a business idea to generate the prompt</p>
+                    <p>Select a business plan to generate the prompt</p>
                   </div>
                 </div>
               )}

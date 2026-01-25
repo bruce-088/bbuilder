@@ -170,8 +170,8 @@ export default function WhatsNextCard({
     if (!completedQuests.includes('generate_idea')) {
       return {
         id: 'generate_idea',
-        title: "Generate Your First Business Idea",
-        description: "Let AI create a tailored, revenue-ready business concept just for you",
+          title: "Generate Your First Business Plan",
+          description: "Let AI create a tailored, revenue-ready business concept just for you",
         icon: <Lightbulb className="w-5 h-5" />,
         action: onGenerateIdea,
         actionLabel: "Generate Idea",
@@ -182,8 +182,8 @@ export default function WhatsNextCard({
     if (!completedQuests.includes('save_idea')) {
       return {
         id: 'save_idea',
-        title: "Save Your Favorite Idea",
-        description: "Bookmark your best idea to unlock the Implementation Guide and automation tools",
+          title: "Save Your Favorite Plan",
+          description: "Bookmark your best plan to unlock the Implementation Guide and automation tools",
         icon: <Bookmark className="w-5 h-5" />,
         action: onStartChat,
         actionLabel: "Review Ideas",
@@ -196,7 +196,7 @@ export default function WhatsNextCard({
       return {
         id: 'review_checklist',
         title: "Open the Quick Start Checklist",
-        description: "Follow the step-by-step guide to validate and implement your idea",
+        description: "Follow the step-by-step guide to validate and implement your plan",
         icon: <CheckSquare className="w-5 h-5" />,
         action: onViewIdea,
         actionLabel: "View Checklist",
@@ -354,7 +354,7 @@ export default function WhatsNextCard({
               <div className="min-w-0">
                 <div className="font-medium text-sm">Start Fresh</div>
                 <div className="text-xs text-muted-foreground">
-                  Generate a new business idea
+                  Generate a new business plan
                 </div>
               </div>
             </button>
@@ -364,7 +364,7 @@ export default function WhatsNextCard({
               <div className="space-y-2">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <FolderOpen className="w-3 h-3 shrink-0" />
-                  <span>Continue from saved idea:</span>
+                  <span>Continue from saved plan:</span>
                 </div>
                 <div className="max-h-40 overflow-y-auto space-y-1.5 pr-1">
                   {businessIdeas.map((idea) => (
