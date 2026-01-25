@@ -52,7 +52,8 @@ import {
   Search,
   HelpCircle,
   Rocket,
-  Trophy
+  Trophy,
+  Eye
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -1266,6 +1267,17 @@ export default function Dashboard() {
                           </div>
                           {editingIdeaId !== idea.id && (
                             <div className="flex items-center gap-1 flex-shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedIdeaId(idea.id);
+                                }}
+                              >
+                                <Eye className="w-4 h-4 text-muted-foreground hover:text-primary" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="icon"
