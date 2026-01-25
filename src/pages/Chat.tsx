@@ -809,16 +809,23 @@ export default function Chat() {
                     exit={{ opacity: 0, scale: 0.5, y: 10 }}
                     transition={{ delay: 0.05 }}
                   >
-                    <Button
-                      onClick={() => {
-                        setBusinessIdeaDialogOpen(true);
-                        setToolbarExpanded(false);
-                      }}
-                      className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all"
-                    >
-                      <Eye className="w-4 h-4" />
-                      <span className="hidden sm:inline">View Idea</span>
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => {
+                            setBusinessIdeaDialogOpen(true);
+                            setToolbarExpanded(false);
+                          }}
+                          className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all"
+                        >
+                          <Eye className="w-4 h-4" />
+                          <span className="hidden sm:inline">View Idea</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                        <p>View saved business plan details</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </motion.div>
 
                   {/* Implementation Guide */}
@@ -828,23 +835,32 @@ export default function Chat() {
                     exit={{ opacity: 0, scale: 0.5, y: 10 }}
                     transition={{ delay: 0.1 }}
                   >
-                    <ImplementationGuideDialog
-                      trigger={
-                        <Button className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all">
-                          <Wrench className="w-4 h-4" />
-                          <span className="hidden sm:inline">Impl. Guide</span>
-                        </Button>
-                      }
-                      businessIdea={{
-                        id: savedBusinessIdea.id,
-                        businessName: savedBusinessIdea.business_name,
-                        niche: savedBusinessIdea.niche,
-                        targetAudience: savedBusinessIdea.target_audience,
-                        valueProposition: savedBusinessIdea.value_proposition,
-                        serviceOffering: savedBusinessIdea.service_offering,
-                        aiAutomationStrategy: savedBusinessIdea.ai_automation_strategy,
-                      }}
-                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <ImplementationGuideDialog
+                            trigger={
+                              <Button className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all">
+                                <Wrench className="w-4 h-4" />
+                                <span className="hidden sm:inline">Impl. Guide</span>
+                              </Button>
+                            }
+                            businessIdea={{
+                              id: savedBusinessIdea.id,
+                              businessName: savedBusinessIdea.business_name,
+                              niche: savedBusinessIdea.niche,
+                              targetAudience: savedBusinessIdea.target_audience,
+                              valueProposition: savedBusinessIdea.value_proposition,
+                              serviceOffering: savedBusinessIdea.service_offering,
+                              aiAutomationStrategy: savedBusinessIdea.ai_automation_strategy,
+                            }}
+                          />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                        <p>Step-by-step implementation guide</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </motion.div>
 
                   {/* n8n Workflow */}
@@ -854,16 +870,25 @@ export default function Chat() {
                     exit={{ opacity: 0, scale: 0.5, y: 10 }}
                     transition={{ delay: 0.15 }}
                   >
-                    <N8nWorkflowDialog
-                      businessIdeaId={savedBusinessIdea.id}
-                      businessName={savedBusinessIdea.business_name}
-                      trigger={
-                        <Button className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all">
-                          <Workflow className="w-4 h-4" />
-                          <span className="hidden sm:inline">n8n Workflow</span>
-                        </Button>
-                      }
-                    />
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <div>
+                          <N8nWorkflowDialog
+                            businessIdeaId={savedBusinessIdea.id}
+                            businessName={savedBusinessIdea.business_name}
+                            trigger={
+                              <Button className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all">
+                                <Workflow className="w-4 h-4" />
+                                <span className="hidden sm:inline">n8n Workflow</span>
+                              </Button>
+                            }
+                          />
+                        </div>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                        <p>Generate or view n8n automation workflow</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </motion.div>
 
                   {/* Focus Chat */}
@@ -873,37 +898,51 @@ export default function Chat() {
                     exit={{ opacity: 0, scale: 0.5, y: 10 }}
                     transition={{ delay: 0.2 }}
                   >
-                    <Button
-                      onClick={() => {
-                        textareaRef.current?.focus();
-                        setToolbarExpanded(false);
-                      }}
-                      className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all"
-                    >
-                      <MessageSquare className="w-4 h-4" />
-                      <span className="hidden sm:inline">Chat</span>
-                    </Button>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => {
+                            textareaRef.current?.focus();
+                            setToolbarExpanded(false);
+                          }}
+                          className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          <span className="hidden sm:inline">Chat</span>
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="left">
+                        <p>Focus on chat input</p>
+                      </TooltipContent>
+                    </Tooltip>
                   </motion.div>
                 </>
               )}
             </AnimatePresence>
 
             {/* Toggle Button */}
-            <Button
-              onClick={() => setToolbarExpanded(!toolbarExpanded)}
-              className="h-12 w-12 rounded-full shadow-lg bg-gradient-primary hover:opacity-90 btn-glow p-0"
-            >
-              <motion.div
-                animate={{ rotate: toolbarExpanded ? 45 : 0 }}
-                transition={{ duration: 0.2 }}
-              >
-                {toolbarExpanded ? (
-                  <X className="w-5 h-5" />
-                ) : (
-                  <Sparkles className="w-5 h-5" />
-                )}
-              </motion.div>
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  onClick={() => setToolbarExpanded(!toolbarExpanded)}
+                  className="h-12 w-12 rounded-full shadow-lg bg-gradient-primary hover:opacity-90 btn-glow p-0"
+                >
+                  <motion.div
+                    animate={{ rotate: toolbarExpanded ? 45 : 0 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    {toolbarExpanded ? (
+                      <X className="w-5 h-5" />
+                    ) : (
+                      <Sparkles className="w-5 h-5" />
+                    )}
+                  </motion.div>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left">
+                <p>{toolbarExpanded ? "Close quick actions" : "Open quick actions"}</p>
+              </TooltipContent>
+            </Tooltip>
           </motion.div>
         )}
       </AnimatePresence>
