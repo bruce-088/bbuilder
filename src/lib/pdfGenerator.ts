@@ -47,10 +47,11 @@ const formatAutomationStrategy = (strategy: Json): string => {
   return String(strategy);
 };
 
-export async function generateBusinessPlanPDF(
+// Internal function that creates and returns the jsPDF document
+function createBusinessPlanPDF(
   idea: BusinessIdea,
   completedSteps: string[]
-): Promise<void> {
+): jsPDF {
   const doc = new jsPDF({
     orientation: "portrait",
     unit: "mm",
@@ -220,7 +221,24 @@ export async function generateBusinessPlanPDF(
     doc.text(`Page ${i} of ${pageCount}`, pageWidth - margin, pageHeight - 6, { align: "right" });
   }
 
-  // Download
+  return doc;
+}
+
+// Returns PDF as Blob (for bundling)
+export function generateBusinessPlanPDFBlob(
+  idea: BusinessIdea,
+  completedSteps: string[]
+): Blob {
+  const doc = createBusinessPlanPDF(idea, completedSteps);
+  return doc.output("blob");
+}
+
+// Downloads PDF directly
+export async function generateBusinessPlanPDF(
+  idea: BusinessIdea,
+  completedSteps: string[]
+): Promise<void> {
+  const doc = createBusinessPlanPDF(idea, completedSteps);
   const fileName = `${idea.business_name.replace(/[^a-zA-Z0-9]/g, "-")}-Business-Plan.pdf`;
   doc.save(fileName);
 }
