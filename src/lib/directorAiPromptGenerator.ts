@@ -9,29 +9,65 @@ interface AutomationStage {
   credentialKeys: string[];
 }
 
-function generateDirectorAiStages(idea: BusinessIdeaData): AutomationStage[] {
+export interface DirectorAiOptions {
+  hostingType?: 'cloud' | 'self-hosted';
+  deploymentMethod?: 'hostinger' | 'docker' | 'npm' | 'other';
+  n8nInstanceUrl?: string;
+}
+
+function generateDirectorAiStages(idea: BusinessIdeaData, options?: DirectorAiOptions): AutomationStage[] {
+  const n8nUrl = options?.n8nInstanceUrl?.replace(/\/$/, '') || '[YOUR_N8N_INSTANCE_URL]';
+  const isHostinger = options?.hostingType === 'self-hosted' && options?.deploymentMethod === 'hostinger';
+  const isCloud = options?.hostingType === 'cloud';
+  const isDocker = options?.hostingType === 'self-hosted' && options?.deploymentMethod === 'docker';
+  // Generate dynamic n8n setup actions based on hosting type
+  const n8nSetupActions = isHostinger ? [
+    `Navigate to your Hostinger n8n instance at ${n8nUrl}`,
+    "Log into Hostinger dashboard at hpanel.hostinger.com → Navigate to Hosting → Manage → Applications → Find n8n",
+    "Click on n8n to view your auto-generated credentials (username and password)",
+    "Copy your n8n instance URL from the 'Access URL' field in the Hostinger panel",
+    `Open your n8n instance in browser: ${n8nUrl}`,
+    "Enter your Hostinger-provided username and password to authenticate",
+    "Verify you reach the n8n workflow dashboard",
+    "Go to Settings (gear icon) → Navigate to 'MCP access' section",
+    "Toggle 'Enable MCP access' ON (requires owner/admin permissions)",
+    `Copy the MCP Server URL: ${n8nUrl}/mcp-server/http`,
+    "In Lovable: Go to Project Settings → Connectors → Connect n8n → Paste your MCP URL"
+  ] : isCloud ? [
+    "Navigate to https://app.n8n.cloud and sign in or create an account",
+    "Note your instance URL (format: https://your-name.app.n8n.cloud)",
+    "Go to Settings → MCP access → Toggle 'Enable MCP access' ON",
+    "Copy the MCP Server URL (format: https://your-name.app.n8n.cloud/mcp-server/http)",
+    "In Lovable: Go to Project Settings → Connectors → Connect n8n → Paste your MCP URL"
+  ] : isDocker ? [
+    "Check your docker-compose.yml or .env file for N8N_BASIC_AUTH_USER and N8N_BASIC_AUTH_PASSWORD",
+    `Navigate to your n8n instance at ${n8nUrl}`,
+    "Authenticate with your Docker environment credentials",
+    "Go to Settings → MCP access → Toggle 'Enable MCP access' ON",
+    `Copy the MCP Server URL: ${n8nUrl}/mcp-server/http`,
+    "Ensure your Docker container is accessible from the internet for MCP to work",
+    "In Lovable: Go to Project Settings → Connectors → Connect n8n → Paste your MCP URL"
+  ] : [
+    "Identify your n8n hosting type (Cloud or Self-hosted)",
+    `Navigate to your n8n instance at ${n8nUrl}`,
+    "Authenticate with your credentials and verify dashboard loads",
+    "Go to Settings → MCP access → Toggle 'Enable MCP access' ON",
+    `Copy the MCP Server URL: ${n8nUrl}/mcp-server/http`,
+    "In Lovable: Go to Project Settings → Connectors → Connect n8n → Paste your MCP URL"
+  ];
+
   return [
     {
       id: "n8n-setup",
       title: "n8n Instance Setup & Access",
-      objective: "Configure and verify access to your n8n automation instance",
-      actions: [
-        "Identify n8n hosting type (Cloud or Self-hosted)",
-        "For n8n Cloud: Navigate to https://app.n8n.cloud and sign in or create account",
-        "For Self-hosted via Hostinger: Log into Hostinger dashboard → Navigate to Hosting → Manage → Applications → Find n8n in the list → Click to view credentials (username/password displayed)",
-        "For Docker deployment: Check docker-compose.yml or .env file for N8N_BASIC_AUTH_USER and N8N_BASIC_AUTH_PASSWORD environment variables",
-        "For npm/npx installation: Use the owner account created during first n8n run (if forgotten: delete ~/.n8n folder and restart n8n to reset)",
-        "Navigate to your n8n instance URL (custom domain like https://n8n.yourdomain.com or IP:port like http://your-server-ip:5678)",
-        "Authenticate with your credentials and verify dashboard loads",
-        "Go to Settings → MCP access → Toggle 'Enable MCP access' ON (requires owner/admin permissions)",
-        "Copy the MCP Server URL (format: https://[instance]/mcp-server/http) for Lovable connector setup"
-      ],
+      objective: `Configure and verify access to your ${isHostinger ? 'Hostinger-hosted' : isCloud ? 'n8n Cloud' : 'self-hosted'} n8n automation instance`,
+      actions: n8nSetupActions,
       validationCriteria: [
-        "n8n login page loads at your instance URL",
+        `n8n login page loads at ${n8nUrl}`,
         "Credentials authenticate successfully",
         "Dashboard displays with workflow list",
         "MCP access toggle is enabled in Settings",
-        "MCP Server URL is visible and can be copied"
+        `MCP Server URL (${n8nUrl}/mcp-server/http) is visible and copied`
       ],
       credentialKeys: ["n8n_instance_url", "n8n_username", "n8n_password", "n8n_mcp_url"]
     },
@@ -187,11 +223,18 @@ function generateDirectorAiStages(idea: BusinessIdeaData): AutomationStage[] {
   ];
 }
 
-export function generateDirectorAiPrompt(idea: BusinessIdeaData, stageId?: string): string {
-  const stages = generateDirectorAiStages(idea);
+export function generateDirectorAiPrompt(idea: BusinessIdeaData, stageId?: string, options?: DirectorAiOptions): string {
+  const stages = generateDirectorAiStages(idea, options);
   const selectedStages = stageId && stageId !== "all" 
     ? stages.filter(s => s.id === stageId) 
     : stages;
+  
+  const n8nUrl = options?.n8nInstanceUrl?.replace(/\/$/, '') || '[YOUR_N8N_INSTANCE_URL]';
+  const hostingDescription = options?.hostingType === 'cloud' 
+    ? 'n8n Cloud' 
+    : options?.deploymentMethod === 'hostinger' 
+    ? 'Hostinger-hosted n8n' 
+    : 'self-hosted n8n';
 
   const contextBlock = JSON.stringify({
     businessName: idea.businessName,
@@ -229,7 +272,7 @@ ${contextBlock}
 
 ## Prerequisites
 Before starting, ensure you have access to:
-- n8n instance (cloud or self-hosted)
+- ${hostingDescription} instance at ${n8nUrl}
 - Apollo.io account for prospecting
 - Google Workspace (Gmail, Sheets, Docs, Calendar)
 - OpenAI API access
@@ -240,7 +283,8 @@ Before starting, ensure you have access to:
 
 ## Credential Setup
 Configure these credentials in 1Password before running:
-- \`n8n_instance_url\`: Your n8n instance URL
+- \`n8n_instance_url\`: ${n8nUrl}
+- \`n8n_mcp_url\`: ${n8nUrl}/mcp-server/http
 - \`apollo_api_key\`: Apollo.io API key
 - \`openai_api_key\`: OpenAI API key
 - \`google_oauth\`: Google OAuth credentials
@@ -278,8 +322,8 @@ ${stageInstructions}
 `;
 }
 
-export function generateDirectorAiStagePrompt(idea: BusinessIdeaData, stageId: string): string {
-  return generateDirectorAiPrompt(idea, stageId);
+export function generateDirectorAiStagePrompt(idea: BusinessIdeaData, stageId: string, options?: DirectorAiOptions): string {
+  return generateDirectorAiPrompt(idea, stageId, options);
 }
 
 export { generateDirectorAiStages };
