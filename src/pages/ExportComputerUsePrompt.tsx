@@ -5,6 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -58,6 +61,11 @@ export default function ExportComputerUsePrompt() {
   const [exportFormat, setExportFormat] = useState<"computer-use" | "director-ai" | "verification">("computer-use");
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
+  
+  // n8n hosting configuration for Director.ai
+  const [n8nHostingType, setN8nHostingType] = useState<'cloud' | 'self-hosted'>('self-hosted');
+  const [selfHostedMethod, setSelfHostedMethod] = useState<'hostinger' | 'docker' | 'npm' | 'other'>('hostinger');
+  const [n8nInstanceUrl, setN8nInstanceUrl] = useState<string>('');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -136,7 +144,11 @@ export default function ExportComputerUsePrompt() {
     ? exportFormat === "verification"
       ? generateFullVerificationPrompt(buildVerifiableStages(), transformedIdea)
       : exportFormat === "director-ai"
-        ? generateDirectorAiPrompt(transformedIdea, selectedStageId)
+        ? generateDirectorAiPrompt(transformedIdea, selectedStageId, {
+            hostingType: n8nHostingType,
+            deploymentMethod: selfHostedMethod,
+            n8nInstanceUrl: n8nInstanceUrl || undefined
+          })
         : (selectedStageId === "all" 
             ? generateComputerUsePrompt(transformedIdea) 
             : generateStagePrompt(transformedIdea, selectedStageId))
@@ -287,6 +299,53 @@ export default function ExportComputerUsePrompt() {
                     </Select>
                   )}
                 </div>
+
+                {/* n8n Instance Configuration - for Director.ai format */}
+                {exportFormat === "director-ai" && (
+                  <div className="space-y-3 pt-4 border-t">
+                    <label className="text-sm font-medium">n8n Instance</label>
+                    <RadioGroup 
+                      value={n8nHostingType} 
+                      onValueChange={(v) => setN8nHostingType(v as 'cloud' | 'self-hosted')}
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="cloud" id="export-cloud" />
+                        <Label htmlFor="export-cloud">n8n Cloud</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="self-hosted" id="export-self" />
+                        <Label htmlFor="export-self">Self-Hosted</Label>
+                      </div>
+                    </RadioGroup>
+                    
+                    {n8nHostingType === 'self-hosted' && (
+                      <>
+                        <Select value={selfHostedMethod} onValueChange={(v) => setSelfHostedMethod(v as 'hostinger' | 'docker' | 'npm' | 'other')}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Deployment method" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="hostinger">Hostinger One-Click</SelectItem>
+                            <SelectItem value="docker">Docker</SelectItem>
+                            <SelectItem value="npm">npm/npx</SelectItem>
+                            <SelectItem value="other">Other</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        
+                        <Input
+                          placeholder="https://n8n.yourdomain.com"
+                          value={n8nInstanceUrl}
+                          onChange={(e) => setN8nInstanceUrl(e.target.value)}
+                          className="font-mono text-sm"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Enter your n8n instance URL for accurate AI instructions
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
 
                 {/* Stage Overview */}
                 {selectedIdeaId && (

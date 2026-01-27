@@ -97,6 +97,8 @@ interface VerificationRequest {
   };
   mcpConnected: boolean;
   testConnection?: boolean;
+  verifyWorkflowExists?: boolean;
+  workflowNamePattern?: string;
   hostingType?: 'cloud' | 'self-hosted';
   deploymentMethod?: 'docker' | 'hostinger' | 'npm' | 'other';
   n8nInstanceUrl?: string;
@@ -116,6 +118,8 @@ serve(async (req) => {
       businessContext,
       mcpConnected,
       testConnection,
+      verifyWorkflowExists,
+      workflowNamePattern,
       hostingType,
       deploymentMethod,
       n8nInstanceUrl
@@ -204,6 +208,57 @@ serve(async (req) => {
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+    }
+
+    // Handle workflow exists verification request
+    if (verifyWorkflowExists) {
+      // Since edge functions cannot call MCP tools directly,
+      // we return instructions for the frontend to display
+      const instanceUrl = n8nInstanceUrl?.replace(/\/$/, '') || '[your-instance-url]';
+      
+      if (!mcpConnected) {
+        return new Response(
+          JSON.stringify({
+            workflowFound: false,
+            message: "n8n MCP connector not configured. Connect your n8n instance first.",
+            suggestions: [
+              "Go to Project Settings → Connectors → Connect n8n",
+              `Enter your MCP URL: ${instanceUrl}/mcp-server/http`,
+              "Ensure MCP access is enabled in n8n Settings"
+            ]
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      // MCP is connected - provide manual verification instructions
+      const hostingerSuggestions = [
+        `Open your Hostinger n8n instance: ${instanceUrl}`,
+        `Navigate to the '${workflowNamePattern || 'GhostWriter AI'}' workflow`,
+        "Click Settings (gear icon) → Toggle 'Available in MCP' ON",
+        "Return here and test connection again to confirm"
+      ];
+      
+      const defaultSuggestions = [
+        "Open your n8n instance workflow list",
+        `Find the '${workflowNamePattern || 'GhostWriter AI'}: The Authority Engine' workflow`,
+        "Open Settings → Enable 'Available in MCP'",
+        "Save and return here to verify"
+      ];
+      
+      return new Response(
+        JSON.stringify({
+          workflowFound: false,
+          requiresManualCheck: true,
+          message: `MCP is connected. To verify '${workflowNamePattern || 'GhostWriter AI'}' workflow exists, ensure it's named correctly and marked 'Available in MCP'.`,
+          hostingType,
+          deploymentMethod,
+          suggestions: hostingType === 'self-hosted' && deploymentMethod === 'hostinger' 
+            ? hostingerSuggestions 
+            : defaultSuggestions
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
     // If MCP is not connected or no workflow data, return guidance

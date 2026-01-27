@@ -781,6 +781,17 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
     workflowCount?: number;
     instructions?: string[];
   } | null>(null);
+  
+  // Verify workflow exists state
+  const [verifyingWorkflow, setVerifyingWorkflow] = useState(false);
+  const [workflowVerificationResult, setWorkflowVerificationResult] = useState<{
+    found: boolean;
+    workflowName?: string;
+    active?: boolean;
+    nodeCount?: number;
+    message: string;
+    suggestions?: string[];
+  } | null>(null);
 
   const stages = generateAutomationStages(businessIdea);
 
@@ -877,6 +888,80 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
       toast.error("Connection test failed");
     } finally {
       setTestingConnection(false);
+    }
+  };
+
+  // Verify workflow exists in n8n
+  const handleVerifyWorkflowExists = async () => {
+    setVerifyingWorkflow(true);
+    setWorkflowVerificationResult(null);
+    
+    try {
+      // Call the verify-n8n-workflow edge function with verifyWorkflowExists
+      const { data, error } = await supabase.functions.invoke('verify-n8n-workflow', {
+        body: {
+          verifyWorkflowExists: true,
+          workflowNamePattern: 'GhostWriter',
+          hostingType: n8nHostingType,
+          deploymentMethod: selfHostedMethod,
+          n8nInstanceUrl: n8nInstanceUrl || undefined,
+          stageId: 'n8n-setup',
+          stageName: 'Workflow Verification',
+          businessContext: {
+            businessName: businessIdea.businessName,
+            niche: businessIdea.niche,
+            targetAudience: businessIdea.targetAudience
+          },
+          mcpConnected: mcpConnected
+        }
+      });
+
+      if (error) throw error;
+
+      if (data?.workflowFound) {
+        setWorkflowVerificationResult({
+          found: true,
+          workflowName: data.workflowName,
+          active: data.active,
+          nodeCount: data.nodeCount,
+          message: `Found "${data.workflowName}" workflow with ${data.nodeCount} nodes. Status: ${data.active ? 'Active' : 'Inactive'}`
+        });
+        toast.success("GhostWriter workflow found!");
+      } else {
+        // Provide guidance based on hosting type
+        const hostingSpecificSuggestions = n8nHostingType === 'self-hosted' && selfHostedMethod === 'hostinger'
+          ? [
+              `Open your Hostinger n8n instance: ${n8nInstanceUrl || '[your-instance-url]'}`,
+              "Navigate to the 'GhostWriter AI' workflow",
+              "Click Settings (gear icon) → Toggle 'Available in MCP' ON",
+              "Return here and test connection again to confirm"
+            ]
+          : [
+              "Ensure the workflow is named 'GhostWriter AI: The Authority Engine'",
+              "Open the workflow → Settings → Enable 'Available in MCP'",
+              "If not created yet, use the Download JSON button to import it"
+            ];
+        
+        setWorkflowVerificationResult({
+          found: false,
+          message: data?.message || "GhostWriter workflow not found in your n8n instance.",
+          suggestions: data?.suggestions || hostingSpecificSuggestions
+        });
+        toast.warning("Workflow not found - follow the setup suggestions");
+      }
+    } catch (err) {
+      console.error("Workflow verification error:", err);
+      setWorkflowVerificationResult({
+        found: false,
+        message: "Unable to verify workflow. Ensure MCP connector is configured.",
+        suggestions: [
+          "Connect n8n in Project Settings → Connectors",
+          "Verify MCP access is enabled in your n8n instance"
+        ]
+      });
+      toast.error("Workflow verification failed");
+    } finally {
+      setVerifyingWorkflow(false);
     }
   };
 
@@ -1846,6 +1931,59 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                         <li key={i}>{instruction}</li>
                                       ))}
                                     </ol>
+                                  </div>
+                                )}
+                                
+                                {/* Verify Workflow Exists Button - shows after successful connection */}
+                                {connectionTestResult?.success && (
+                                  <div className="pt-3 border-t mt-3">
+                                    <div className="flex items-center gap-3 flex-wrap">
+                                      <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleVerifyWorkflowExists}
+                                        disabled={verifyingWorkflow}
+                                        className="gap-2"
+                                      >
+                                        {verifyingWorkflow ? (
+                                          <>
+                                            <Loader2 className="w-4 h-4 animate-spin" />
+                                            Checking...
+                                          </>
+                                        ) : workflowVerificationResult?.found ? (
+                                          <>
+                                            <CheckCircle2 className="w-4 h-4 text-green-500" />
+                                            Re-verify Workflow
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Workflow className="w-4 h-4" />
+                                            Verify Workflow Exists
+                                          </>
+                                        )}
+                                      </Button>
+                                    </div>
+                                    
+                                    {workflowVerificationResult && (
+                                      <div className={`mt-3 p-3 rounded-lg border ${
+                                        workflowVerificationResult.found 
+                                          ? 'bg-green-500/10 border-green-500/30' 
+                                          : 'bg-destructive/10 border-destructive/30'
+                                      }`}>
+                                        <p className={`text-sm font-medium ${
+                                          workflowVerificationResult.found ? 'text-green-600' : 'text-destructive'
+                                        }`}>
+                                          {workflowVerificationResult.message}
+                                        </p>
+                                        {workflowVerificationResult.suggestions && (
+                                          <ul className="mt-2 text-xs text-muted-foreground space-y-1">
+                                            {workflowVerificationResult.suggestions.map((s, i) => (
+                                              <li key={i}>• {s}</li>
+                                            ))}
+                                          </ul>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
