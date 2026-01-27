@@ -330,8 +330,13 @@ export default function WhatsNextCard({
       </Button>
 
       {/* New Venture Dialog */}
-      <Dialog open={showVentureDialog} onOpenChange={setShowVentureDialog}>
-        <DialogContent className="sm:max-w-sm max-w-[calc(100vw-2rem)]">
+      <Dialog open={showVentureDialog} onOpenChange={setShowVentureDialog} modal={false}>
+        <DialogContent 
+          className="sm:max-w-sm max-w-[calc(100vw-2rem)]"
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onFocusOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-base">
               <Trophy className="w-4 h-4 text-accent shrink-0" />

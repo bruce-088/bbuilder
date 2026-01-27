@@ -1492,8 +1492,13 @@ export default function Dashboard() {
       </AlertDialog>
 
       {/* Industry Selection Dialog */}
-      <Dialog open={showIndustryDialog} onOpenChange={setShowIndustryDialog}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={showIndustryDialog} onOpenChange={setShowIndustryDialog} modal={false}>
+        <DialogContent 
+          className="sm:max-w-md"
+          onInteractOutside={(e) => e.preventDefault()}
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onFocusOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="font-display">Choose an Industry</DialogTitle>
             <DialogDescription>

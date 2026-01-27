@@ -26,8 +26,13 @@ export default function PostSaveDialog({
   onKeepChatting,
 }: PostSaveDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent 
+        className="sm:max-w-md"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader className="text-center">
           <motion.div
             initial={{ scale: 0 }}

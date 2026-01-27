@@ -251,7 +251,7 @@ export default function N8nWorkflowDialog({
   }, [prompt?.prompt_content]);
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange} modal={false}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" size="sm" className="gap-2">
@@ -260,7 +260,12 @@ export default function N8nWorkflowDialog({
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col">
+      <DialogContent 
+        className="max-w-4xl max-h-[90vh] flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 font-display">
             <Workflow className="w-5 h-5 text-primary" />
