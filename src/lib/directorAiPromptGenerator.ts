@@ -13,10 +13,15 @@ export interface DirectorAiOptions {
   hostingType?: 'cloud' | 'self-hosted';
   deploymentMethod?: 'hostinger' | 'docker' | 'npm' | 'other';
   n8nInstanceUrl?: string;
+  n8nWorkflowPath?: string; // Full workflow page URL for navigation (e.g., /projects/.../workflows)
 }
 
 function generateDirectorAiStages(idea: BusinessIdeaData, options?: DirectorAiOptions): AutomationStage[] {
   const n8nUrl = options?.n8nInstanceUrl?.replace(/\/$/, '') || '[YOUR_N8N_INSTANCE_URL]';
+  // Use workflow path for navigation if provided, otherwise fall back to base URL
+  const n8nNavUrl = options?.n8nWorkflowPath?.replace(/\/$/, '') 
+    || options?.n8nInstanceUrl?.replace(/\/$/, '') 
+    || '[YOUR_N8N_INSTANCE_URL]';
   const isHostinger = options?.hostingType === 'self-hosted' && options?.deploymentMethod === 'hostinger';
   const isCloud = options?.hostingType === 'cloud';
   const isDocker = options?.hostingType === 'self-hosted' && options?.deploymentMethod === 'docker';
@@ -80,7 +85,7 @@ function generateDirectorAiStages(idea: BusinessIdeaData, options?: DirectorAiOp
         `Create new saved search with filters: Industry = "${idea.niche}", Company Size = "10-500"`,
         `Search for contacts matching: "${idea.targetAudience}"`,
         `Export top 100 results to CSV`,
-        `Navigate to n8n instance`,
+        `Navigate to your n8n workflow dashboard at ${n8nNavUrl}`,
         `Create new workflow named "${idea.businessName} - Lead Prospecting"`,
         `Add Schedule Trigger node - configure for daily at 9:00 AM`,
         `Add HTTP Request node - configure Apollo.io API endpoint`,
@@ -101,7 +106,7 @@ function generateDirectorAiStages(idea: BusinessIdeaData, options?: DirectorAiOp
       title: "Automated Outreach Sequences",
       objective: `Send personalized outreach to prospects about ${idea.valueProposition}`,
       actions: [
-        `Navigate to n8n instance`,
+        `Navigate to your n8n workflow dashboard at ${n8nNavUrl}`,
         `Create new workflow named "${idea.businessName} - Outreach Automation"`,
         `Add Google Sheets Trigger node - watch for new rows`,
         `Add OpenAI node - generate personalized email using lead data`,
@@ -125,7 +130,7 @@ function generateDirectorAiStages(idea: BusinessIdeaData, options?: DirectorAiOp
       title: "Lead Qualification Pipeline",
       objective: `Automatically score and qualify leads interested in ${idea.serviceOffering}`,
       actions: [
-        `Navigate to n8n instance`,
+        `Navigate to your n8n workflow dashboard at ${n8nNavUrl}`,
         `Create new workflow named "${idea.businessName} - Lead Qualification"`,
         `Add Webhook node - receive form submissions or replies`,
         `Add OpenAI node - analyze response sentiment and intent`,
@@ -149,7 +154,7 @@ function generateDirectorAiStages(idea: BusinessIdeaData, options?: DirectorAiOp
       title: "Proposal Generation System",
       objective: `Auto-generate customized proposals for ${idea.serviceOffering}`,
       actions: [
-        `Navigate to n8n instance`,
+        `Navigate to your n8n workflow dashboard at ${n8nNavUrl}`,
         `Create new workflow named "${idea.businessName} - Proposal Generator"`,
         `Add Webhook node - trigger on "generate proposal" request`,
         `Add HTTP Request node - fetch lead data from CRM`,
@@ -174,7 +179,7 @@ function generateDirectorAiStages(idea: BusinessIdeaData, options?: DirectorAiOp
       title: "Deal Closing Automation",
       objective: `Streamline contract signing and payment collection for ${idea.businessName}`,
       actions: [
-        `Navigate to n8n instance`,
+        `Navigate to your n8n workflow dashboard at ${n8nNavUrl}`,
         `Create new workflow named "${idea.businessName} - Deal Closing"`,
         `Add Webhook node - trigger on proposal acceptance`,
         `Add DocuSign/PandaDoc node - generate contract`,
@@ -199,7 +204,7 @@ function generateDirectorAiStages(idea: BusinessIdeaData, options?: DirectorAiOp
       title: "Client Onboarding & Success",
       objective: `Deliver exceptional onboarding for new ${idea.businessName} clients`,
       actions: [
-        `Navigate to n8n instance`,
+        `Navigate to your n8n workflow dashboard at ${n8nNavUrl}`,
         `Create new workflow named "${idea.businessName} - Client Onboarding"`,
         `Add Webhook node - trigger on payment confirmed`,
         `Add Notion node - create client workspace from template`,
@@ -273,6 +278,7 @@ ${contextBlock}
 ## Prerequisites
 Before starting, ensure you have access to:
 - ${hostingDescription} instance at ${n8nUrl}
+- Workflow dashboard: ${options?.n8nWorkflowPath ? options.n8nWorkflowPath : n8nUrl}
 - Apollo.io account for prospecting
 - Google Workspace (Gmail, Sheets, Docs, Calendar)
 - OpenAI API access

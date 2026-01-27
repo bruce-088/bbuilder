@@ -63,6 +63,12 @@ export default function FixDiagnosisDialog({
     setIsLoading(true);
     setError(null);
 
+    // Read n8n settings from localStorage
+    const n8nHostingType = localStorage.getItem('n8n_hosting_type') || 'cloud';
+    const n8nDeploymentMethod = localStorage.getItem('n8n_deployment_method') || 'hostinger';
+    const n8nInstanceUrl = localStorage.getItem('n8n_instance_url') || '';
+    const n8nWorkflowPath = localStorage.getItem('n8n_workflow_path') || '';
+
     try {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/diagnose-fix`;
       
@@ -84,6 +90,13 @@ export default function FixDiagnosisDialog({
             niche: businessIdea.niche,
             targetAudience: businessIdea.targetAudience,
           } : null,
+          // Include n8n context for accurate Director.ai prompts
+          n8nContext: {
+            hostingType: n8nHostingType,
+            deploymentMethod: n8nDeploymentMethod,
+            instanceUrl: n8nInstanceUrl,
+            workflowPath: n8nWorkflowPath,
+          },
         }),
       });
 
