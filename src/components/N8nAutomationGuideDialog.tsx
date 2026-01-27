@@ -68,7 +68,9 @@ import {
   Server,
   Key,
   Wifi,
-  WifiOff
+  WifiOff,
+  Upload,
+  Plus
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
@@ -792,6 +794,9 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
     message: string;
     suggestions?: string[];
   } | null>(null);
+  
+  // Create workflow state
+  const [creatingWorkflow, setCreatingWorkflow] = useState(false);
 
   const stages = generateAutomationStages(businessIdea);
 
@@ -962,6 +967,146 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
       toast.error("Workflow verification failed");
     } finally {
       setVerifyingWorkflow(false);
+    }
+  };
+
+  // Create and import GhostWriter workflow
+  const handleCreateWorkflow = async () => {
+    setCreatingWorkflow(true);
+    
+    try {
+      // Generate the master workflow JSON by combining all stages
+      const stagePromises = stages
+        .filter(stage => stage.id !== 'n8n-setup' && stage.id !== 'n8n-master-verification')
+        .map((stage, index) => 
+          supabase.functions.invoke("generate-n8n-workflow-from-prompt", {
+            body: { 
+              workflowPrompt: stage.workflowPrompt,
+              stageName: stage.title,
+              businessName: businessIdea.businessName
+            },
+          }).then(({ data, error }) => {
+            if (error) throw error;
+            const workflow = extractN8nWorkflowJson(data.content, businessIdea.businessName);
+            return { stage, index, workflow };
+          }).catch(err => {
+            console.error(`Error generating workflow for stage ${stage.title}:`, err);
+            return { stage, index, workflow: null };
+          })
+        );
+
+      toast.loading("Generating GhostWriter workflow...", { id: 'create-workflow' });
+      
+      const results = await Promise.all(stagePromises);
+      const successfulWorkflows = results.filter(r => r.workflow !== null);
+      
+      if (successfulWorkflows.length === 0) {
+        toast.error("Failed to generate workflow. Please try again.", { id: 'create-workflow' });
+        return;
+      }
+
+      // Build master workflow with vertical offsets
+      const allNodes: Array<{
+        id: string;
+        name: string;
+        type: string;
+        position: [number, number];
+        [key: string]: unknown;
+      }> = [];
+      const allConnections: Record<string, unknown> = {};
+      
+      successfulWorkflows.forEach(({ index, workflow }) => {
+        if (!workflow) return;
+        
+        const workflowData = workflow as { 
+          nodes?: Array<{ id: string; name: string; type: string; position: [number, number]; [key: string]: unknown }>; 
+          connections?: Record<string, unknown> 
+        };
+        const nodes = workflowData.nodes || [];
+        const connections = workflowData.connections || {};
+        
+        const yOffset = index * 400;
+        const nodeIdMap: Record<string, string> = {};
+        
+        nodes.forEach((node) => {
+          const newId = `stage${index + 1}_${node.id}`;
+          nodeIdMap[node.id] = newId;
+          
+          allNodes.push({
+            ...node,
+            id: newId,
+            name: `[Stage ${index + 1}] ${node.name}`,
+            position: [node.position[0], node.position[1] + yOffset] as [number, number],
+          });
+        });
+        
+        Object.entries(connections).forEach(([sourceNode, targets]) => {
+          const newSourceNode = nodeIdMap[sourceNode] || sourceNode;
+          const updatedTargets: Record<string, Array<Array<{ node: string; type: string; index: number }>>> = {};
+          
+          Object.entries(targets as Record<string, Array<Array<{ node: string; type: string; index: number }>>>).forEach(([outputType, connectionArray]) => {
+            updatedTargets[outputType] = (connectionArray as Array<Array<{ node: string; type: string; index: number }>>).map((connGroup) =>
+              connGroup.map((conn) => ({
+                ...conn,
+                node: nodeIdMap[conn.node] || conn.node,
+              }))
+            );
+          });
+          
+          allConnections[newSourceNode] = updatedTargets;
+        });
+      });
+
+      const masterWorkflow = {
+        name: `GhostWriter AI: The Authority Engine - ${businessIdea.businessName}`,
+        nodes: allNodes,
+        connections: allConnections,
+        settings: { executionOrder: "v1" },
+        active: false
+      };
+
+      const jsonString = JSON.stringify(masterWorkflow, null, 2);
+      
+      // Download the JSON file
+      const blob = new Blob([jsonString], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `GhostWriter-AI-${businessIdea.businessName.replace(/[^a-zA-Z0-9]/g, "-")}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(jsonString);
+      
+      // Determine import URL based on hosting type
+      let importUrl = '';
+      if (n8nHostingType === 'cloud') {
+        importUrl = 'https://app.n8n.cloud/workflows/import';
+      } else if (n8nInstanceUrl) {
+        const baseUrl = n8nInstanceUrl.replace(/\/$/, '');
+        importUrl = `${baseUrl}/workflows/import`;
+      }
+      
+      toast.success(
+        "Workflow generated! JSON downloaded and copied to clipboard.",
+        { id: 'create-workflow', duration: 5000 }
+      );
+      
+      // Open n8n import page if we have a URL
+      if (importUrl) {
+        setTimeout(() => {
+          window.open(importUrl, '_blank', 'noopener,noreferrer');
+        }, 500);
+      }
+      
+    } catch (error) {
+      console.error("Error creating workflow:", error);
+      toast.error("Failed to create workflow. Please try again.", { id: 'create-workflow' });
+    } finally {
+      setCreatingWorkflow(false);
     }
   };
 
@@ -1984,6 +2129,46 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                         )}
                                       </div>
                                     )}
+                                    
+                                    {/* Create Workflow Button - appears after verification */}
+                                    <div className="pt-3 border-t mt-3">
+                                      <div className="flex flex-col gap-3">
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                          <Button
+                                            variant="default"
+                                            size="sm"
+                                            onClick={handleCreateWorkflow}
+                                            disabled={creatingWorkflow}
+                                            className="gap-2"
+                                          >
+                                            {creatingWorkflow ? (
+                                              <>
+                                                <Loader2 className="w-4 h-4 animate-spin" />
+                                                Generating...
+                                              </>
+                                            ) : (
+                                              <>
+                                                <Plus className="w-4 h-4" />
+                                                Create GhostWriter Workflow
+                                              </>
+                                            )}
+                                          </Button>
+                                          <span className="text-xs text-muted-foreground">
+                                            Generates &amp; downloads the complete workflow JSON
+                                          </span>
+                                        </div>
+                                        <div className="bg-muted/50 rounded-lg p-3 border text-xs text-muted-foreground space-y-1.5">
+                                          <p className="font-medium text-foreground">After clicking:</p>
+                                          <ol className="list-decimal list-inside space-y-1">
+                                            <li>JSON file will download automatically</li>
+                                            <li>Workflow JSON copied to clipboard</li>
+                                            <li>n8n import page will open (if URL configured)</li>
+                                            <li>In n8n: File → Import from File → select downloaded JSON</li>
+                                            <li>Enable "Available in MCP" in workflow Settings</li>
+                                          </ol>
+                                        </div>
+                                      </div>
+                                    </div>
                                   </div>
                                 )}
                               </div>
