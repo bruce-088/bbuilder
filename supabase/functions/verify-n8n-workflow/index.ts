@@ -97,6 +97,9 @@ interface VerificationRequest {
   };
   mcpConnected: boolean;
   testConnection?: boolean;
+  hostingType?: 'cloud' | 'self-hosted';
+  deploymentMethod?: 'docker' | 'hostinger' | 'npm' | 'other';
+  n8nInstanceUrl?: string;
 }
 
 serve(async (req) => {
@@ -105,14 +108,18 @@ serve(async (req) => {
   }
 
   try {
+    const requestBody = await req.json();
     const {
       workflowData,
       stageId,
       stageName,
       businessContext,
       mcpConnected,
-      testConnection
-    }: VerificationRequest = await req.json();
+      testConnection,
+      hostingType,
+      deploymentMethod,
+      n8nInstanceUrl
+    } = requestBody as VerificationRequest;
 
     // Handle connection test request
     if (testConnection) {
@@ -134,16 +141,65 @@ serve(async (req) => {
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       } else {
+        // Generate deployment-specific instructions
+        let instructions: string[];
+        let mcpUrlNote: string;
+        
+        if (hostingType === 'self-hosted' && deploymentMethod === 'hostinger') {
+          mcpUrlNote = n8nInstanceUrl 
+            ? `${n8nInstanceUrl.replace(/\/$/, '')}/mcp-server/http`
+            : 'https://[your-subdomain].hostingersite.com/mcp-server/http';
+          instructions = [
+            "1. Log into your Hostinger n8n instance",
+            "2. Go to Settings → MCP access",
+            "3. Toggle 'Enable MCP access' ON",
+            "4. Copy the MCP Server URL shown",
+            "5. In Lovable: Project Settings → Connectors → Connect n8n",
+            `6. Paste your Hostinger MCP URL: ${mcpUrlNote}`
+          ];
+        } else if (hostingType === 'self-hosted' && deploymentMethod === 'docker') {
+          mcpUrlNote = n8nInstanceUrl 
+            ? `${n8nInstanceUrl.replace(/\/$/, '')}/mcp-server/http`
+            : 'http://[your-server-ip]:5678/mcp-server/http';
+          instructions = [
+            "1. Access your Docker n8n instance",
+            "2. Go to Settings → MCP access",
+            "3. Toggle 'Enable MCP access' ON",
+            "4. Copy the MCP Server URL shown",
+            "5. In Lovable: Project Settings → Connectors → Connect n8n",
+            `6. Paste your Docker MCP URL: ${mcpUrlNote}`,
+            "Note: Ensure your n8n Docker container is accessible from the internet for MCP to work"
+          ];
+        } else if (hostingType === 'cloud') {
+          instructions = [
+            "1. Log into your n8n Cloud instance at app.n8n.cloud",
+            "2. Go to Settings → MCP access",
+            "3. Toggle 'Enable MCP access' ON",
+            "4. Copy the MCP Server URL (format: https://[your-name].app.n8n.cloud/mcp-server/http)",
+            "5. In Lovable: Project Settings → Connectors → Connect n8n",
+            "6. Paste your n8n Cloud MCP URL"
+          ];
+        } else {
+          mcpUrlNote = n8nInstanceUrl 
+            ? `${n8nInstanceUrl.replace(/\/$/, '')}/mcp-server/http`
+            : '[your-instance-url]/mcp-server/http';
+          instructions = [
+            "1. Log into your n8n instance",
+            "2. Go to Settings → MCP access",
+            "3. Toggle 'Enable MCP access' ON (requires owner/admin permissions)",
+            "4. Copy the MCP Server URL shown",
+            "5. In Lovable: Project Settings → Connectors → Connect n8n",
+            `6. Paste your MCP URL: ${mcpUrlNote}`
+          ];
+        }
+        
         return new Response(
           JSON.stringify({
             connectionStatus: "no_mcp",
             message: "n8n MCP connector is not configured. Please connect n8n in Project Settings → Connectors.",
-            instructions: [
-              "1. Go to Project Settings → Connectors",
-              "2. Find n8n in the available connectors",
-              "3. Click Connect and enter your n8n MCP URL",
-              "4. Ensure MCP access is enabled in your n8n instance (Settings → MCP access)"
-            ]
+            instructions,
+            hostingType,
+            deploymentMethod
           }),
           { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

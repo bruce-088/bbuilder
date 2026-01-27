@@ -771,6 +771,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   // n8n hosting type selector state
   const [n8nHostingType, setN8nHostingType] = useState<'cloud' | 'self-hosted'>('cloud');
   const [selfHostedMethod, setSelfHostedMethod] = useState<'docker' | 'hostinger' | 'npm' | 'other'>('hostinger');
+  const [n8nInstanceUrl, setN8nInstanceUrl] = useState('');
   
   // Test connection state
   const [testingConnection, setTestingConnection] = useState(false);
@@ -778,9 +779,22 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
     success: boolean;
     message: string;
     workflowCount?: number;
+    instructions?: string[];
   } | null>(null);
 
   const stages = generateAutomationStages(businessIdea);
+
+  // Copy MCP URL to clipboard
+  const copyMcpUrl = async () => {
+    const url = n8nInstanceUrl.replace(/\/$/, ''); // Remove trailing slash
+    const mcpUrl = `${url}/mcp-server/http`;
+    try {
+      await navigator.clipboard.writeText(mcpUrl);
+      toast.success("MCP URL copied to clipboard!");
+    } catch {
+      toast.error("Failed to copy MCP URL");
+    }
+  };
 
   // Test n8n connection via MCP
   const handleTestConnection = async () => {
@@ -792,6 +806,9 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
       const { data, error } = await supabase.functions.invoke('verify-n8n-workflow', {
         body: {
           testConnection: true,
+          hostingType: n8nHostingType,
+          deploymentMethod: selfHostedMethod,
+          n8nInstanceUrl: n8nInstanceUrl || undefined,
           stageId: 'n8n-setup',
           stageName: 'Connection Test',
           businessContext: {
@@ -821,11 +838,29 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
         toast.success("n8n connection verified!");
         setMcpConnected(true);
       } else if (data?.connectionStatus === 'no_mcp') {
+        // Show deployment-specific instructions
+        const deploymentNote = n8nHostingType === 'self-hosted' && selfHostedMethod === 'hostinger'
+          ? `Your Hostinger n8n MCP URL format: ${n8nInstanceUrl ? n8nInstanceUrl.replace(/\/$/, '') + '/mcp-server/http' : 'https://[your-subdomain].hostingersite.com/mcp-server/http'}`
+          : n8nHostingType === 'cloud'
+          ? 'Your n8n Cloud MCP URL format: https://[your-name].app.n8n.cloud/mcp-server/http'
+          : `Your n8n MCP URL: ${n8nInstanceUrl ? n8nInstanceUrl.replace(/\/$/, '') + '/mcp-server/http' : '[your-instance-url]/mcp-server/http'}`;
+        
         setConnectionTestResult({
           success: false,
-          message: "n8n MCP connector not found. Please connect n8n in Project Settings → Connectors first."
+          message: "n8n MCP connector not configured.",
+          instructions: data?.instructions || [
+            n8nHostingType === 'self-hosted' && selfHostedMethod === 'hostinger'
+              ? "1. Log into your Hostinger n8n instance"
+              : n8nHostingType === 'cloud'
+              ? "1. Log into your n8n Cloud instance at app.n8n.cloud"
+              : "1. Log into your n8n instance",
+            "2. Go to Settings → MCP access",
+            "3. Enable MCP access and copy the MCP Server URL",
+            "4. In Lovable: Project Settings → Connectors → Connect n8n",
+            `5. Paste your MCP URL: ${deploymentNote}`
+          ]
         });
-        toast.warning("n8n MCP not connected");
+        toast.warning("n8n MCP not connected - follow the setup instructions");
       } else {
         setConnectionTestResult({
           success: false,
@@ -1678,6 +1713,50 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                 </div>
                               </div>
 
+                              {/* Instance URL Input for Self-hosted */}
+                              {n8nHostingType === 'self-hosted' && (
+                                <div className="mt-4 space-y-3">
+                                  <div>
+                                    <Label className="text-sm font-medium mb-2 block">Your n8n Instance URL</Label>
+                                    <Input 
+                                      placeholder={selfHostedMethod === 'hostinger' 
+                                        ? "https://n8n.your-domain.com" 
+                                        : selfHostedMethod === 'docker' 
+                                        ? "http://localhost:5678 or https://n8n.yourdomain.com"
+                                        : "http://localhost:5678 or https://n8n.yourdomain.com"
+                                      }
+                                      value={n8nInstanceUrl}
+                                      onChange={(e) => setN8nInstanceUrl(e.target.value)}
+                                      className="font-mono text-sm"
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Enter the URL where your n8n instance is accessible
+                                    </p>
+                                  </div>
+                                  
+                                  {n8nInstanceUrl && (
+                                    <div className="bg-muted/50 rounded-lg p-3 border">
+                                      <div className="flex items-center justify-between gap-2">
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-xs text-muted-foreground mb-1">Your MCP URL (use this in Lovable Connectors):</p>
+                                          <code className="text-sm font-mono text-primary break-all">
+                                            {n8nInstanceUrl.replace(/\/$/, '')}/mcp-server/http
+                                          </code>
+                                        </div>
+                                        <Button
+                                          variant="ghost"
+                                          size="sm"
+                                          onClick={copyMcpUrl}
+                                          className="shrink-0"
+                                        >
+                                          <Copy className="w-4 h-4" />
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+
                               {/* Quick credential instructions based on selection */}
                               <div className="bg-background/80 rounded-lg p-3 text-sm border">
                                 {n8nHostingType === 'cloud' ? (
@@ -1756,6 +1835,18 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                   <p className="text-xs text-muted-foreground mt-2">
                                     Verify that your n8n instance is reachable and MCP access is properly configured.
                                   </p>
+                                )}
+                                
+                                {/* Show instructions if connection failed */}
+                                {connectionTestResult && !connectionTestResult.success && connectionTestResult.instructions && (
+                                  <div className="mt-3 bg-muted/50 rounded-lg p-3 border space-y-2">
+                                    <p className="text-sm font-medium">Setup Instructions:</p>
+                                    <ol className="text-xs text-muted-foreground space-y-1 list-decimal list-inside">
+                                      {connectionTestResult.instructions.map((instruction, i) => (
+                                        <li key={i}>{instruction}</li>
+                                      ))}
+                                    </ol>
+                                  </div>
                                 )}
                               </div>
                             </CardContent>
