@@ -14,6 +14,12 @@ export interface StageNodeRequirements {
 }
 
 export const stageNodeRequirements: Record<string, StageNodeRequirements> = {
+  "n8n-setup": {
+    name: "n8n Instance Setup & Access",
+    requiredNodes: [
+      // No nodes required for setup stage - this is about instance configuration
+    ]
+  },
   "n8n-prospecting": {
     name: "Lead Prospecting & Discovery",
     requiredNodes: [

@@ -266,6 +266,92 @@ Based on verification results:
 // Export function to get verification data for all stages
 export function getVerificationDataForStages(): Map<string, VerificationData[]> {
   return new Map([
+    ["n8n-setup", [
+      {
+        checkDescription: "Verify n8n instance is accessible",
+        automatedActions: [
+          "Navigate to the configured n8n instance URL",
+          "Check that the login page loads successfully",
+          "Verify HTTPS is enabled (if using custom domain)",
+          "Check page loads within 5 seconds"
+        ],
+        successIndicators: [
+          "Login page displays with n8n branding",
+          "No certificate errors (HTTPS)",
+          "Page loads within 5 seconds",
+          "Sign in form is visible and interactive"
+        ],
+        failureIndicators: [
+          "Connection refused or timeout",
+          "SSL certificate error",
+          "404 or 502 error page",
+          "Page takes longer than 10 seconds to load"
+        ]
+      },
+      {
+        checkDescription: "Verify login credentials work",
+        automatedActions: [
+          "Enter username in login form",
+          "Enter password in login form",
+          "Click 'Sign in' button",
+          "Verify dashboard loads with workflow list"
+        ],
+        successIndicators: [
+          "Dashboard loads with workflow list",
+          "User menu shows logged-in status",
+          "No 'Invalid credentials' error",
+          "Can navigate to Settings page"
+        ],
+        failureIndicators: [
+          "'Invalid credentials' error message",
+          "Account locked message",
+          "Redirected back to login page",
+          "Session expires immediately"
+        ]
+      },
+      {
+        checkDescription: "Verify MCP access is enabled",
+        automatedActions: [
+          "Navigate to Settings in n8n",
+          "Find 'MCP access' section",
+          "Check if 'Enable MCP access' toggle is ON",
+          "Copy the MCP Server URL"
+        ],
+        successIndicators: [
+          "MCP access toggle exists and is enabled",
+          "MCP Server URL is displayed",
+          "URL format matches https://[instance]/mcp-server/http",
+          "No permission errors shown"
+        ],
+        failureIndicators: [
+          "MCP access option not visible (check owner/admin permissions)",
+          "Toggle is disabled/OFF",
+          "Error message about permissions",
+          "MCP Server URL not displayed"
+        ]
+      },
+      {
+        checkDescription: "Verify n8n version supports MCP",
+        automatedActions: [
+          "Navigate to Settings → About or Help section",
+          "Check n8n version number",
+          "Verify version is 1.0 or higher (MCP support)",
+          "Check for any pending updates"
+        ],
+        successIndicators: [
+          "Version number is displayed",
+          "Version is 1.0 or higher",
+          "No 'update required' warnings for MCP",
+          "Instance is running latest stable version"
+        ],
+        failureIndicators: [
+          "Version is below 1.0",
+          "MCP features not available due to old version",
+          "Instance requires update",
+          "Version check fails or not accessible"
+        ]
+      }
+    ]],
     ["n8n-prospecting", [
       {
         checkDescription: "Verify Apollo.io API key is valid and has sufficient credits",

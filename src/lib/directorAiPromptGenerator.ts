@@ -12,6 +12,30 @@ interface AutomationStage {
 function generateDirectorAiStages(idea: BusinessIdeaData): AutomationStage[] {
   return [
     {
+      id: "n8n-setup",
+      title: "n8n Instance Setup & Access",
+      objective: "Configure and verify access to your n8n automation instance",
+      actions: [
+        "Identify n8n hosting type (Cloud or Self-hosted)",
+        "For n8n Cloud: Navigate to https://app.n8n.cloud and sign in or create account",
+        "For Self-hosted via Hostinger: Log into Hostinger dashboard → Navigate to Hosting → Manage → Applications → Find n8n in the list → Click to view credentials (username/password displayed)",
+        "For Docker deployment: Check docker-compose.yml or .env file for N8N_BASIC_AUTH_USER and N8N_BASIC_AUTH_PASSWORD environment variables",
+        "For npm/npx installation: Use the owner account created during first n8n run (if forgotten: delete ~/.n8n folder and restart n8n to reset)",
+        "Navigate to your n8n instance URL (custom domain like https://n8n.yourdomain.com or IP:port like http://your-server-ip:5678)",
+        "Authenticate with your credentials and verify dashboard loads",
+        "Go to Settings → MCP access → Toggle 'Enable MCP access' ON (requires owner/admin permissions)",
+        "Copy the MCP Server URL (format: https://[instance]/mcp-server/http) for Lovable connector setup"
+      ],
+      validationCriteria: [
+        "n8n login page loads at your instance URL",
+        "Credentials authenticate successfully",
+        "Dashboard displays with workflow list",
+        "MCP access toggle is enabled in Settings",
+        "MCP Server URL is visible and can be copied"
+      ],
+      credentialKeys: ["n8n_instance_url", "n8n_username", "n8n_password", "n8n_mcp_url"]
+    },
+    {
       id: "prospecting",
       title: "Lead Prospecting Automation",
       objective: `Automatically identify and collect leads matching ${idea.targetAudience} in the ${idea.niche} space`,
