@@ -770,10 +770,38 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const [workflowData, setWorkflowData] = useState<WorkflowDetails | null>(null);
   const [searchingWorkflow, setSearchingWorkflow] = useState(false);
   
-  // n8n hosting type selector state
-  const [n8nHostingType, setN8nHostingType] = useState<'cloud' | 'self-hosted'>('cloud');
-  const [selfHostedMethod, setSelfHostedMethod] = useState<'docker' | 'hostinger' | 'npm' | 'other'>('hostinger');
-  const [n8nInstanceUrl, setN8nInstanceUrl] = useState('');
+  // n8n hosting type selector state - load from localStorage
+  const [n8nHostingType, setN8nHostingType] = useState<'cloud' | 'self-hosted'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('n8n_hosting_type') as 'cloud' | 'self-hosted') || 'cloud';
+    }
+    return 'cloud';
+  });
+  const [selfHostedMethod, setSelfHostedMethod] = useState<'docker' | 'hostinger' | 'npm' | 'other'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('n8n_deployment_method') as 'docker' | 'hostinger' | 'npm' | 'other') || 'hostinger';
+    }
+    return 'hostinger';
+  });
+  const [n8nInstanceUrl, setN8nInstanceUrl] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('n8n_instance_url') || '';
+    }
+    return '';
+  });
+  
+  // Persist n8n settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('n8n_hosting_type', n8nHostingType);
+  }, [n8nHostingType]);
+  
+  useEffect(() => {
+    localStorage.setItem('n8n_deployment_method', selfHostedMethod);
+  }, [selfHostedMethod]);
+  
+  useEffect(() => {
+    localStorage.setItem('n8n_instance_url', n8nInstanceUrl);
+  }, [n8nInstanceUrl]);
   
   // Test connection state
   const [testingConnection, setTestingConnection] = useState(false);
