@@ -762,8 +762,13 @@ export default function BusinessIdeaDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent 
+        className="max-w-3xl max-h-[90vh] flex flex-col"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         {loading ? (
           <div className="flex-1 flex items-center justify-center py-12">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />

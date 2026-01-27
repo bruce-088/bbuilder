@@ -82,8 +82,13 @@ export default function HowToUseDialog({ open, onOpenChange, onRestartTour }: Ho
     onRestartTour?.();
   };
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh]">
+    <Dialog open={open} onOpenChange={onOpenChange} modal={false}>
+      <DialogContent 
+        className="max-w-2xl max-h-[90vh]"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="text-2xl flex items-center gap-2">
             <CheckCircle2 className="w-6 h-6 text-primary" />

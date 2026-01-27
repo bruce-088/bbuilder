@@ -1262,7 +1262,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen} modal={false}>
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" className="gap-2">
@@ -1271,7 +1271,12 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
           </Button>
         )}
       </DialogTrigger>
-      <DialogContent className="max-w-4xl h-[90vh] flex flex-col p-0">
+      <DialogContent 
+        className="max-w-4xl h-[90vh] flex flex-col p-0"
+        onInteractOutside={(e) => e.preventDefault()}
+        onPointerDownOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
+      >
         <div className="px-6 pt-6 pb-4 border-b">
           <DialogHeader>
             <DialogTitle className="font-display text-xl flex items-center gap-2">
