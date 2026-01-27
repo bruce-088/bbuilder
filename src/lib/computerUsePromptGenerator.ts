@@ -323,6 +323,59 @@ You are an AI assistant with computer use capabilities. Your task is to build ${
 
 ---
 
+## N8N INSTANCE ACCESS (PREREQUISITE)
+
+### Option A: n8n Cloud
+1. Navigate to https://app.n8n.cloud
+2. Sign in or create an account
+3. Note your instance URL (e.g., https://your-name.app.n8n.cloud)
+4. Proceed to "Enable MCP Access" section below
+
+### Option B: Self-Hosted n8n
+Your n8n instance URL will be one of:
+- Custom domain: https://n8n.yourdomain.com
+- Direct IP: http://your-server-ip:5678
+
+**Finding Your Credentials by Deployment Method:**
+
+**Docker / Docker Compose:**
+1. Locate your docker-compose.yml or .env file
+2. Look for these environment variables:
+   - N8N_BASIC_AUTH_USER (your username)
+   - N8N_BASIC_AUTH_PASSWORD (your password)
+3. If using Docker CLI, run: docker inspect [container-id]
+4. Credentials will be in the environment section
+
+**Hostinger One-Click Install:**
+1. Log into Hostinger dashboard at hpanel.hostinger.com
+2. Navigate to Hosting → Manage → Applications
+3. Find n8n in the installed applications list
+4. Click on n8n to expand details
+5. Credentials (username/password) are displayed in the panel
+6. Copy your instance URL from the "Access URL" field
+
+**npm/npx Installation:**
+1. Use the owner account you created during first n8n run
+2. If forgotten: Stop n8n, delete ~/.n8n folder, restart n8n
+3. This will prompt you to create new owner credentials
+
+**Verifying Access:**
+1. Navigate to your n8n instance URL in browser
+2. Enter your username and password
+3. Click "Sign in"
+4. Confirm you reach the workflow dashboard
+
+### Enable MCP Access (Required for Live Verification)
+1. In n8n, click your profile icon → Settings
+2. Navigate to "MCP access" section
+3. Toggle "Enable MCP access" to ON
+4. Copy the MCP Server URL (format: https://[instance]/mcp-server/http)
+5. Use this URL when connecting n8n to Lovable's MCP connector
+
+**Note:** MCP access requires owner or admin permissions. If you don't see this option, contact your n8n instance administrator.
+
+---
+
 ## PREREQUISITES
 
 Before starting, verify you have access to:

@@ -14,6 +14,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -56,7 +64,9 @@ import {
   RotateCw,
   AlertCircle,
   Link2,
-  Radio
+  Radio,
+  Server,
+  Key
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
@@ -106,6 +116,70 @@ const generateAutomationStages = (businessIdea: BusinessIdeaData): AutomationSta
   const { businessName, niche, targetAudience, serviceOffering, valueProposition } = businessIdea;
 
   return [
+    {
+      id: "n8n-setup",
+      title: "n8n Instance Setup & Access",
+      icon: <Server className="w-5 h-5" />,
+      description: "Configure and verify access to your n8n automation instance",
+      estimatedTime: "15-30 min",
+      n8nNodes: [
+        "No workflow nodes needed - this is instance configuration"
+      ],
+      workflowPrompt: `This stage is about setting up your n8n instance, not creating a workflow.
+
+For n8n Cloud:
+1. Navigate to https://app.n8n.cloud
+2. Sign in or create a new account
+3. Your instance URL will be: https://your-name.app.n8n.cloud
+
+For Self-Hosted n8n:
+1. Access your n8n instance via custom domain or IP:port
+2. Authenticate with your admin credentials
+3. Enable MCP access in Settings for live verification
+
+Once logged in:
+1. Go to Settings → MCP access
+2. Toggle "Enable MCP access" ON
+3. Copy the MCP Server URL for Lovable connector setup`,
+      setupSteps: [
+        { 
+          text: "Choose your n8n hosting type: n8n Cloud (app.n8n.cloud) for managed hosting, or Self-hosted (Docker, Hostinger, npm) for your own server", 
+          links: [{ label: "n8n Cloud", url: "https://app.n8n.cloud" }, { label: "n8n", url: "https://n8n.io" }],
+          proTip: "n8n Cloud is recommended for beginners—no server management required. Self-hosted gives you full control and is often required for enterprise compliance. Both support the same features."
+        },
+        { 
+          text: "For n8n Cloud: Sign up at app.n8n.cloud → Create your account → Your instance will be ready in seconds → Note your instance URL (e.g., https://your-name.app.n8n.cloud)", 
+          links: [{ label: "n8n Cloud", url: "https://app.n8n.cloud" }],
+          proTip: "n8n Cloud offers a free trial. For production use, the Pro plan ($20/mo) includes unlimited workflows and executions. Your instance URL is your unique subdomain on app.n8n.cloud."
+        },
+        { 
+          text: "For Hostinger One-Click: Log into Hostinger dashboard → Navigate to Hosting → Manage → Applications → Find n8n → Click to view your auto-generated credentials (username/password)", 
+          links: [{ label: "Hostinger", url: "https://hpanel.hostinger.com" }],
+          proTip: "Hostinger displays your n8n credentials directly in the Applications panel. Your instance URL is also shown there. If you can't find credentials, check the email sent when n8n was installed."
+        },
+        { 
+          text: "For Docker: Check your docker-compose.yml or .env file for N8N_BASIC_AUTH_USER and N8N_BASIC_AUTH_PASSWORD → These are your login credentials → Your instance runs at http://localhost:5678 or your configured domain", 
+          proTip: "If you didn't set authentication variables, n8n may be running without protection—add N8N_BASIC_AUTH_ACTIVE=true, N8N_BASIC_AUTH_USER, and N8N_BASIC_AUTH_PASSWORD to your docker-compose.yml immediately."
+        },
+        { 
+          text: "For npm/npx: Use the owner account created during first n8n run (npx n8n) → If you forgot credentials: stop n8n, delete ~/.n8n folder, restart to create new owner account", 
+          proTip: "The ~/.n8n folder contains all your data including credentials. Before deleting, back up ~/.n8n/database.sqlite if you have existing workflows. On Windows, the folder is at C:\\Users\\[username]\\.n8n"
+        },
+        { 
+          text: "Navigate to your n8n instance URL in your browser → Enter your username and password → Click 'Sign in' → Verify you reach the workflow dashboard", 
+          links: [{ label: "n8n", url: "https://n8n.io" }],
+          proTip: "If login fails: For Docker, check container logs with 'docker logs [container-id]'. For Hostinger, try the password reset option in the Applications panel. For npm, delete ~/.n8n and restart."
+        },
+        { 
+          text: "Enable MCP Access: Click Settings (gear icon) → Navigate to 'MCP access' section → Toggle 'Enable MCP access' ON → This allows Lovable to verify your workflows live", 
+          proTip: "MCP access requires owner or admin permissions. If you don't see this option, you may be logged in as a regular user. Contact your n8n admin to grant permissions or use the owner account."
+        },
+        { 
+          text: "Copy MCP Server URL: In the MCP access settings, copy the displayed MCP Server URL (format: https://[your-instance]/mcp-server/http) → Use this URL when connecting n8n in Lovable's MCP connector", 
+          proTip: "Keep your MCP URL secure—it provides API access to your n8n instance. The URL is unique to your instance and enables real-time workflow verification from Lovable."
+        }
+      ]
+    },
     {
       id: "n8n-prospecting",
       title: "Lead Prospecting & Discovery",
@@ -691,6 +765,10 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const [mcpConnected, setMcpConnected] = useState(false);
   const [workflowData, setWorkflowData] = useState<WorkflowDetails | null>(null);
   const [searchingWorkflow, setSearchingWorkflow] = useState(false);
+  
+  // n8n hosting type selector state
+  const [n8nHostingType, setN8nHostingType] = useState<'cloud' | 'self-hosted'>('cloud');
+  const [selfHostedMethod, setSelfHostedMethod] = useState<'docker' | 'hostinger' | 'npm' | 'other'>('hostinger');
 
   const stages = generateAutomationStages(businessIdea);
 
@@ -1422,8 +1500,14 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                           </div>
                           <div className="flex-1">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <Badge variant="outline" className={`text-xs ${isMasterStage ? 'border-primary text-primary' : ''}`}>
-                                {isMasterStage ? 'Final Stage' : `Stage ${index + 1}`}
+                              <Badge variant="outline" className={`text-xs ${
+                                isMasterStage ? 'border-primary text-primary' 
+                                : stage.id === 'n8n-setup' ? 'border-amber-500 text-amber-600' 
+                                : ''
+                              }`}>
+                                {isMasterStage ? 'Final Stage' 
+                                  : stage.id === 'n8n-setup' ? 'Prerequisite' 
+                                  : `Stage ${index}`}
                               </Badge>
                               <span className="font-medium">{stage.title}</span>
                               <Badge variant="secondary" className="text-xs gap-1">
@@ -1465,20 +1549,111 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                         </div>
                       </AccordionTrigger>
                       <AccordionContent className="pb-4 space-y-4">
-                        {/* n8n Nodes */}
-                        <div>
-                          <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
-                            <Workflow className="w-4 h-4 text-primary" />
-                            Required n8n Nodes
-                          </h4>
-                          <div className="flex flex-wrap gap-2">
-                            {stage.n8nNodes.map((node, i) => (
-                              <Badge key={i} variant="secondary" className="text-xs">
-                                {node}
-                              </Badge>
-                            ))}
+                        {/* n8n Hosting Type Selector - Only for setup stage */}
+                        {stage.id === 'n8n-setup' && (
+                          <Card className="bg-amber-500/5 border-amber-500/20">
+                            <CardContent className="p-4 space-y-4">
+                              <div className="flex items-start gap-3">
+                                <div className="p-2 rounded-lg bg-amber-500/10">
+                                  <Key className="w-5 h-5 text-amber-600" />
+                                </div>
+                                <div className="flex-1">
+                                  <h4 className="font-medium mb-1">Choose Your n8n Hosting Type</h4>
+                                  <p className="text-sm text-muted-foreground mb-3">
+                                    Select how you're running n8n to see relevant setup instructions.
+                                  </p>
+                                  <RadioGroup 
+                                    value={n8nHostingType} 
+                                    onValueChange={(value) => setN8nHostingType(value as 'cloud' | 'self-hosted')}
+                                    className="flex flex-col sm:flex-row gap-4"
+                                  >
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="cloud" id="hosting-cloud" />
+                                      <Label htmlFor="hosting-cloud" className="cursor-pointer flex items-center gap-2">
+                                        <Cloud className="w-4 h-4 text-primary" />
+                                        n8n Cloud
+                                      </Label>
+                                    </div>
+                                    <div className="flex items-center space-x-2">
+                                      <RadioGroupItem value="self-hosted" id="hosting-self" />
+                                      <Label htmlFor="hosting-self" className="cursor-pointer flex items-center gap-2">
+                                        <Server className="w-4 h-4 text-muted-foreground" />
+                                        Self-Hosted
+                                      </Label>
+                                    </div>
+                                  </RadioGroup>
+
+                                  {n8nHostingType === 'self-hosted' && (
+                                    <div className="mt-4">
+                                      <Label className="text-sm text-muted-foreground mb-2 block">Deployment Method</Label>
+                                      <Select 
+                                        value={selfHostedMethod} 
+                                        onValueChange={(value) => setSelfHostedMethod(value as 'docker' | 'hostinger' | 'npm' | 'other')}
+                                      >
+                                        <SelectTrigger className="w-full sm:w-64">
+                                          <SelectValue placeholder="Select deployment method" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                          <SelectItem value="hostinger">Hostinger One-Click Install</SelectItem>
+                                          <SelectItem value="docker">Docker / Docker Compose</SelectItem>
+                                          <SelectItem value="npm">npm / npx</SelectItem>
+                                          <SelectItem value="other">Other VPS / Server</SelectItem>
+                                        </SelectContent>
+                                      </Select>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Quick credential instructions based on selection */}
+                              <div className="bg-background/80 rounded-lg p-3 text-sm border">
+                                {n8nHostingType === 'cloud' ? (
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-foreground">n8n Cloud Setup</p>
+                                    <p className="text-muted-foreground">Sign in at <a href="https://app.n8n.cloud" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">app.n8n.cloud</a> — your instance URL will be your-name.app.n8n.cloud</p>
+                                  </div>
+                                ) : selfHostedMethod === 'hostinger' ? (
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-foreground">Hostinger Credentials</p>
+                                    <p className="text-muted-foreground">Find your login at: <a href="https://hpanel.hostinger.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Hostinger Dashboard</a> → Hosting → Manage → Applications → n8n</p>
+                                  </div>
+                                ) : selfHostedMethod === 'docker' ? (
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-foreground">Docker Credentials</p>
+                                    <p className="text-muted-foreground">Check your docker-compose.yml or .env for <code className="bg-muted px-1 rounded">N8N_BASIC_AUTH_USER</code> and <code className="bg-muted px-1 rounded">N8N_BASIC_AUTH_PASSWORD</code></p>
+                                  </div>
+                                ) : selfHostedMethod === 'npm' ? (
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-foreground">npm/npx Credentials</p>
+                                    <p className="text-muted-foreground">Use the owner account created during first run. If forgotten, delete <code className="bg-muted px-1 rounded">~/.n8n</code> folder and restart.</p>
+                                  </div>
+                                ) : (
+                                  <div className="space-y-1">
+                                    <p className="font-medium text-foreground">VPS/Server Credentials</p>
+                                    <p className="text-muted-foreground">Check your server's environment variables or configuration file for n8n authentication settings.</p>
+                                  </div>
+                                )}
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
+                        {/* n8n Nodes - Hide for setup stage since it has no nodes */}
+                        {stage.id !== 'n8n-setup' && (
+                          <div>
+                            <h4 className="text-sm font-medium mb-2 flex items-center gap-2">
+                              <Workflow className="w-4 h-4 text-primary" />
+                              Required n8n Nodes
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                              {stage.n8nNodes.map((node, i) => (
+                                <Badge key={i} variant="secondary" className="text-xs">
+                                  {node}
+                                </Badge>
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         {/* Workflow Prompt */}
                         <div>
