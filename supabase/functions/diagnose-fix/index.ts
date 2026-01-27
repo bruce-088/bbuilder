@@ -19,6 +19,7 @@ serve(async (req) => {
       automatedActions,
       stageTitle,
       businessContext,
+      n8nContext,
     } = await req.json();
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -33,14 +34,32 @@ Your role is to:
 2. Provide specific, actionable fix instructions with exact UI paths
 3. Generate a Director.ai-compatible prompt to automate the fix
 
-Be extremely specific. Reference exact menu paths, button names, field labels, and URLs.
+CRITICAL: The user has provided their specific n8n instance configuration. 
+- ALWAYS use their provided URL (not app.n8n.cloud or any generic default)
+- Include the full workflow path URL in all navigation steps
+- The user's instance may be self-hosted on Hostinger, Docker, or other platforms
+
+Be extremely specific. Reference exact menu paths, button names, field labels, and the user's actual URLs.
 Format your response in clean markdown with clear sections.`;
+
+    // Build n8n URL context
+    const n8nUrlInfo = n8nContext?.instanceUrl 
+      ? `- Instance URL: ${n8nContext.instanceUrl}
+- Workflow Dashboard: ${n8nContext.workflowPath || n8nContext.instanceUrl}
+- MCP URL: ${n8nContext.instanceUrl.replace(/\/$/, '')}/mcp-server/http`
+      : '- Instance URL: [Not configured - user should provide their n8n URL]';
 
     const userPrompt = `## CONTEXT
 - Business: ${businessContext?.businessName || "User's Business"}
 - Industry/Niche: ${businessContext?.niche || "Not specified"}
 - Target Audience: ${businessContext?.targetAudience || "Not specified"}
 - Stage: ${stageTitle}
+
+## N8N INSTANCE CONFIGURATION
+- Hosting Type: ${n8nContext?.hostingType || 'Not specified'}${n8nContext?.deploymentMethod ? ` (${n8nContext.deploymentMethod})` : ''}
+${n8nUrlInfo}
+
+IMPORTANT: When generating Director.ai prompts or fix instructions, use the EXACT URLs above for navigation. Do NOT use app.n8n.cloud or any other default URL unless the user is on n8n Cloud.
 
 ## STEP BEING VERIFIED
 ${stepText}

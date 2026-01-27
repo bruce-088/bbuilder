@@ -789,6 +789,12 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
     }
     return '';
   });
+  const [n8nWorkflowPath, setN8nWorkflowPath] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('n8n_workflow_path') || '';
+    }
+    return '';
+  });
   
   // Persist n8n settings to localStorage
   useEffect(() => {
@@ -802,6 +808,10 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   useEffect(() => {
     localStorage.setItem('n8n_instance_url', n8nInstanceUrl);
   }, [n8nInstanceUrl]);
+  
+  useEffect(() => {
+    localStorage.setItem('n8n_workflow_path', n8nWorkflowPath);
+  }, [n8nWorkflowPath]);
   
   // Test connection state
   const [testingConnection, setTestingConnection] = useState(false);
@@ -1988,7 +1998,20 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                       className="font-mono text-sm"
                                     />
                                     <p className="text-xs text-muted-foreground mt-1">
-                                      Enter the URL where your n8n instance is accessible
+                                      Base domain (used for MCP connection)
+                                    </p>
+                                  </div>
+                                  
+                                  <div>
+                                    <Label className="text-sm font-medium mb-2 block">Workflow Page URL <span className="text-muted-foreground font-normal">(optional)</span></Label>
+                                    <Input 
+                                      placeholder="https://n8n.your-domain.com/projects/.../workflows"
+                                      value={n8nWorkflowPath}
+                                      onChange={(e) => setN8nWorkflowPath(e.target.value)}
+                                      className="font-mono text-sm"
+                                    />
+                                    <p className="text-xs text-muted-foreground mt-1">
+                                      Full URL to your workflow list page (for AI navigation prompts)
                                     </p>
                                   </div>
                                   

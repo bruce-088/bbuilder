@@ -62,10 +62,48 @@ export default function ExportComputerUsePrompt() {
   const [copied, setCopied] = useState(false);
   const [loading, setLoading] = useState(true);
   
-  // n8n hosting configuration for Director.ai
-  const [n8nHostingType, setN8nHostingType] = useState<'cloud' | 'self-hosted'>('self-hosted');
-  const [selfHostedMethod, setSelfHostedMethod] = useState<'hostinger' | 'docker' | 'npm' | 'other'>('hostinger');
-  const [n8nInstanceUrl, setN8nInstanceUrl] = useState<string>('');
+  // n8n hosting configuration for Director.ai - read from localStorage
+  const [n8nHostingType, setN8nHostingType] = useState<'cloud' | 'self-hosted'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('n8n_hosting_type') as 'cloud' | 'self-hosted') || 'self-hosted';
+    }
+    return 'self-hosted';
+  });
+  const [selfHostedMethod, setSelfHostedMethod] = useState<'hostinger' | 'docker' | 'npm' | 'other'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('n8n_deployment_method') as 'hostinger' | 'docker' | 'npm' | 'other') || 'hostinger';
+    }
+    return 'hostinger';
+  });
+  const [n8nInstanceUrl, setN8nInstanceUrl] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('n8n_instance_url') || '';
+    }
+    return '';
+  });
+  const [n8nWorkflowPath, setN8nWorkflowPath] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('n8n_workflow_path') || '';
+    }
+    return '';
+  });
+
+  // Persist n8n settings to localStorage
+  useEffect(() => {
+    localStorage.setItem('n8n_hosting_type', n8nHostingType);
+  }, [n8nHostingType]);
+
+  useEffect(() => {
+    localStorage.setItem('n8n_deployment_method', selfHostedMethod);
+  }, [selfHostedMethod]);
+
+  useEffect(() => {
+    localStorage.setItem('n8n_instance_url', n8nInstanceUrl);
+  }, [n8nInstanceUrl]);
+
+  useEffect(() => {
+    localStorage.setItem('n8n_workflow_path', n8nWorkflowPath);
+  }, [n8nWorkflowPath]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -147,7 +185,8 @@ export default function ExportComputerUsePrompt() {
         ? generateDirectorAiPrompt(transformedIdea, selectedStageId, {
             hostingType: n8nHostingType,
             deploymentMethod: selfHostedMethod,
-            n8nInstanceUrl: n8nInstanceUrl || undefined
+            n8nInstanceUrl: n8nInstanceUrl || undefined,
+            n8nWorkflowPath: n8nWorkflowPath || undefined
           })
         : (selectedStageId === "all" 
             ? generateComputerUsePrompt(transformedIdea) 
@@ -340,7 +379,17 @@ export default function ExportComputerUsePrompt() {
                           className="font-mono text-sm"
                         />
                         <p className="text-xs text-muted-foreground">
-                          Enter your n8n instance URL for accurate AI instructions
+                          Base domain (used for MCP connection)
+                        </p>
+                        
+                        <Input
+                          placeholder="https://n8n.yourdomain.com/projects/.../workflows"
+                          value={n8nWorkflowPath}
+                          onChange={(e) => setN8nWorkflowPath(e.target.value)}
+                          className="font-mono text-sm mt-2"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Full workflow page URL (for AI navigation)
                         </p>
                       </>
                     )}
