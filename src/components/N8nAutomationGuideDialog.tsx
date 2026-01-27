@@ -66,7 +66,9 @@ import {
   Link2,
   Radio,
   Server,
-  Key
+  Key,
+  Wifi,
+  WifiOff
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
@@ -769,8 +771,79 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   // n8n hosting type selector state
   const [n8nHostingType, setN8nHostingType] = useState<'cloud' | 'self-hosted'>('cloud');
   const [selfHostedMethod, setSelfHostedMethod] = useState<'docker' | 'hostinger' | 'npm' | 'other'>('hostinger');
+  
+  // Test connection state
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionTestResult, setConnectionTestResult] = useState<{
+    success: boolean;
+    message: string;
+    workflowCount?: number;
+  } | null>(null);
 
   const stages = generateAutomationStages(businessIdea);
+
+  // Test n8n connection via MCP
+  const handleTestConnection = async () => {
+    setTestingConnection(true);
+    setConnectionTestResult(null);
+    
+    try {
+      // Use supabase edge function to test MCP connection
+      const { data, error } = await supabase.functions.invoke('verify-n8n-workflow', {
+        body: {
+          testConnection: true,
+          stageId: 'n8n-setup',
+          stageName: 'Connection Test',
+          businessContext: {
+            businessName: businessIdea.businessName,
+            niche: businessIdea.niche,
+            targetAudience: businessIdea.targetAudience
+          },
+          mcpConnected: true
+        }
+      });
+
+      if (error) {
+        setConnectionTestResult({
+          success: false,
+          message: `Connection failed: ${error.message}. Make sure you've connected n8n in Project Settings → Connectors.`
+        });
+        toast.error("n8n connection test failed");
+        return;
+      }
+
+      if (data?.connectionStatus === 'connected') {
+        setConnectionTestResult({
+          success: true,
+          message: `Successfully connected to n8n! Found ${data.workflowCount || 0} workflow(s).`,
+          workflowCount: data.workflowCount
+        });
+        toast.success("n8n connection verified!");
+        setMcpConnected(true);
+      } else if (data?.connectionStatus === 'no_mcp') {
+        setConnectionTestResult({
+          success: false,
+          message: "n8n MCP connector not found. Please connect n8n in Project Settings → Connectors first."
+        });
+        toast.warning("n8n MCP not connected");
+      } else {
+        setConnectionTestResult({
+          success: false,
+          message: data?.message || "Unable to verify n8n connection. Check that MCP access is enabled in your n8n instance."
+        });
+        toast.warning("Connection verification incomplete");
+      }
+    } catch (err) {
+      console.error("Connection test error:", err);
+      setConnectionTestResult({
+        success: false,
+        message: "Connection test failed. Please ensure the n8n MCP connector is configured in Project Settings → Connectors."
+      });
+      toast.error("Connection test failed");
+    } finally {
+      setTestingConnection(false);
+    }
+  };
 
   const downloadStageWorkflowJson = async (stage: AutomationStage) => {
     setGeneratingJsonFor(stage.id);
@@ -1632,6 +1705,57 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                     <p className="font-medium text-foreground">VPS/Server Credentials</p>
                                     <p className="text-muted-foreground">Check your server's environment variables or configuration file for n8n authentication settings.</p>
                                   </div>
+                                )}
+                              </div>
+                              
+                              {/* Test Connection Button */}
+                              <div className="pt-3 border-t">
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  <Button
+                                    variant={connectionTestResult?.success ? "outline" : "default"}
+                                    size="sm"
+                                    className="gap-2"
+                                    disabled={testingConnection}
+                                    onClick={handleTestConnection}
+                                  >
+                                    {testingConnection ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Testing...
+                                      </>
+                                    ) : connectionTestResult?.success ? (
+                                      <>
+                                        <Wifi className="w-4 h-4" />
+                                        Re-test Connection
+                                      </>
+                                    ) : (
+                                      <>
+                                        <Wifi className="w-4 h-4" />
+                                        Test Connection
+                                      </>
+                                    )}
+                                  </Button>
+                                  
+                                  {connectionTestResult && (
+                                    <div className={`flex items-center gap-2 text-sm ${
+                                      connectionTestResult.success 
+                                        ? 'text-green-600 dark:text-green-400' 
+                                        : 'text-destructive'
+                                    }`}>
+                                      {connectionTestResult.success ? (
+                                        <CheckCircle2 className="w-4 h-4" />
+                                      ) : (
+                                        <WifiOff className="w-4 h-4" />
+                                      )}
+                                      <span>{connectionTestResult.message}</span>
+                                    </div>
+                                  )}
+                                </div>
+                                
+                                {!connectionTestResult && (
+                                  <p className="text-xs text-muted-foreground mt-2">
+                                    Verify that your n8n instance is reachable and MCP access is properly configured.
+                                  </p>
                                 )}
                               </div>
                             </CardContent>
