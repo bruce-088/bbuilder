@@ -203,7 +203,7 @@ export default function FixDiagnosisDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={setOpen} modal={false}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
       <DialogContent 
         className={cn(
@@ -214,6 +214,7 @@ export default function FixDiagnosisDialog({
         )}
         onInteractOutside={(e) => e.preventDefault()}
         onPointerDownOutside={(e) => e.preventDefault()}
+        onFocusOutside={(e) => e.preventDefault()}
       >
         <DialogHeader className="flex-shrink-0">
           <div className="flex items-center justify-between">
