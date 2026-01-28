@@ -1976,6 +1976,30 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                           <SelectItem value="other">Other VPS / Server</SelectItem>
                                         </SelectContent>
                                       </Select>
+                                      
+                                      {/* Hostinger VPS Panel Callout */}
+                                      {selfHostedMethod === 'hostinger' && (
+                                        <Alert className="mt-3 bg-blue-500/5 border-blue-500/20">
+                                          <Server className="w-4 h-4 text-blue-500" />
+                                          <AlertDescription className="text-sm">
+                                            <p className="font-medium mb-2 text-foreground">From your Hostinger VPS panel:</p>
+                                            <ul className="list-disc list-inside space-y-1 text-muted-foreground">
+                                              <li><strong>Manage App</strong> → Opens your n8n login page directly</li>
+                                              <li><strong>Docker manager</strong> → Start/stop/restart the n8n container</li>
+                                              <li><strong>Resetting n8n user password</strong> → Use if you forgot credentials</li>
+                                            </ul>
+                                            <a 
+                                              href="https://hpanel.hostinger.com" 
+                                              target="_blank" 
+                                              rel="noopener noreferrer"
+                                              className="inline-flex items-center gap-1 text-primary hover:underline mt-2 text-xs"
+                                            >
+                                              Open Hostinger Panel
+                                              <ExternalLink className="w-3 h-3" />
+                                            </a>
+                                          </AlertDescription>
+                                        </Alert>
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -2046,9 +2070,22 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                     <p className="text-muted-foreground">Sign in at <a href="https://app.n8n.cloud" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">app.n8n.cloud</a> — your instance URL will be your-name.app.n8n.cloud</p>
                                   </div>
                                 ) : selfHostedMethod === 'hostinger' ? (
-                                  <div className="space-y-1">
+                                  <div className="space-y-2">
                                     <p className="font-medium text-foreground">Hostinger Credentials</p>
-                                    <p className="text-muted-foreground">Find your login at: <a href="https://hpanel.hostinger.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Hostinger Dashboard</a> → Hosting → Manage → Applications → n8n</p>
+                                    <p className="text-muted-foreground">Find your login at: <a href="https://hpanel.hostinger.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">Hostinger Dashboard</a> → VPS → Your server → Applications → n8n → Click <strong>Manage App</strong></p>
+                                    <div className="flex items-center gap-2 text-xs pt-1">
+                                      <Key className="w-3 h-3 text-muted-foreground" />
+                                      <span className="text-muted-foreground">Forgot password?</span>
+                                      <a 
+                                        href="https://support.hostinger.com/en/articles/6738701-how-to-reset-n8n-password"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-primary hover:underline inline-flex items-center gap-1"
+                                      >
+                                        Reset via Hostinger panel
+                                        <ExternalLink className="w-3 h-3" />
+                                      </a>
+                                    </div>
                                   </div>
                                 ) : selfHostedMethod === 'docker' ? (
                                   <div className="space-y-1">
