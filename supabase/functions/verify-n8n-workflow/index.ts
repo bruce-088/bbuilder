@@ -152,14 +152,16 @@ serve(async (req) => {
         if (hostingType === 'self-hosted' && deploymentMethod === 'hostinger') {
           mcpUrlNote = n8nInstanceUrl 
             ? `${n8nInstanceUrl.replace(/\/$/, '')}/mcp-server/http`
-            : 'https://[your-subdomain].hostingersite.com/mcp-server/http';
+            : 'https://n8n.[your-server].hstgr.cloud/mcp-server/http';
           instructions = [
-            "1. Log into your Hostinger n8n instance",
-            "2. Go to Settings → MCP access",
-            "3. Toggle 'Enable MCP access' ON",
-            "4. Copy the MCP Server URL shown",
-            "5. In Lovable: Project Settings → Connectors → Connect n8n",
-            `6. Paste your Hostinger MCP URL: ${mcpUrlNote}`
+            "1. Open Hostinger hPanel → VPS → Your server name (e.g., srv1230972.hstgr.cloud)",
+            "2. Find n8n in the Applications section",
+            "3. Click 'Manage App' to open your n8n instance",
+            "4. If login fails, use 'Resetting n8n user password' link in the panel",
+            "5. Once logged in: Settings → MCP access → Toggle ON",
+            "6. Copy the MCP Server URL shown",
+            "7. In Lovable: Project Settings → Connectors → Connect n8n",
+            `8. Paste your Hostinger MCP URL: ${mcpUrlNote}`
           ];
         } else if (hostingType === 'self-hosted' && deploymentMethod === 'docker') {
           mcpUrlNote = n8nInstanceUrl 
@@ -233,10 +235,12 @@ serve(async (req) => {
       
       // MCP is connected - provide manual verification instructions
       const hostingerSuggestions = [
-        `Open your Hostinger n8n instance: ${instanceUrl}`,
-        `Navigate to the '${workflowNamePattern || 'GhostWriter AI'}' workflow`,
-        "Click Settings (gear icon) → Toggle 'Available in MCP' ON",
-        "Return here and test connection again to confirm"
+        "1. Open Hostinger hPanel → VPS → Your server → Applications → n8n",
+        "2. Click 'Manage App' to open your n8n instance",
+        "3. If you can't log in, use 'Resetting n8n user password' link in the panel",
+        `4. Navigate to the '${workflowNamePattern || 'GhostWriter AI'}' workflow`,
+        "5. Click Settings (gear icon) → Toggle 'Available in MCP' ON",
+        "6. Return here and verify the workflow again"
       ];
       
       const defaultSuggestions = [
