@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Copy, Check, Wrench, Loader2, AlertTriangle, Sparkles, Maximize2, Minimize2 } from "lucide-react";
+import { Copy, Check, Wrench, Loader2, AlertTriangle, Sparkles, Maximize2, Minimize2, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -10,6 +10,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import { VerificationData } from "@/lib/verificationPromptGenerator";
@@ -46,6 +47,9 @@ export default function FixDiagnosisDialog({
   const [copiedSection, setCopiedSection] = useState<string | null>(null);
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
+  const [n8nUrlMissing, setN8nUrlMissing] = useState(false);
+  const [tempN8nUrl, setTempN8nUrl] = useState('');
+  const [configuredN8nUrl, setConfiguredN8nUrl] = useState('');
 
   useEffect(() => {
     if (open && !hasStartedGeneration) {
@@ -59,6 +63,17 @@ export default function FixDiagnosisDialog({
     }
   }, [open]);
 
+  const handleSaveUrlAndRetry = () => {
+    if (tempN8nUrl) {
+      localStorage.setItem('n8n_instance_url', tempN8nUrl);
+      localStorage.setItem('n8n_hosting_type', 'self-hosted');
+      localStorage.setItem('n8n_deployment_method', 'hostinger');
+      setN8nUrlMissing(false);
+      setConfiguredN8nUrl(tempN8nUrl);
+      generateDiagnosis();
+    }
+  };
+
   const generateDiagnosis = async () => {
     setIsLoading(true);
     setError(null);
@@ -68,6 +83,15 @@ export default function FixDiagnosisDialog({
     const n8nDeploymentMethod = localStorage.getItem('n8n_deployment_method') || 'hostinger';
     const n8nInstanceUrl = localStorage.getItem('n8n_instance_url') || '';
     const n8nWorkflowPath = localStorage.getItem('n8n_workflow_path') || '';
+
+    // Check if n8n URL is configured
+    if (!n8nInstanceUrl) {
+      setN8nUrlMissing(true);
+      setIsLoading(false);
+      return;
+    }
+
+    setConfiguredN8nUrl(n8nInstanceUrl);
 
     try {
       const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/diagnose-fix`;
@@ -251,6 +275,14 @@ export default function FixDiagnosisDialog({
           </div>
         </DialogHeader>
 
+        {/* Show configured n8n URL as confirmation badge */}
+        {!n8nUrlMissing && configuredN8nUrl && (
+          <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+            <CheckCircle2 className="w-3 h-3 text-green-500" />
+            <span>Using: {configuredN8nUrl}</span>
+          </div>
+        )}
+
         <div className={cn(
           "p-3 rounded-lg bg-muted/50 border border-border/50",
           isExpanded ? "mb-2" : "mb-4"
@@ -259,6 +291,30 @@ export default function FixDiagnosisDialog({
             <strong>Failed Check:</strong> {verificationData.checkDescription}
           </p>
         </div>
+
+        {/* n8n URL Configuration Form */}
+        {n8nUrlMissing && (
+          <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-4">
+            <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-500" />
+              n8n Instance URL Required
+            </h4>
+            <p className="text-sm text-muted-foreground mb-3">
+              Enter your n8n instance URL to generate accurate fix instructions.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="https://n8n.yourdomain.com"
+                value={tempN8nUrl}
+                onChange={(e) => setTempN8nUrl(e.target.value)}
+                className="flex-1"
+              />
+              <Button onClick={handleSaveUrlAndRetry} disabled={!tempN8nUrl}>
+                Save & Generate
+              </Button>
+            </div>
+          </div>
+        )}
 
         {error ? (
           <div className="flex flex-col items-center justify-center py-8 gap-4">
