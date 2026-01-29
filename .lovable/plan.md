@@ -1,155 +1,149 @@
 
-# Add Hostinger-Specific Documentation to n8n Automation Guide
+# Fix Diagnosis Dialog - n8n URL Configuration Enhancement
 
-## Problem
-Users with Hostinger-hosted n8n instances see a VPS control panel (showing Docker manager, Manage App, etc.) but the current Stage 0 instructions don't specifically explain how to use these Hostinger UI elements to:
-1. Access n8n credentials
-2. Connect to the n8n instance
-3. Enable MCP for live verification
+## Problem Summary
+When users open the Fix Diagnosis Dialog to troubleshoot a failed verification step, the AI-generated diagnosis asks for the n8n instance URL even though the user has already configured it elsewhere (MCP connector). This happens because the URL isn't saved in `localStorage` where the dialog reads from.
 
-## Current Hostinger UI Elements (from user's screenshot)
-- **Manage App** button → Opens the n8n instance directly
-- **Docker manager** button → Container management (start/stop/restart)
-- **"How to update n8n"** documentation link
-- **"Changing the domain for n8n"** documentation link  
-- **"Resetting n8n user password"** documentation link
+## Solution Overview
+Enhance the Fix Diagnosis Dialog to:
+1. Detect when n8n URL is not configured
+2. Show an inline configuration form to capture the URL before generating diagnosis
+3. Display the configured URL as a confirmation badge
+4. Pre-populate with the user's known Hostinger URL pattern if detected
 
-## Implementation Plan
+---
 
-### 1. Update Stage 0 Setup Steps with Hostinger-Specific Instructions
+## Technical Implementation
 
-**File:** `src/components/N8nAutomationGuideDialog.tsx`
+### 1. Update FixDiagnosisDialog Component
 
-Add new setup step specifically for Hostinger VPS panel navigation:
+**File:** `src/components/FixDiagnosisDialog.tsx`
+
+Add state and UI for n8n URL configuration:
 
 ```typescript
-// New step for lines 160-163 area:
-{
-  text: "For Hostinger VPS: Open your Hostinger dashboard → Find your VPS (e.g., srv1230972.hstgr.cloud) → Click 'Manage App' to open n8n directly, or use 'Docker manager' to restart the container if n8n is unresponsive",
-  links: [
-    { label: "Hostinger", url: "https://hpanel.hostinger.com" },
-    { label: "Docker manager", url: "https://hpanel.hostinger.com" }
-  ],
-  proTip: "The 'Manage App' button opens your n8n instance URL directly. If you need to restart n8n, use Docker manager → Containers → find n8n → Restart. Use 'Resetting n8n user password' link if you've forgotten your login credentials."
+// Add new state
+const [n8nUrlMissing, setN8nUrlMissing] = useState(false);
+const [tempN8nUrl, setTempN8nUrl] = useState('');
+
+// In generateDiagnosis function, check if URL is missing before calling API
+const n8nInstanceUrl = localStorage.getItem('n8n_instance_url') || '';
+if (!n8nInstanceUrl) {
+  setN8nUrlMissing(true);
+  setIsLoading(false);
+  return; // Don't call API yet
 }
 ```
 
-### 2. Add Visual Callout in Self-Hosted Configuration Card
-
-When Hostinger is selected, add a helpful info box that explains the Hostinger panel layout:
+Add a configuration form that appears when URL is missing:
 
 ```tsx
-{selfHostedMethod === 'hostinger' && (
-  <Alert className="mt-3">
-    <AlertDescription className="text-sm">
-      <p className="font-medium mb-2">From your Hostinger VPS panel:</p>
-      <ul className="list-disc list-inside space-y-1 text-muted-foreground">
-        <li><strong>Manage App</strong> → Opens n8n login page</li>
-        <li><strong>Docker manager</strong> → Start/stop/restart n8n container</li>
-        <li><strong>Resetting n8n user password</strong> → If you forgot credentials</li>
-      </ul>
-    </AlertDescription>
-  </Alert>
-)}
-```
-
-### 3. Update Connection Test Failure Instructions
-
-**File:** `src/components/N8nAutomationGuideDialog.tsx` (handleTestConnection function)
-
-Add Hostinger-specific troubleshooting when connection fails:
-
-```typescript
-// For Hostinger deployments, add specific instructions:
-if (hostingType === 'self-hosted' && selfHostedMethod === 'hostinger') {
-  instructions = [
-    "1. Go to Hostinger hPanel → VPS → Your server → Applications → n8n",
-    "2. Click 'Manage App' to open your n8n instance",
-    "3. If you can't log in, click 'Resetting n8n user password' in the panel",
-    "4. Once logged in: Settings → MCP access → Enable",
-    "5. Copy MCP URL and paste in Lovable: Project Settings → Connectors → n8n",
-    `Your MCP URL: ${n8nInstanceUrl ? n8nInstanceUrl.replace(/\/$/, '') : 'https://n8n.[your-server].hstgr.cloud'}/mcp-server/http`
-  ];
-}
-```
-
-### 4. Add Password Reset Guidance
-
-Since Hostinger has a specific password reset flow, add a direct link:
-
-```tsx
-{selfHostedMethod === 'hostinger' && (
-  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-2">
-    <Key className="w-3 h-3" />
-    <span>Forgot your n8n password?</span>
-    <a 
-      href="https://support.hostinger.com/en/articles/6738701-how-to-reset-n8n-password"
-      target="_blank"
-      rel="noopener noreferrer"
-      className="text-primary hover:underline inline-flex items-center gap-1"
-    >
-      Reset via Hostinger panel
-      <ExternalLink className="w-3 h-3" />
-    </a>
+{n8nUrlMissing && (
+  <div className="p-4 rounded-lg bg-amber-500/10 border border-amber-500/30 mb-4">
+    <h4 className="font-semibold text-sm mb-2 flex items-center gap-2">
+      <AlertTriangle className="w-4 h-4 text-amber-500" />
+      n8n Instance URL Required
+    </h4>
+    <p className="text-sm text-muted-foreground mb-3">
+      Enter your n8n instance URL to generate accurate fix instructions.
+    </p>
+    <div className="flex gap-2">
+      <Input
+        placeholder="https://n8n.yourdomain.com"
+        value={tempN8nUrl}
+        onChange={(e) => setTempN8nUrl(e.target.value)}
+      />
+      <Button onClick={handleSaveUrlAndRetry}>
+        Save & Generate
+      </Button>
+    </div>
   </div>
 )}
 ```
 
-### 5. Update Edge Function with Hostinger Context
-
-**File:** `supabase/functions/verify-n8n-workflow/index.ts`
-
-Enhance the instructions for Hostinger:
+Add handler to save URL and retry:
 
 ```typescript
-if (hostingType === 'self-hosted' && deploymentMethod === 'hostinger') {
-  instructions = [
-    "1. Open Hostinger hPanel → VPS → Your server name",
-    "2. Find n8n in the Applications section",
-    "3. Click 'Manage App' to open your n8n instance",
-    "4. If login fails, use 'Resetting n8n user password' link in the panel",
-    "5. Once logged in: Settings → MCP access → Toggle ON",
-    "6. In Lovable: Project Settings → Connectors → Connect n8n",
-    `7. Paste MCP URL: ${mcpUrlNote}`
-  ];
-}
+const handleSaveUrlAndRetry = () => {
+  if (tempN8nUrl) {
+    localStorage.setItem('n8n_instance_url', tempN8nUrl);
+    localStorage.setItem('n8n_hosting_type', 'self-hosted');
+    localStorage.setItem('n8n_deployment_method', 'hostinger');
+    setN8nUrlMissing(false);
+    generateDiagnosis(); // Retry with URL now saved
+  }
+};
 ```
+
+### 2. Add URL Status Badge
+
+Show a small badge at the top indicating the configured n8n instance:
+
+```tsx
+{/* Show configured n8n URL as confirmation */}
+{!n8nUrlMissing && n8nInstanceUrl && (
+  <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+    <CheckCircle2 className="w-3 h-3 text-green-500" />
+    <span>Using: {n8nInstanceUrl}</span>
+  </div>
+)}
+```
+
+### 3. Import Required Components
+
+Add to imports:
+
+```typescript
+import { Input } from "@/components/ui/input";
+import { CheckCircle2 } from "lucide-react";
+```
+
+---
+
+## User Experience Flow
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  User clicks "Fix" button on failed verification step   │
+└─────────────────────────┬───────────────────────────────┘
+                          │
+                          ▼
+              ┌───────────────────────┐
+              │  Is n8n URL saved in  │
+              │     localStorage?     │
+              └───────────┬───────────┘
+                    │           │
+                   YES          NO
+                    │           │
+                    ▼           ▼
+        ┌──────────────┐  ┌─────────────────────────┐
+        │ Show badge:  │  │ Show inline config form │
+        │ "Using: ..." │  │ with URL input          │
+        │              │  │                         │
+        │ Generate AI  │  │ User enters URL         │
+        │ diagnosis    │  │ Clicks "Save & Generate"│
+        └──────────────┘  └───────────┬─────────────┘
+                                      │
+                                      ▼
+                          ┌───────────────────────┐
+                          │ Save to localStorage  │
+                          │ Generate AI diagnosis │
+                          └───────────────────────┘
+```
+
+---
 
 ## Files to Modify
 
-| File | Changes |
-|------|---------|
-| `src/components/N8nAutomationGuideDialog.tsx` | Add Hostinger VPS panel instructions, password reset link, and enhanced troubleshooting guidance |
-| `supabase/functions/verify-n8n-workflow/index.ts` | Improve Hostinger-specific instructions in connection test responses |
+| File | Change |
+|------|--------|
+| `src/components/FixDiagnosisDialog.tsx` | Add URL detection, inline config form, and status badge |
 
-## Expected Result
+---
 
-After implementation:
-1. Users see clear step-by-step guidance for using the Hostinger VPS panel
-2. "Manage App", "Docker manager", and "Resetting password" are explained in context
-3. Password reset link is prominently displayed when Hostinger is selected
-4. Connection test failures show Hostinger-specific troubleshooting steps
-5. Instructions match what users actually see in their Hostinger dashboard
+## Benefits
 
-## Visual Guide (What the User Sees)
-
-```text
-┌─────────────────────────────────────────────────────────────┐
-│  Overview  🏠 VPS - srv1230972.hstgr.cloud                  │
-├─────────────────────────────────────────────────────────────┤
-│  🔧 n8n                                                     │
-│  Built on Ubuntu 24.04                                      │
-│                                                             │
-│  [Docker manager]  [Manage App 🔗]  ← Click to open n8n     │
-│                                                             │
-│  📖 How to update n8n  →                                    │
-│  📖 Changing the domain for n8n  →                          │
-│  📖 Resetting n8n user password  →  ← Use if forgot login   │
-└─────────────────────────────────────────────────────────────┘
-```
-
-The updated Stage 0 will include:
-- **"Click Manage App"** instruction with explanation
-- **Docker manager** for troubleshooting unresponsive instances
-- **Password reset** link directly in the UI
-- **MCP URL auto-generation** based on their server domain
+1. **No more confusing AI responses** asking for URL when user expects it to be known
+2. **One-time configuration** - once entered, the URL persists for all future fix dialogs
+3. **Clear visual feedback** showing which n8n instance is being used
+4. **Streamlined UX** - users can configure directly in context without navigating elsewhere
