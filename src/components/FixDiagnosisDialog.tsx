@@ -48,7 +48,23 @@ export default function FixDiagnosisDialog({
   const [hasStartedGeneration, setHasStartedGeneration] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [n8nUrlMissing, setN8nUrlMissing] = useState(false);
-  const [tempN8nUrl, setTempN8nUrl] = useState('');
+  const [tempN8nUrl, setTempN8nUrl] = useState(() => {
+    // Pre-populate with Hostinger pattern if deployment method suggests it
+    const deploymentMethod = localStorage.getItem('n8n_deployment_method');
+    const existingUrl = localStorage.getItem('n8n_instance_url');
+    
+    // If there's an existing Hostinger-style URL, use it as template
+    if (existingUrl && existingUrl.includes('.hstgr.cloud')) {
+      return existingUrl;
+    }
+    
+    // If deployment method is hostinger but no URL, suggest the pattern
+    if (deploymentMethod === 'hostinger') {
+      return 'https://n8n.srv';
+    }
+    
+    return '';
+  });
   const [configuredN8nUrl, setConfiguredN8nUrl] = useState('');
 
   useEffect(() => {
