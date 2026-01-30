@@ -33,6 +33,7 @@ const AUTOMATION_PHASES = [
   { id: "validate", name: "Final Validation", description: "End-to-end verification" },
 ];
 
+// AI Provider call functions
 async function callLovableAI(
   messages: Array<{ role: string; content: string }>,
   tools?: Array<Record<string, unknown>>
@@ -63,6 +64,122 @@ async function callLovableAI(
   });
 
   return response;
+}
+
+async function callOpenAI(
+  messages: Array<{ role: string; content: string }>,
+  apiKey: string
+): Promise<Response> {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      messages,
+    }),
+  });
+
+  return response;
+}
+
+async function callClaude(
+  messages: Array<{ role: string; content: string }>,
+  apiKey: string
+): Promise<Response> {
+  // Convert messages to Claude format (no system in messages array)
+  const systemMessage = messages.find((m) => m.role === "system");
+  const otherMessages = messages.filter((m) => m.role !== "system");
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      max_tokens: 4096,
+      system: systemMessage?.content || "",
+      messages: otherMessages.map((m) => ({
+        role: m.role === "assistant" ? "assistant" : "user",
+        content: m.content,
+      })),
+    }),
+  });
+
+  return response;
+}
+
+async function callPerplexity(
+  messages: Array<{ role: string; content: string }>
+): Promise<Response> {
+  const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
+  if (!PERPLEXITY_API_KEY) {
+    throw new Error("PERPLEXITY_API_KEY is not configured. Connect Perplexity via the connector system.");
+  }
+
+  const response = await fetch("https://api.perplexity.ai/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "sonar",
+      messages,
+    }),
+  });
+
+  return response;
+}
+
+// Helper to call the appropriate AI provider
+async function callAI(
+  messages: Array<{ role: string; content: string }>,
+  provider: string,
+  supabase: SupabaseClient,
+  userId: string,
+  tools?: Array<Record<string, unknown>>
+): Promise<Response> {
+  switch (provider) {
+    case "openai": {
+      const { data: keyData } = await supabase
+        .from("user_api_keys")
+        .select("encrypted_key")
+        .eq("user_id", userId)
+        .eq("provider", "openai")
+        .maybeSingle();
+
+      if (!keyData?.encrypted_key) {
+        throw new Error("OpenAI API key not configured. Please add your API key in AI Settings.");
+      }
+      return callOpenAI(messages, keyData.encrypted_key);
+    }
+
+    case "claude": {
+      const { data: keyData } = await supabase
+        .from("user_api_keys")
+        .select("encrypted_key")
+        .eq("user_id", userId)
+        .eq("provider", "claude")
+        .maybeSingle();
+
+      if (!keyData?.encrypted_key) {
+        throw new Error("Claude API key not configured. Please add your API key in AI Settings.");
+      }
+      return callClaude(messages, keyData.encrypted_key);
+    }
+
+    case "perplexity":
+      return callPerplexity(messages);
+
+    default:
+      return callLovableAI(messages, tools);
+  }
 }
 
 async function analyzeBusinessPlan(businessIdea: Record<string, unknown>): Promise<PhaseResult> {
