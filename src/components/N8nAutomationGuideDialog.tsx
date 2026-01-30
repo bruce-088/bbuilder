@@ -767,6 +767,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
       nodeType?: string;
       issues?: string[];
       credentialsConfigured?: boolean;
+      nodeParameters?: Record<string, unknown>;
     }>;
     suggestions?: string[];
     commonMistakes?: string[];
@@ -3012,6 +3013,8 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                                                 workflowId={cachedWorkflows[stageWorkflowNames[stage.id] || workflowName]?.id || ''}
                                                 workflowName={stageWorkflowNames[stage.id] || workflowName}
                                                 n8nInstanceUrl={localStorage.getItem('n8n_instance_url') || ''}
+                                                nodeParameters={item.nodeParameters}
+                                                credentialsConfigured={item.credentialsConfigured}
                                                 businessContext={{
                                                   businessName: businessIdea.businessName,
                                                   niche: businessIdea.niche

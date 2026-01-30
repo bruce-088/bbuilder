@@ -435,6 +435,7 @@ serve(async (req) => {
           nodeType: n.type,
           issues: n.issues,
           credentialsConfigured: n.credentialsConfigured,
+          nodeParameters: n.matchedNodeParams,
           howToVerify: n.found 
             ? `Node "${n.matchedNode}" found. ${n.issues?.join('. ') || 'Configuration looks good.'}`
             : `Add a ${n.type.split('.').pop()} node for: ${n.purpose}`
