@@ -55,10 +55,6 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
     toast.info(`Test run requested for workflow ${workflowId}. Use the n8n editor to trigger manual executions.`);
   };
 
-  const handlePerplexityConnect = () => {
-    toast.info("Perplexity connector integration - contact support to enable");
-  };
-
   return (
     <>
       <div className="flex items-center gap-2">
@@ -89,7 +85,6 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
       <AISettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
-        onPerplexityConnect={handlePerplexityConnect}
       />
 
       <Dialog open={isOpen} onOpenChange={handleClose}>

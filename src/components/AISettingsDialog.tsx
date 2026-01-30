@@ -28,13 +28,11 @@ import { useAIProviders } from "@/hooks/useAIProviders";
 interface AISettingsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onPerplexityConnect?: () => void;
 }
 
 export function AISettingsDialog({
   open,
   onOpenChange,
-  onPerplexityConnect,
 }: AISettingsDialogProps) {
   const {
     providers,
@@ -46,8 +44,10 @@ export function AISettingsDialog({
 
   const [openaiKey, setOpenaiKey] = useState("");
   const [claudeKey, setClaudeKey] = useState("");
+  const [perplexityKey, setPerplexityKey] = useState("");
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showClaudeKey, setShowClaudeKey] = useState(false);
+  const [showPerplexityKey, setShowPerplexityKey] = useState(false);
   const [activeTab, setActiveTab] = useState("openai");
 
   const openaiProvider = providers.find((p) => p.id === "openai");
@@ -76,6 +76,18 @@ export function AISettingsDialog({
 
   const handleRemoveClaude = async () => {
     await removeApiKey("claude");
+  };
+
+  const handleSavePerplexity = async () => {
+    if (!perplexityKey.trim()) return;
+    const success = await saveApiKey("perplexity", perplexityKey.trim());
+    if (success) {
+      setPerplexityKey("");
+    }
+  };
+
+  const handleRemovePerplexity = async () => {
+    await removeApiKey("perplexity");
   };
 
   return (
@@ -353,31 +365,80 @@ export function AISettingsDialog({
             </div>
 
             {perplexityProvider?.configured ? (
-              <Alert>
-                <AlertDescription>
-                  Perplexity is connected via the connector system and ready to use for
-                  real-time web research.
-                </AlertDescription>
-              </Alert>
-            ) : (
               <div className="space-y-3">
                 <Alert>
-                  <AlertDescription>
-                    Perplexity is available as a managed connector. Click below to connect
-                    your Perplexity account.
+                  <AlertDescription className="flex items-center justify-between">
+                    <span>Your Perplexity API key is configured and ready to use.</span>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleRemovePerplexity}
+                      disabled={saving}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />
+                      Remove
+                    </Button>
                   </AlertDescription>
                 </Alert>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="perplexity-key">API Key</Label>
+                  <div className="relative">
+                    <Input
+                      id="perplexity-key"
+                      type={showPerplexityKey ? "text" : "password"}
+                      placeholder="pplx-..."
+                      value={perplexityKey}
+                      onChange={(e) => setPerplexityKey(e.target.value)}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3"
+                      onClick={() => setShowPerplexityKey(!showPerplexityKey)}
+                    >
+                      {showPerplexityKey ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
 
-                <Button
-                  onClick={() => {
-                    onPerplexityConnect?.();
-                    onOpenChange(false);
-                  }}
-                  className="w-full"
-                >
-                  <Search className="h-4 w-4 mr-2" />
-                  Connect Perplexity
-                </Button>
+                <div className="flex items-center justify-between">
+                  <a
+                    href="https://www.perplexity.ai/settings/api"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                  >
+                    Get your API key
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <Button
+                    onClick={handleSavePerplexity}
+                    disabled={!perplexityKey.trim() || saving || testing === "perplexity"}
+                  >
+                    {testing === "perplexity" ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Testing...
+                      </>
+                    ) : saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save & Connect"
+                    )}
+                  </Button>
+                </div>
               </div>
             )}
 

@@ -76,7 +76,7 @@ export function useAIProviders() {
     loadPreferences();
   }, [loadPreferences]);
 
-  const saveApiKey = async (provider: "openai" | "claude", apiKey: string): Promise<boolean> => {
+  const saveApiKey = async (provider: "openai" | "claude" | "perplexity", apiKey: string): Promise<boolean> => {
     if (!user) {
       toast.error("Please sign in to save API keys");
       return false;
@@ -109,7 +109,10 @@ export function useAIProviders() {
       }
 
       // Update user_ai_preferences
-      const updateField = provider === "openai" ? "openai_configured" : "claude_configured";
+      const updateField = 
+        provider === "openai" ? "openai_configured" : 
+        provider === "claude" ? "claude_configured" : 
+        "perplexity_configured";
       const { error: prefError } = await supabase
         .from("user_ai_preferences")
         .upsert(
@@ -129,7 +132,8 @@ export function useAIProviders() {
         prev.map((p) => (p.id === provider ? { ...p, configured: true, available: true } : p))
       );
 
-      toast.success(`${provider === "openai" ? "OpenAI" : "Claude"} connected successfully!`);
+      const providerName = provider === "openai" ? "OpenAI" : provider === "claude" ? "Claude" : "Perplexity";
+      toast.success(`${providerName} connected successfully!`);
       return true;
     } catch (err) {
       console.error("Error saving API key:", err);
@@ -140,7 +144,7 @@ export function useAIProviders() {
     }
   };
 
-  const testApiKey = async (provider: "openai" | "claude", apiKey: string): Promise<boolean> => {
+  const testApiKey = async (provider: "openai" | "claude" | "perplexity", apiKey: string): Promise<boolean> => {
     setTesting(provider);
     try {
       const response = await supabase.functions.invoke("validate-api-key", {
@@ -153,8 +157,9 @@ export function useAIProviders() {
       }
 
       const data = response.data as { valid: boolean; error?: string };
+      const providerName = provider === "openai" ? "OpenAI" : provider === "claude" ? "Claude" : "Perplexity";
       if (!data.valid) {
-        toast.error(data.error || `Invalid ${provider === "openai" ? "OpenAI" : "Claude"} API key`);
+        toast.error(data.error || `Invalid ${providerName} API key`);
         return false;
       }
 
@@ -169,7 +174,7 @@ export function useAIProviders() {
     }
   };
 
-  const removeApiKey = async (provider: "openai" | "claude"): Promise<boolean> => {
+  const removeApiKey = async (provider: "openai" | "claude" | "perplexity"): Promise<boolean> => {
     if (!user) return false;
 
     setSaving(true);
@@ -188,7 +193,10 @@ export function useAIProviders() {
       }
 
       // Update preferences
-      const updateField = provider === "openai" ? "openai_configured" : "claude_configured";
+      const updateField = 
+        provider === "openai" ? "openai_configured" : 
+        provider === "claude" ? "claude_configured" : 
+        "perplexity_configured";
       await supabase
         .from("user_ai_preferences")
         .update({ [updateField]: false })
@@ -199,7 +207,8 @@ export function useAIProviders() {
         prev.map((p) => (p.id === provider ? { ...p, configured: false, available: false } : p))
       );
 
-      toast.success(`${provider === "openai" ? "OpenAI" : "Claude"} disconnected`);
+      const providerName = provider === "openai" ? "OpenAI" : provider === "claude" ? "Claude" : "Perplexity";
+      toast.success(`${providerName} disconnected`);
       return true;
     } catch (err) {
       console.error("Error removing API key:", err);
@@ -210,26 +219,7 @@ export function useAIProviders() {
     }
   };
 
-  const setPerplexityConfigured = async (configured: boolean): Promise<void> => {
-    if (!user) return;
-
-    try {
-      await supabase
-        .from("user_ai_preferences")
-        .upsert(
-          { user_id: user.id, perplexity_configured: configured },
-          { onConflict: "user_id" }
-        );
-
-      setProviders((prev) =>
-        prev.map((p) => (p.id === "perplexity" ? { ...p, configured, available: configured } : p))
-      );
-    } catch (err) {
-      console.error("Error updating Perplexity status:", err);
-    }
-  };
-
-  const getApiKey = async (provider: "openai" | "claude"): Promise<string | null> => {
+  const getApiKey = async (provider: "openai" | "claude" | "perplexity"): Promise<string | null> => {
     if (!user) return null;
 
     try {
@@ -257,7 +247,6 @@ export function useAIProviders() {
     testApiKey,
     removeApiKey,
     getApiKey,
-    setPerplexityConfigured,
     refresh: loadPreferences,
   };
 }

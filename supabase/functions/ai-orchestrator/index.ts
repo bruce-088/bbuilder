@@ -115,17 +115,13 @@ async function callClaude(
 }
 
 async function callPerplexity(
-  messages: Array<{ role: string; content: string }>
+  messages: Array<{ role: string; content: string }>,
+  apiKey: string
 ): Promise<Response> {
-  const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
-  if (!PERPLEXITY_API_KEY) {
-    throw new Error("PERPLEXITY_API_KEY is not configured. Connect Perplexity via the connector system.");
-  }
-
   const response = await fetch("https://api.perplexity.ai/chat/completions", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${PERPLEXITY_API_KEY}`,
+      Authorization: `Bearer ${apiKey}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
@@ -174,8 +170,19 @@ async function callAI(
       return callClaude(messages, keyData.encrypted_key);
     }
 
-    case "perplexity":
-      return callPerplexity(messages);
+    case "perplexity": {
+      const { data: keyData } = await supabase
+        .from("user_api_keys")
+        .select("encrypted_key")
+        .eq("user_id", userId)
+        .eq("provider", "perplexity")
+        .maybeSingle();
+
+      if (!keyData?.encrypted_key) {
+        throw new Error("Perplexity API key not configured. Please add your API key in AI Settings.");
+      }
+      return callPerplexity(messages, keyData.encrypted_key);
+    }
 
     default:
       return callLovableAI(messages, tools);
