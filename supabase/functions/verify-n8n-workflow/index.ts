@@ -245,7 +245,7 @@ serve(async (req) => {
       
       const defaultSuggestions = [
         "Open your n8n instance workflow list",
-        `Find the '${workflowNamePattern || 'GhostWriter AI'}: The Authority Engine' workflow`,
+        `Find the '${workflowNamePattern || 'GhostWriter AI: Lead Prospecting & Discovery Engine'}' workflow`,
         "Open Settings → Enable 'Available in MCP'",
         "Save and return here to verify"
       ];
@@ -272,7 +272,7 @@ serve(async (req) => {
           status: "MCP_NOT_CONNECTED",
           confidence: "low",
           summary: mcpConnected 
-            ? "Workflow not found. Ensure 'GhostWriter AI: The Authority Engine' is marked as 'Available in MCP' in n8n workflow settings."
+            ? "Workflow not found. Ensure 'GhostWriter AI: Lead Prospecting & Discovery Engine' is marked as 'Available in MCP' in n8n workflow settings."
             : "n8n MCP not connected. Connect your n8n instance in Project Settings → Connectors to enable live verification.",
           workflowActive: false,
           nodeVerification: [],

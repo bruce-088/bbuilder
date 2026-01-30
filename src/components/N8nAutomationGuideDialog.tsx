@@ -765,7 +765,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   
   // Live n8n verification state
   const [useLiveVerification, setUseLiveVerification] = useState(false);
-  const [workflowName, setWorkflowName] = useState("GhostWriter AI: The Authority Engine - Complete Sales Automation");
+  const [workflowName, setWorkflowName] = useState("GhostWriter AI: Lead Prospecting & Discovery Engine");
   const [mcpConnected, setMcpConnected] = useState(false);
   const [workflowData, setWorkflowData] = useState<WorkflowDetails | null>(null);
   const [searchingWorkflow, setSearchingWorkflow] = useState(false);
@@ -980,7 +980,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
               "Return here and test connection again to confirm"
             ]
           : [
-              "Ensure the workflow is named 'GhostWriter AI: The Authority Engine'",
+              "Ensure the workflow is named 'GhostWriter AI: Lead Prospecting & Discovery Engine'",
               "Open the workflow → Settings → Enable 'Available in MCP'",
               "If not created yet, use the Download JSON button to import it"
             ];
@@ -2802,10 +2802,10 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                             <CardContent className="space-y-3">
                               <div>
                                 <Label className="text-xs">n8n Workflow Name</Label>
-                                <Input 
+                              <Input 
                                   value={workflowName}
                                   onChange={(e) => setWorkflowName(e.target.value)}
-                                  placeholder="GhostWriter AI: The Authority Engine - Complete Sales Automation"
+                                  placeholder="GhostWriter AI: Lead Prospecting & Discovery Engine"
                                   className="h-9 text-sm"
                                 />
                               </div>
