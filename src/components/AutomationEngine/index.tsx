@@ -9,6 +9,8 @@ import { ExceptionReview } from "./ExceptionReview";
 import { ProviderSelector } from "./ProviderSelector";
 import { N8nConnectionStatus } from "./N8nConnectionStatus";
 import { DeploymentPanel } from "./DeploymentPanel";
+import { N8nLiveStatusPanel } from "./N8nLiveStatusPanel";
+import { toast } from "sonner";
 
 interface AutomationEngineProps {
   businessIdeaId: string;
@@ -46,6 +48,11 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
   const hasErrors = phaseResults.some((r) => r.status === "error");
   const hasWarnings = phaseResults.some((r) => r.status === "warning");
   const isComplete = !isRunning && phaseResults.length > 0;
+
+  const handleTestWorkflow = async (workflowId: string) => {
+    // Test workflow execution - this would trigger via MCP in real usage
+    toast.info(`Test run requested for workflow ${workflowId}. Use the n8n editor to trigger manual executions.`);
+  };
 
   return (
     <>
@@ -91,6 +98,12 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
               currentPhase={currentPhase}
               phaseResults={phaseResults}
               isRunning={isRunning}
+            />
+
+            {/* Live Status Panel - shows real-time workflow health */}
+            <N8nLiveStatusPanel
+              pollingInterval={isRunning ? 5000 : 30000}
+              onTestWorkflow={handleTestWorkflow}
             />
 
             <LiveLogStream logs={phaseResults} isRunning={isRunning} />
