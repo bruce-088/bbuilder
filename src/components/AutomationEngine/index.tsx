@@ -7,6 +7,8 @@ import { AutomationProgress } from "./AutomationProgress";
 import { LiveLogStream } from "./LiveLogStream";
 import { ExceptionReview } from "./ExceptionReview";
 import { ProviderSelector } from "./ProviderSelector";
+import { N8nConnectionStatus } from "./N8nConnectionStatus";
+import { DeploymentPanel } from "./DeploymentPanel";
 
 interface AutomationEngineProps {
   businessIdeaId: string;
@@ -81,6 +83,9 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
           </DialogHeader>
 
           <div className="flex-1 overflow-auto space-y-6 py-4">
+            {/* n8n Connection Status */}
+            <N8nConnectionStatus />
+
             <AutomationProgress
               phases={phases}
               currentPhase={currentPhase}
@@ -89,6 +94,14 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
             />
 
             <LiveLogStream logs={phaseResults} isRunning={isRunning} />
+
+            {/* Deployment Panel - show after generate phase */}
+            {phaseResults.some(r => r.phase === "generate" && r.status === "success") && (
+              <DeploymentPanel 
+                phaseResults={phaseResults} 
+                businessName={businessName} 
+              />
+            )}
 
             {isComplete && (hasErrors || hasWarnings) && (
               <ExceptionReview
