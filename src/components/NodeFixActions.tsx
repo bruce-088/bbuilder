@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Lightbulb, ExternalLink, Sparkles, MessageSquare } from "lucide-react";
@@ -7,6 +7,21 @@ import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { N8nContext } from "@/lib/ai";
 import NodeFixGuideDialog from "./NodeFixGuideDialog";
+
+const CACHE_KEY = "n8n_cached_workflows";
+
+interface CachedWorkflow {
+  name: string;
+  nodes: Array<{
+    id: string;
+    name: string;
+    type: string;
+    parameters?: Record<string, unknown>;
+    credentials?: Record<string, unknown>;
+  }>;
+  connections?: Record<string, unknown>;
+  capturedAt?: string;
+}
 
 interface NodeFixActionsProps {
   nodeId?: string;
@@ -47,6 +62,31 @@ export default function NodeFixActions({
 
   // Extract short node type name for display
   const shortNodeType = nodeType.split('.').pop() || nodeType;
+
+  // Load full workflow snapshot from localStorage cache
+  const getFullWorkflowSnapshot = useCallback((): CachedWorkflow | null => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (!cached) return null;
+
+      const workflows = JSON.parse(cached) as Record<string, CachedWorkflow>;
+      
+      // Try to find by workflowId first, then by name
+      if (workflows[workflowId]) {
+        return workflows[workflowId];
+      }
+      
+      // Search by name as fallback
+      const entry = Object.entries(workflows).find(
+        ([, wf]) => wf.name === workflowName
+      );
+      
+      return entry ? entry[1] : null;
+    } catch (error) {
+      console.error("Error loading workflow from cache:", error);
+      return null;
+    }
+  }, [workflowId, workflowName]);
 
   // Construct direct link to node in n8n
   const getNodeLink = (): string | null => {
@@ -138,19 +178,30 @@ Based on the current configuration above, please:
 
       if (error) throw error;
 
-      // Build the n8n context for the chat
+      // Load full workflow snapshot from cache
+      const fullWorkflow = getFullWorkflowSnapshot();
+      
+      // Build the n8n context with ALL nodes for better troubleshooting
       const n8nContext: N8nContext = {
-        workflowName,
+        workflowName: fullWorkflow?.name || workflowName,
         workflowId,
         n8nInstanceUrl,
         businessName: businessContext.businessName,
         niche: businessContext.niche,
-        nodes: nodeParameters ? [{
+        // Include all nodes from the cached workflow, not just the current node
+        nodes: fullWorkflow?.nodes?.map(node => ({
+          name: node.name,
+          type: node.type,
+          parameters: node.parameters,
+          credentials: node.credentials ? { configured: true } : undefined,
+        })) || (nodeParameters ? [{
           name: nodeName || shortNodeType,
           type: nodeType,
           parameters: nodeParameters,
           credentials: credentialsConfigured ? { configured: true } : undefined,
-        }] : [],
+        }] : []),
+        // Include connections for understanding workflow flow
+        connections: fullWorkflow?.connections,
       };
 
       const prompt = generateAIPrompt();

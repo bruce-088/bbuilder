@@ -17,6 +17,7 @@ export interface N8nContext {
     parameters?: Record<string, unknown>;
     credentials?: Record<string, unknown>;
   }>;
+  connections?: Record<string, unknown>;
 }
 
 export interface StreamChatOptions {
