@@ -768,6 +768,34 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
   const [workflowName, setWorkflowName] = useState("GhostWriter AI: Lead Prospecting & Discovery Engine");
   const [mcpConnected, setMcpConnected] = useState(false);
   const [workflowData, setWorkflowData] = useState<WorkflowDetails | null>(null);
+  
+  // Per-stage workflow name mapping
+  const [stageWorkflowNames, setStageWorkflowNames] = useState<Record<string, string>>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('n8n_stage_workflow_names');
+      if (saved) {
+        try { return JSON.parse(saved); } catch { /* ignore */ }
+      }
+    }
+    return {
+      'n8n-prospecting': 'GhostWriter AI: Lead Prospecting & Discovery Engine',
+      'n8n-outreach': 'GhostWriter AI: The Authority Engine - Complete Sales Automation',
+      'n8n-qualification': 'GhostWriter AI: The Authority Engine - Complete Sales Automation',
+      'n8n-proposal': 'GhostWriter AI: The Authority Engine - Complete Sales Automation',
+      'n8n-closing': 'GhostWriter AI: The Authority Engine - Complete Sales Automation',
+      'n8n-retention': 'GhostWriter AI: The Authority Engine - Complete Sales Automation',
+    };
+  });
+  
+  // Save stage workflow names to localStorage
+  useEffect(() => {
+    localStorage.setItem('n8n_stage_workflow_names', JSON.stringify(stageWorkflowNames));
+  }, [stageWorkflowNames]);
+  
+  // Update a specific stage's workflow name
+  const updateStageWorkflowName = useCallback((stageId: string, name: string) => {
+    setStageWorkflowNames(prev => ({ ...prev, [stageId]: name }));
+  }, []);
   const [searchingWorkflow, setSearchingWorkflow] = useState(false);
   
   // n8n hosting type selector state - load from localStorage
@@ -1328,12 +1356,16 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
     const key = `${stageId}-live`;
     setVerificationResults(prev => new Map(prev).set(key, { status: 'loading' }));
 
+    // Get the workflow name for this specific stage, fallback to global
+    const stageWorkflowName = stageWorkflowNames[stageId] || workflowName;
+
     try {
       const { data, error } = await supabase.functions.invoke('verify-n8n-workflow', {
         body: {
           workflowData: workflowData,
           stageId,
           stageName,
+          workflowNamePattern: stageWorkflowName,
           businessContext: {
             businessName: businessIdea.businessName,
             niche: businessIdea.niche,
@@ -2671,9 +2703,19 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                               </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                              <p className="text-xs text-muted-foreground">
-                                Verify this stage's required nodes against your actual n8n workflow "{workflowName}"
-                              </p>
+                              {/* Per-stage workflow selector */}
+                              <div className="space-y-1.5">
+                                <Label className="text-xs">Workflow for this stage</Label>
+                                <Input 
+                                  value={stageWorkflowNames[stage.id] || workflowName}
+                                  onChange={(e) => updateStageWorkflowName(stage.id, e.target.value)}
+                                  placeholder={workflowName}
+                                  className="h-8 text-xs"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                  Verify against: <span className="font-medium">{stageWorkflowNames[stage.id] || workflowName}</span>
+                                </p>
+                              </div>
                               <div className="flex items-center gap-3 flex-wrap">
                                 <Button
                                   onClick={() => handleLiveVerifyStage(stage.id, stage.title)}
