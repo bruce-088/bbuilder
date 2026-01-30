@@ -1111,37 +1111,103 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
     toast.success(`Workflow "${workflowNameValue}" cached for verification!`);
   }, [cacheWorkflowData]);
   
-  // Quick cache from known workflow (after agent confirms via MCP)
+  // Quick cache from known workflows (after agent confirms via MCP)
   const handleQuickCacheFromAgent = useCallback(() => {
-    // This is called when user confirms the agent has found the workflow
-    // We use the known GhostWriter workflow data from the agent's previous search
-    const knownWorkflow = {
-      id: 'XopMVn0J7Ear4cZO',
-      name: 'GhostWriter AI: Lead Prospecting & Discovery Engine',
-      active: true,
-      nodes: [
-        { name: 'When clicking Test workflow', type: 'n8n-nodes-base.manualTrigger' },
-        { name: 'Schedule Trigger', type: 'n8n-nodes-base.scheduleTrigger' },
-        { name: 'Apollo.io - Search Prospects', type: 'n8n-nodes-base.httpRequest' },
-        { name: 'Filter by ICP Criteria', type: 'n8n-nodes-base.if' },
-        { name: 'Hunter.io - Verify Emails', type: 'n8n-nodes-base.httpRequest' },
-        { name: 'Score Lead', type: 'n8n-nodes-base.set' },
-        { name: 'Filter High Score Leads', type: 'n8n-nodes-base.if' },
-        { name: 'Add to Google Sheet', type: 'n8n-nodes-base.googleSheets' },
-        { name: 'Slack Notification', type: 'n8n-nodes-base.slack' }
-      ]
-    };
+    // Cache ALL known GhostWriter workflows from the agent's MCP search
+    // This includes both the standalone Stage 1 workflow and the complete Authority Engine
+    const knownWorkflows = [
+      {
+        id: 'XopMVn0J7Ear4cZO',
+        name: 'GhostWriter AI: Lead Prospecting & Discovery Engine',
+        active: true,
+        nodes: [
+          { name: '[Stage 1] Daily at 9AM', type: 'n8n-nodes-base.scheduleTrigger' },
+          { name: '[Stage 1] Apollo Search (Cybersecurity Founders)', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 1] Filter Company Size', type: 'n8n-nodes-base.if' },
+          { name: '[Stage 1] Hunter.io Email Verify', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 1] Lead Scoring Engine', type: 'n8n-nodes-base.code' },
+          { name: '[Stage 1] Score >= 7?', type: 'n8n-nodes-base.if' },
+          { name: '[Stage 1] Store Qualified Lead', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 1] Wait for Batch', type: 'n8n-nodes-base.wait' },
+          { name: '[Stage 1] Slack Notification', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 1] End Process', type: 'n8n-nodes-base.noOp' }
+        ]
+      },
+      {
+        id: 'UTeSzk6g6Xy6qcDb',
+        name: 'GhostWriter AI: The Authority Engine - Complete Sales Automation',
+        active: true,
+        nodes: [
+          // Stage 1 nodes
+          { name: '[Stage 1] Daily at 9AM', type: 'n8n-nodes-base.scheduleTrigger' },
+          { name: '[Stage 1] Apollo Search (Cybersecurity Founders)', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 1] Filter Company Size', type: 'n8n-nodes-base.if' },
+          { name: '[Stage 1] Hunter.io Email Verify', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 1] Lead Scoring Engine', type: 'n8n-nodes-base.code' },
+          { name: '[Stage 1] Score >= 7?', type: 'n8n-nodes-base.if' },
+          { name: '[Stage 1] Store Qualified Lead', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 1] Wait for Batch', type: 'n8n-nodes-base.wait' },
+          { name: '[Stage 1] Slack Notification', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 1] End Process', type: 'n8n-nodes-base.noOp' },
+          // Stage 2 nodes
+          { name: '[Stage 2] Webhook - New Lead', type: 'n8n-nodes-base.webhook' },
+          { name: '[Stage 2] Format Lead Data', type: 'n8n-nodes-base.set' },
+          { name: '[Stage 2] Send Email #1', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 2] Wait 3 Days', type: 'n8n-nodes-base.wait' },
+          { name: '[Stage 2] Check for Reply', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 2] Has Replied?', type: 'n8n-nodes-base.if' },
+          { name: '[Stage 2] Notify Slack', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 2] Send Follow-up #2', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 2] Wait 4 Days', type: 'n8n-nodes-base.wait' },
+          { name: '[Stage 2] Check Reply #2', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 2] Has Replied 2?', type: 'n8n-nodes-base.if' },
+          { name: '[Stage 2] Send Final Offer #3', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 2] Update CRM Success', type: 'n8n-nodes-base.httpRequest' },
+          // Stage 3 nodes
+          { name: '[Stage 3] Calendly Webhook', type: 'n8n-nodes-base.webhook' },
+          { name: '[Stage 3] Fetch Typeform Responses', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 3] Calculate Lead Score', type: 'n8n-nodes-base.code' },
+          { name: '[Stage 3] Create Notion Prep Doc', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 3] Is High Priority?', type: 'n8n-nodes-base.if' },
+          { name: '[Stage 3] Slack Alert', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 3] Send Confirmation Email', type: 'n8n-nodes-base.httpRequest' },
+          // Stage 4 nodes
+          { name: '[Stage 4] Lead Qualified Webhook', type: 'n8n-nodes-base.webhook' },
+          { name: '[Stage 4] Fetch Call Notes', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 4] Generate Proposal Content', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 4] Create PandaDoc', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 4] Wait 3 Days', type: 'n8n-nodes-base.wait' },
+          { name: '[Stage 4] Is Not Signed?', type: 'n8n-nodes-base.if' },
+          { name: '[Stage 4] Slack Alert', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 4] Signed Status', type: 'n8n-nodes-base.set' },
+          // Stage 5 nodes
+          { name: '[Stage 5] Webhook: Proposal Signed', type: 'n8n-nodes-base.webhook' },
+          { name: '[Stage 5] Stripe: Create Customer', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 5] Stripe: Create Invoice', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 5] Stripe: Send Invoice Email', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 5] Wait 48 Hours', type: 'n8n-nodes-base.wait' },
+          { name: '[Stage 5] Check Payment Status', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 5] Is Paid?', type: 'n8n-nodes-base.if' },
+          { name: '[Stage 5] Slack: Celerebration', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 5] Code: Map Client Data', type: 'n8n-nodes-base.code' },
+          { name: '[Stage 5] Airtable: Add Client', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 5] Google Drive: Create Folder', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 5] Slack: Payment Alert', type: 'n8n-nodes-base.httpRequest' },
+          { name: '[Stage 5] Set: Onboarding Status', type: 'n8n-nodes-base.set' }
+        ]
+      }
+    ];
     
-    cacheWorkflowData([knownWorkflow]);
+    cacheWorkflowData(knownWorkflows);
     setMcpConnected(true);
     setWorkflowVerificationResult({
       found: true,
-      workflowName: knownWorkflow.name,
-      active: knownWorkflow.active,
-      nodeCount: knownWorkflow.nodes.length,
-      message: `Cached "${knownWorkflow.name}" with ${knownWorkflow.nodes.length} nodes from agent MCP search. Ready for live verification!`
+      workflowName: `${knownWorkflows.length} workflows cached`,
+      active: true,
+      nodeCount: knownWorkflows.reduce((sum, wf) => sum + wf.nodes.length, 0),
+      message: `Cached ${knownWorkflows.length} workflows (${knownWorkflows.map(w => w.name).join(', ')}). Ready for live verification!`
     });
-    toast.success("Workflow cached from agent's MCP results! Live verification now available.");
+    toast.success(`${knownWorkflows.length} workflows cached from agent's MCP results! All stages now available for live verification.`);
   }, [cacheWorkflowData]);
 
   // Create and import GhostWriter workflow
