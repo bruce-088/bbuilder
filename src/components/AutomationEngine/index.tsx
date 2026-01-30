@@ -10,6 +10,7 @@ import { ProviderSelector } from "./ProviderSelector";
 import { N8nConnectionStatus } from "./N8nConnectionStatus";
 import { DeploymentPanel } from "./DeploymentPanel";
 import { N8nLiveStatusPanel } from "./N8nLiveStatusPanel";
+import { AISettingsDialog } from "@/components/AISettingsDialog";
 import { toast } from "sonner";
 
 interface AutomationEngineProps {
@@ -21,6 +22,7 @@ interface AutomationEngineProps {
 export function AutomationEngine({ businessIdeaId, businessName, onComplete }: AutomationEngineProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>("lovable");
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const {
     isRunning,
     currentPhase,
@@ -50,14 +52,21 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
   const isComplete = !isRunning && phaseResults.length > 0;
 
   const handleTestWorkflow = async (workflowId: string) => {
-    // Test workflow execution - this would trigger via MCP in real usage
     toast.info(`Test run requested for workflow ${workflowId}. Use the n8n editor to trigger manual executions.`);
+  };
+
+  const handlePerplexityConnect = () => {
+    toast.info("Perplexity connector integration - contact support to enable");
   };
 
   return (
     <>
       <div className="flex items-center gap-2">
-        <ProviderSelector value={selectedProvider} onChange={setSelectedProvider} />
+        <ProviderSelector 
+          value={selectedProvider} 
+          onChange={setSelectedProvider}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
         <Button
           onClick={handleStart}
           disabled={isRunning}
@@ -76,6 +85,12 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
           )}
         </Button>
       </div>
+
+      <AISettingsDialog
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onPerplexityConnect={handlePerplexityConnect}
+      />
 
       <Dialog open={isOpen} onOpenChange={handleClose}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
