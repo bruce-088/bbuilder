@@ -80,6 +80,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { getVerificationDataForStages, generateStepVerificationPrompt, VerificationData } from "@/lib/verificationPromptGenerator";
 import FixDiagnosisDialog from "@/components/FixDiagnosisDialog";
 import NodeFixActions from "@/components/NodeFixActions";
+import VerificationResultsDisplay from "@/components/VerificationResultsDisplay";
 import { isGhostWriterWorkflow, type WorkflowDetails } from "@/lib/n8nWorkflowVerification";
 
 interface BusinessIdeaData {
@@ -3003,109 +3004,17 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                               {/* Live Verification Result Display for This Stage */}
                               {verificationResults.get(`${stage.id}-live`) && 
                                verificationResults.get(`${stage.id}-live`)?.status !== 'loading' && (
-                                <div className="border rounded-md p-3 bg-background space-y-2">
-                                  {/* Status Badge */}
-                                  <div className="flex items-center gap-2">
-                                    <Badge 
-                                      variant={verificationResults.get(`${stage.id}-live`)?.status === 'pass' ? 'default' : 'secondary'}
-                                      className={
-                                        verificationResults.get(`${stage.id}-live`)?.status === 'pass' 
-                                          ? 'bg-green-500' 
-                                          : verificationResults.get(`${stage.id}-live`)?.status === 'attention' 
-                                          ? 'bg-amber-500' 
-                                          : ''
-                                      }
-                                    >
-                                      {verificationResults.get(`${stage.id}-live`)?.status === 'pass' && <CheckCircle2 className="w-3 h-3 mr-1" />}
-                                      {verificationResults.get(`${stage.id}-live`)?.status === 'attention' && <AlertCircle className="w-3 h-3 mr-1" />}
-                                      {verificationResults.get(`${stage.id}-live`)?.status?.toUpperCase()}
-                                    </Badge>
-                                    {verificationResults.get(`${stage.id}-live`)?.workflowActive !== undefined && (
-                                      <Badge variant="outline">
-                                        {verificationResults.get(`${stage.id}-live`)?.workflowActive ? '✓ Workflow Active' : '⚠️ Workflow Inactive'}
-                                      </Badge>
-                                    )}
-                                  </div>
-                                  
-                                  {/* Summary */}
-                                  {verificationResults.get(`${stage.id}-live`)?.summary && (
-                                    <p className="text-xs text-muted-foreground">{verificationResults.get(`${stage.id}-live`)?.summary}</p>
-                                  )}
-                                  
-                                  {/* Node Stats */}
-                                  {verificationResults.get(`${stage.id}-live`)?.nodeStats && (
-                                    <div className="grid grid-cols-4 gap-2 text-xs">
-                                      <div className="text-center p-2 bg-muted rounded">
-                                        <div className="font-bold text-green-500">{verificationResults.get(`${stage.id}-live`)?.nodeStats?.configured}</div>
-                                        <div className="text-muted-foreground">Configured</div>
-                                      </div>
-                                      <div className="text-center p-2 bg-muted rounded">
-                                        <div className="font-bold text-amber-500">{verificationResults.get(`${stage.id}-live`)?.nodeStats?.incomplete}</div>
-                                        <div className="text-muted-foreground">Incomplete</div>
-                                      </div>
-                                      <div className="text-center p-2 bg-muted rounded">
-                                        <div className="font-bold text-red-500">{verificationResults.get(`${stage.id}-live`)?.nodeStats?.missing}</div>
-                                        <div className="text-muted-foreground">Missing</div>
-                                      </div>
-                                      <div className="text-center p-2 bg-muted rounded">
-                                        <div className="font-bold">{verificationResults.get(`${stage.id}-live`)?.nodeStats?.found}</div>
-                                        <div className="text-muted-foreground">Found</div>
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Node Verification Checklist */}
-                                  {verificationResults.get(`${stage.id}-live`)?.checklist && 
-                                   verificationResults.get(`${stage.id}-live`)!.checklist!.length > 0 && (
-                                    <div className="space-y-1.5">
-                                      <p className="text-xs font-medium">Node Verification:</p>
-                                      <ul className="text-xs space-y-2">
-                                        {verificationResults.get(`${stage.id}-live`)!.checklist!.map((item, idx) => (
-                                          <li key={idx} className="flex flex-col">
-                                            <div className="flex items-start gap-1.5">
-                                              {item.status === 'check' && <CheckCircle2 className="w-3 h-3 text-green-500 mt-0.5" />}
-                                              {item.status === 'warning' && <AlertCircle className="w-3 h-3 text-amber-500 mt-0.5" />}
-                                              {item.status === 'error' && <XCircle className="w-3 h-3 text-red-500 mt-0.5" />}
-                                              <span>{item.item}</span>
-                                            </div>
-                                            {/* Fix Actions for warning/error items */}
-                                            {item.fixable && (
-                                              <NodeFixActions
-                                                nodeId={item.nodeId}
-                                                nodeName={item.nodeName}
-                                                nodeType={item.nodeType || ''}
-                                                issues={item.issues || []}
-                                                purpose={item.item}
-                                                workflowId={cachedWorkflows[stageWorkflowNames[stage.id] || workflowName]?.id || ''}
-                                                workflowName={stageWorkflowNames[stage.id] || workflowName}
-                                                n8nInstanceUrl={localStorage.getItem('n8n_instance_url') || ''}
-                                                nodeParameters={item.nodeParameters}
-                                                credentialsConfigured={item.credentialsConfigured}
-                                                businessContext={{
-                                                  businessName: businessIdea.businessName,
-                                                  niche: businessIdea.niche
-                                                }}
-                                              />
-                                            )}
-                                          </li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Suggestions */}
-                                  {verificationResults.get(`${stage.id}-live`)?.suggestions && 
-                                   verificationResults.get(`${stage.id}-live`)!.suggestions!.length > 0 && (
-                                    <div className="bg-muted/50 rounded p-2">
-                                      <p className="text-xs font-medium mb-1">Suggestions:</p>
-                                      <ul className="text-xs text-muted-foreground space-y-0.5">
-                                        {verificationResults.get(`${stage.id}-live`)!.suggestions!.map((s, idx) => (
-                                          <li key={idx}>• {s}</li>
-                                        ))}
-                                      </ul>
-                                    </div>
-                                  )}
-                                </div>
+                                <VerificationResultsDisplay
+                                  result={verificationResults.get(`${stage.id}-live`)!}
+                                  stageId={stage.id}
+                                  workflowId={cachedWorkflows[stageWorkflowNames[stage.id] || workflowName]?.id || ''}
+                                  workflowName={stageWorkflowNames[stage.id] || workflowName}
+                                  n8nInstanceUrl={localStorage.getItem('n8n_instance_url') || ''}
+                                  businessContext={{
+                                    businessName: businessIdea.businessName,
+                                    niche: businessIdea.niche
+                                  }}
+                                />
                               )}
                             </CardContent>
                           </Card>
