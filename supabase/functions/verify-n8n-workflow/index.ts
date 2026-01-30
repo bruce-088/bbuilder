@@ -316,6 +316,9 @@ serve(async (req) => {
       found: boolean;
       status: "configured" | "missing" | "incomplete";
       matchedNode?: string;
+      matchedNodeId?: string;
+      matchedNodeParams?: Record<string, unknown>;
+      credentialsConfigured?: boolean;
       issues?: string[];
     }> = [];
 
@@ -338,7 +341,9 @@ serve(async (req) => {
         const needsCredentials = ['gmail', 'slack', 'notion', 'googleSheets', 'airtable']
           .some(t => expected.type.includes(t));
         
-        if (needsCredentials && !matchedNode.credentials) {
+        const hasCredentials = !!matchedNode.credentials && Object.keys(matchedNode.credentials).length > 0;
+        
+        if (needsCredentials && !hasCredentials) {
           issues.push('Credentials may not be configured');
         }
 
@@ -348,6 +353,9 @@ serve(async (req) => {
           found: true,
           status: issues.length === 0 ? 'configured' : 'incomplete',
           matchedNode: matchedNode.name,
+          matchedNodeId: matchedNode.id,
+          matchedNodeParams: matchedNode.parameters,
+          credentialsConfigured: hasCredentials,
           issues: issues.length > 0 ? issues : undefined
         });
 
@@ -358,6 +366,9 @@ serve(async (req) => {
           purpose: expected.purpose,
           found: false,
           status: 'missing',
+          matchedNodeId: undefined,
+          matchedNodeParams: undefined,
+          credentialsConfigured: false,
           issues: [expected.required ? 'Required node not found in workflow' : 'Optional node not configured']
         });
       }
@@ -418,6 +429,12 @@ serve(async (req) => {
         checklist: nodeVerification.map(n => ({
           item: `${n.purpose} (${n.type.split('.').pop()})`,
           status: n.found ? (n.status === 'configured' ? 'check' : 'warning') : 'error',
+          fixable: n.status !== 'configured',
+          nodeId: n.matchedNodeId,
+          nodeName: n.matchedNode,
+          nodeType: n.type,
+          issues: n.issues,
+          credentialsConfigured: n.credentialsConfigured,
           howToVerify: n.found 
             ? `Node "${n.matchedNode}" found. ${n.issues?.join('. ') || 'Configuration looks good.'}`
             : `Add a ${n.type.split('.').pop()} node for: ${n.purpose}`
