@@ -1,106 +1,127 @@
 
-# Plan: Add "Chat with Mya about this" Button
+# Plan: Fix Workflow Dropdown to Show All MCP Workflows
 
-## Overview
-Add a new button to the `NodeFixActions` component that opens a new chat conversation with Mya, pre-loaded with the n8n troubleshooting context. This allows users to get immediate, context-aware help without manually copying and pasting prompts.
+## Problem
+The "Live n8n Verification" dropdown shows only 1 workflow when the user's n8n instance actually has 2 (or more) workflows. This happens because:
 
-## User Experience
-1. User sees an incomplete node in the verification checklist
-2. User clicks "Chat with Mya" button (next to existing "Ask AI" button)
-3. A new chat conversation is created automatically
-4. The chat opens with the fix prompt already sent as the first message
-5. Mya responds with specific troubleshooting guidance using the full n8n workflow context
+1. The "Cache from Agent MCP" button only caches a single hardcoded workflow (`GhostWriter AI: Lead Prospecting & Discovery Engine`)
+2. The "Verify Workflow Exists" function only caches one workflow returned by the edge function
+3. The MCP connector returns **both** workflows:
+   - `GhostWriter AI: The Authority Engine - Complete Sales Automation` (Stages 1-5, 51 nodes)
+   - `GhostWriter AI: Lead Prospecting & Discovery Engine` (Stage 1 only, 10 nodes)
+
+## Solution
+Update the caching logic to fetch and cache **all available workflows** from MCP, then auto-populate the per-stage dropdown with the appropriate workflow based on the stage-to-workflow mapping.
 
 ## Implementation Steps
 
-### Step 1: Extend Chat Page to Accept Pre-filled Messages
-**File: `src/pages/Chat.tsx`**
+### Step 1: Update `handleQuickCacheFromAgent` to Fetch All Workflows
+**File: `src/components/N8nAutomationGuideDialog.tsx`**
 
-- Add support for reading an initial message from URL search params (`?prompt=...`) or navigation state
-- Add support for receiving n8n context via navigation state
-- When both are present, auto-send the message with the n8n context attached
+Currently this function hardcodes a single workflow. Instead, it should:
+1. Call the MCP `search_workflows` via an edge function or prompt the user to confirm
+2. Cache all workflows returned from MCP
+3. Display a success message showing how many workflows were cached
 
-```text
-Changes:
-- Import useLocation from react-router-dom
-- Read location.state for { initialPrompt, n8nContext }
-- Add useEffect to auto-send the initial prompt when present
-- Pass n8nContext to streamChat() when sending the auto-message
-```
-
-### Step 2: Add "Chat with Mya" Button to NodeFixActions
-**File: `src/components/NodeFixActions.tsx`**
-
-- Add new button with MessageSquare icon labeled "Chat with Mya"
-- On click:
-  1. Create a new conversation in the database
-  2. Build the full n8n context object with node details
-  3. Navigate to `/chat/{id}` with state containing the prompt and context
-- Style the button with primary color to make it prominent
+Since we cannot directly call the MCP from the client, we'll update this to use known workflow data from both workflows the agent has confirmed exist.
 
 ```text
 Changes:
-- Import useNavigate from react-router-dom
-- Import useAuth to get user ID for conversation creation
-- Import supabase client for database operations
-- Add MessageSquare icon import
-- Create handleChatWithMya function that:
-  a. Creates conversation with title "[Node] Fix Request"
-  b. Builds N8nContext object with workflow nodes array
-  c. Navigates with state: { initialPrompt, n8nContext }
-- Add new Button component between "Ask AI" and existing buttons
+- Replace single hardcoded workflow with an array of known workflows
+- Include both "Lead Prospecting" and "Authority Engine" workflows
+- Cache all workflows to localStorage
+- Show count of workflows cached in success message
 ```
 
-### Step 3: Update N8nContext to Include Current Node Focus
-**File: `src/lib/ai.ts`**
+### Step 2: Update Default Stage-to-Workflow Mappings
+**File: `src/components/N8nAutomationGuideDialog.tsx`**
 
-- Optionally add a `focusNode` field to `N8nContext` interface to highlight which node needs fixing
-- This helps Mya understand which specific node the user needs help with
+The current defaults are correct but may not match cached workflow names. Ensure:
+- Stage 1 maps to the Lead Prospecting workflow
+- Stages 2-6 map to the Complete Sales Automation workflow
+
+```text
+Existing defaults (lines 827-834):
+- n8n-prospecting → 'GhostWriter AI: Lead Prospecting & Discovery Engine'
+- n8n-outreach → 'GhostWriter AI: The Authority Engine - Complete Sales Automation'
+- n8n-qualification → 'GhostWriter AI: The Authority Engine - Complete Sales Automation'
+- etc.
+```
+
+These are already correct.
+
+### Step 3: Add "Refresh from MCP" Button to Each Stage
+**File: `src/components/N8nAutomationGuideDialog.tsx`**
+
+Add a small refresh button next to the dropdown that prompts the agent to search for workflows via MCP again, allowing users to update the cache if workflows have changed.
+
+```text
+Changes:
+- Add RefreshCw icon import
+- Add small button next to Select dropdown
+- On click, show toast with instructions to ask agent to search workflows
+```
+
+### Step 4: Improve Cache Display
+**File: `src/components/N8nAutomationGuideDialog.tsx`**
+
+Update the helper text under the dropdown to be more informative:
+- Show which workflows are cached
+- Indicate if the selected workflow is missing from cache
 
 ## Technical Details
 
-### Navigation State Structure
+### Updated Known Workflows Array
 ```typescript
-interface ChatNavigationState {
-  initialPrompt: string;  // The generated fix prompt
-  n8nContext: {
-    workflowName: string;
-    workflowId: string;
-    n8nInstanceUrl: string;
-    businessName: string;
-    niche?: string;
-    nodes: Array<{
-      name: string;
-      type: string;
-      parameters?: Record<string, unknown>;
-      credentials?: Record<string, unknown>;
-    }>;
-  };
-}
+const knownWorkflows = [
+  {
+    id: 'XopMVn0J7Ear4cZO',
+    name: 'GhostWriter AI: Lead Prospecting & Discovery Engine',
+    active: true,
+    nodes: [
+      { name: 'Daily at 9AM', type: 'n8n-nodes-base.scheduleTrigger' },
+      { name: 'Apollo Search', type: 'n8n-nodes-base.httpRequest' },
+      { name: 'Filter Company Size', type: 'n8n-nodes-base.if' },
+      { name: 'Hunter Email Verification', type: 'n8n-nodes-base.httpRequest' },
+      { name: 'ICP Lead Scoring', type: 'n8n-nodes-base.code' },
+      { name: 'Qualified Check (7+)', type: 'n8n-nodes-base.if' },
+      { name: 'Map Data for Sheets', type: 'n8n-nodes-base.set' },
+      { name: 'Add to Google Sheet', type: 'n8n-nodes-base.httpRequest' },
+      { name: 'Slack Summary', type: 'n8n-nodes-base.httpRequest' },
+      { name: 'End Process', type: 'n8n-nodes-base.noOp' }
+    ]
+  },
+  {
+    id: 'UTeSzk6g6Xy6qcDb',
+    name: 'GhostWriter AI: The Authority Engine - Complete Sales Automation',
+    active: true,
+    nodes: [
+      // Stage 1 nodes (prefixed with [Stage 1])
+      { name: '[Stage 1] Daily at 9AM', type: 'n8n-nodes-base.scheduleTrigger' },
+      // ... 10 Stage 1 nodes
+      // Stage 2 nodes (prefixed with [Stage 2])
+      { name: '[Stage 2] Webhook - New Lead', type: 'n8n-nodes-base.webhook' },
+      // ... Stage 2 nodes
+      // Stages 3-5 follow same pattern
+    ]
+  }
+];
 ```
 
-### Auto-send Logic in Chat.tsx
-```text
-useEffect:
-  - Check if location.state has initialPrompt
-  - If present and messages.length === 0 and not already sending:
-    - Set the prompt as user message
-    - Save to database
-    - Call streamChat with n8nContext from state
-    - Clear the state to prevent re-sending on refresh
-```
+### Stage Verification Logic Update
+The live verification should automatically use the correct workflow based on the stage:
+- For `n8n-prospecting`: Either workflow works (both have Stage 1 nodes)
+- For `n8n-outreach` through `n8n-closing`: Use the Complete Automation workflow
 
 ## File Changes Summary
 
 | File | Change Type | Description |
 |------|-------------|-------------|
-| `src/pages/Chat.tsx` | Modify | Add support for initial prompt via navigation state, auto-send with n8n context |
-| `src/components/NodeFixActions.tsx` | Modify | Add "Chat with Mya" button with navigation logic |
-| `src/lib/ai.ts` | Minor | Optionally add focusNode to N8nContext (already has nodes array) |
+| `src/components/N8nAutomationGuideDialog.tsx` | Modify | Update `handleQuickCacheFromAgent` to cache both workflows with accurate node data |
 
-## Edge Cases Handled
-
-1. **User not logged in**: The navigate will redirect to auth (existing behavior in Chat.tsx)
-2. **Database error creating conversation**: Show toast error and fallback to "Ask AI" copy behavior
-3. **Page refresh after navigation**: The prompt won't re-send since messages.length > 0
-4. **Multiple clicks**: Disable button while creating conversation to prevent duplicates
+## Expected Outcome
+After this change:
+1. The dropdown will show "2 workflow(s) available from MCP"
+2. Users can select either workflow for each stage
+3. Default mappings will auto-select the appropriate workflow per stage
+4. Live verification will work for all stages with the correct node expectations
