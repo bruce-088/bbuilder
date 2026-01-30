@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useParams, useNavigate, useSearchParams, Navigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams, Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { streamChat, Message, addMemories, searchMemories } from "@/lib/ai";
+import { streamChat, Message, addMemories, searchMemories, N8nContext } from "@/lib/ai";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -46,7 +46,13 @@ interface ChatMessage {
   savedAsIdea?: boolean;
 }
 
+interface ChatNavigationState {
+  initialPrompt?: string;
+  n8nContext?: N8nContext;
+}
+
 export default function Chat() {
+  const location = useLocation();
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const shouldGenerate = searchParams.get("generate") === "true";
@@ -82,6 +88,7 @@ export default function Chat() {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const footerTextareaRef = useRef<HTMLTextAreaElement>(null);
   const hasGeneratedRef = useRef(false);
+  const hasAutoSentRef = useRef(false);
 
   // Handle paste event for screenshots
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
@@ -140,6 +147,78 @@ export default function Chat() {
       handleGenerateIdeas();
     }
   }, [shouldGenerate, loading, messages.length]);
+
+  // Auto-send initial prompt from navigation state (e.g., from "Chat with Mya" button)
+  useEffect(() => {
+    const state = location.state as ChatNavigationState | undefined;
+    
+    if (
+      state?.initialPrompt &&
+      !hasAutoSentRef.current &&
+      !loading &&
+      messages.length === 0 &&
+      user &&
+      id
+    ) {
+      hasAutoSentRef.current = true;
+      
+      // Clear the navigation state to prevent re-sending on refresh
+      window.history.replaceState({}, document.title);
+      
+      // Auto-send the initial prompt with n8n context
+      handleAutoSend(state.initialPrompt, state.n8nContext);
+    }
+  }, [location.state, loading, messages.length, user, id]);
+
+  const handleAutoSend = async (prompt: string, n8nContext?: N8nContext) => {
+    if (!user || !id) return;
+
+    setIsStreaming(true);
+
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: prompt,
+    };
+
+    setMessages([userMessage]);
+    await saveMessage("user", prompt);
+
+    let assistantContent = "";
+    const assistantId = crypto.randomUUID();
+
+    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
+
+    await streamChat({
+      messages: [{ role: "user", content: prompt }],
+      type: "chat",
+      n8nContext,
+      onDelta: (chunk) => {
+        assistantContent += chunk;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: assistantContent } : m
+          )
+        );
+      },
+      onDone: async () => {
+        setIsStreaming(false);
+        await saveMessage("assistant", assistantContent);
+
+        // Add to Mem0 memory
+        if (user) {
+          await addMemories(user.id, [
+            { role: "user", content: prompt },
+            { role: "assistant", content: assistantContent },
+          ]);
+        }
+      },
+      onError: (error) => {
+        setIsStreaming(false);
+        toast.error(error.message);
+      },
+    });
+  };
 
   const scrollToMessagesEnd = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });

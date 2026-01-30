@@ -1,7 +1,11 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Lightbulb, ExternalLink, Sparkles } from "lucide-react";
+import { Lightbulb, ExternalLink, Sparkles, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { N8nContext } from "@/lib/ai";
 import NodeFixGuideDialog from "./NodeFixGuideDialog";
 
 interface NodeFixActionsProps {
@@ -37,6 +41,9 @@ export default function NodeFixActions({
   onAskAI
 }: NodeFixActionsProps) {
   const [showFixGuide, setShowFixGuide] = useState(false);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const navigate = useNavigate();
+  const { user } = useAuth();
 
   // Extract short node type name for display
   const shortNodeType = nodeType.split('.').pop() || nodeType;
@@ -109,6 +116,62 @@ Based on the current configuration above, please:
     }
   };
 
+  const handleChatWithMya = async () => {
+    if (!user) {
+      toast.error("Please sign in to chat with Mya");
+      navigate("/auth");
+      return;
+    }
+
+    setIsCreatingChat(true);
+
+    try {
+      // Create a new conversation
+      const { data: conversation, error } = await supabase
+        .from("conversations")
+        .insert({
+          user_id: user.id,
+          title: `Fix: ${nodeName || shortNodeType} node`,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Build the n8n context for the chat
+      const n8nContext: N8nContext = {
+        workflowName,
+        workflowId,
+        n8nInstanceUrl,
+        businessName: businessContext.businessName,
+        niche: businessContext.niche,
+        nodes: nodeParameters ? [{
+          name: nodeName || shortNodeType,
+          type: nodeType,
+          parameters: nodeParameters,
+          credentials: credentialsConfigured ? { configured: true } : undefined,
+        }] : [],
+      };
+
+      const prompt = generateAIPrompt();
+
+      // Navigate to the new chat with state
+      navigate(`/chat/${conversation.id}`, {
+        state: {
+          initialPrompt: prompt,
+          n8nContext,
+        },
+      });
+    } catch (error) {
+      console.error("Error creating chat:", error);
+      toast.error("Failed to start chat. Copying prompt instead...");
+      // Fallback to clipboard copy
+      handleAskAI();
+    } finally {
+      setIsCreatingChat(false);
+    }
+  };
+
   return (
     <div className="flex items-center gap-1 mt-1 ml-4">
       {/* Quick Fix Guide Button */}
@@ -137,15 +200,27 @@ Based on the current configuration above, please:
         </Button>
       )}
 
-      {/* Ask AI to Fix Button */}
+      {/* Chat with Mya Button */}
       <Button
         variant="ghost"
         size="sm"
         className="h-6 px-2 text-xs gap-1 text-primary hover:text-primary/80"
+        onClick={handleChatWithMya}
+        disabled={isCreatingChat}
+      >
+        <MessageSquare className="w-3 h-3" />
+        {isCreatingChat ? "Opening..." : "Chat with Mya"}
+      </Button>
+
+      {/* Ask AI to Copy Prompt Button */}
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
         onClick={handleAskAI}
       >
         <Sparkles className="w-3 h-3" />
-        Ask AI
+        Copy Prompt
       </Button>
 
       {/* Quick Fix Dialog */}
