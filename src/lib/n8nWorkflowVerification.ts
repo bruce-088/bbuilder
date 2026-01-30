@@ -247,6 +247,7 @@ export const expectedWorkflowNamePatterns = [
   "Authority Engine",
   "Sales Automation",
   "Lead Prospecting",
+  "Lead Prospecting & Discovery Engine",
   "Outreach",
   "Qualification",
   "Proposal",
@@ -264,6 +265,7 @@ export function isGhostWriterWorkflow(workflowName: string): boolean {
     lowerName.includes('ghostwriter') ||
     lowerName.includes('authority engine') ||
     lowerName.includes('sales automation') ||
-    lowerName.includes('complete automation')
+    lowerName.includes('complete automation') ||
+    lowerName.includes('lead prospecting')
   );
 }
