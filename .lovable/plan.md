@@ -1,303 +1,243 @@
 
-# Plan: One-Click AI Automation Engine with External Chat API Integration
 
-## Executive Summary
+# Plan: Real-Time n8n Workflow Status Connection
 
-Transform the current multi-step, manual workflow into a **single-click automation engine** that leverages external AI chat APIs (ChatGPT Pro, Claude, Grok, Perplexity, Gemini) to execute agentic actions. The system will analyze the business plan, generate n8n workflows, verify configurations, and fix issues - all automatically.
+## Overview
 
----
-
-## Current State Analysis
-
-### Identified Redundancies & Unnecessary Complexity
-
-| Feature | Location | Issue |
-|---------|----------|-------|
-| **Duplicate n8n workflow generation** | `generate-n8n-workflow/` + `generate-n8n-workflow-from-prompt/` | Two edge functions doing similar things |
-| **Multiple export formats** | `ExportPrompt.tsx` + `ExportComputerUsePrompt.tsx` | User must manually copy prompts to external AI |
-| **Scattered verification logic** | `VerifyFixButton`, `FixDiagnosisDialog`, `NodeFixActions` | User manually triggers each verification step |
-| **Redundant implementation guides** | `ImplementationGuideDialog` + `N8nAutomationGuideDialog` | Overlapping setup checklists |
-| **Manual workflow context refresh** | `WorkflowContextPanel` requires manual "Refresh Context" | Not automated |
-| **Copy/paste to external AI** | Current flow requires exporting prompts and pasting | Breaks automation flow |
-
-### Current User Journey (Too Many Steps)
-```text
-1. Generate business idea → 2. Save it → 3. Open automation guide → 
-4. Copy setup prompt → 5. Paste to external AI → 6. Manually execute steps → 
-7. Return to verify → 8. If failed, copy fix prompt → 9. Paste to AI again → 10. Repeat...
-```
+Add a live status connection between the app and n8n workflows, providing real-time visibility into workflow health, configuration changes, and the ability to trigger test executions directly from the Automation Engine.
 
 ---
 
-## Proposed Solution: Unified Automation Engine
+## What We Can Monitor in Real-Time
 
-### New User Journey (One Click)
+| Status Type | Method | Capability |
+|-------------|--------|------------|
+| Workflow Active/Inactive | MCP polling | Check if workflows are turned on |
+| Node Configuration | Diff detection | Detect when nodes are added/modified |
+| Webhook Endpoints | HTTP health checks | Verify webhooks respond correctly |
+| Last Modified | Timestamp tracking | Show when workflows were last edited |
+| Trigger Test Runs | MCP execute | Fire test executions and verify responses |
+
+---
+
+## Architecture
+
 ```text
-1. Click "🚀 Automate Everything" → 2. Watch progress → 3. Done (or review exceptions)
-```
-
-### Architecture Overview
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                    ONE-CLICK AUTOMATION ENGINE                   │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   ┌──────────────────┐    ┌──────────────────┐                  │
-│   │   AI Providers   │    │   n8n MCP        │                  │
-│   │                  │    │                  │                  │
-│   │  - Perplexity    │    │  - Create        │                  │
-│   │  - Claude API    │    │  - Verify        │                  │
-│   │  - OpenAI        │    │  - Update        │                  │
-│   │  - Gemini        │    │                  │                  │
-│   └────────┬─────────┘    └────────┬─────────┘                  │
-│            │                       │                             │
-│            └───────────┬───────────┘                             │
-│                        ▼                                         │
-│   ┌────────────────────────────────────────────────────────┐    │
-│   │              AUTOMATION ORCHESTRATOR                    │    │
-│   │                                                        │    │
-│   │  Phase 1: Analyze business plan                        │    │
-│   │  Phase 2: Generate workflow JSON for all 6 stages      │    │
-│   │  Phase 3: Deploy to n8n via MCP                        │    │
-│   │  Phase 4: Verify each node                             │    │
-│   │  Phase 5: AI-powered auto-fix for issues               │    │
-│   │  Phase 6: Final validation                             │    │
-│   └────────────────────────────────────────────────────────┘    │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
++---------------------------+     +-------------------+
+|   N8nLiveStatus Panel     |     |   n8n Instance    |
+|                           |     |                   |
+|  [Workflow Health Cards]  | <-- |  MCP Connector    |
+|  [Webhook Status Icons]   |     |  - search         |
+|  [Test Execution Button]  | --> |  - get_details    |
+|  [Change Detection Alert] |     |  - execute        |
++---------------------------+     +-------------------+
+           |
+           v
++---------------------------+
+|  Real-time State Hook     |
+|  - Polling interval       |
+|  - Diff engine            |
+|  - Health check pings     |
++---------------------------+
 ```
 
 ---
 
-## Implementation Plan
+## Implementation Details
 
-### Phase 1: Create AI Provider Integration Layer
+### 1. New Hook: `useN8nLiveStatus`
 
-**New Edge Function: `supabase/functions/ai-orchestrator/index.ts`**
+Create a polling-based hook that provides real-time workflow status:
 
-This unified edge function will:
-- Accept a business idea ID and automation task
-- Route requests to the appropriate AI provider (Perplexity, OpenAI, Claude, or Gemini)
-- Handle streaming responses and tool calling
-- Return structured agentic actions
+**Features:**
+- Configurable polling interval (default: 30 seconds)
+- Automatic diff detection between cached and live workflow state
+- Webhook endpoint health verification
+- Change event callbacks
 
-Supported AI providers:
-- **Perplexity** (requires connector): For web research and current information
-- **Lovable AI Gateway** (default): For workflow generation and troubleshooting
-- **Claude/OpenAI API Keys** (user-provided): For advanced agentic capabilities
+**State provided:**
+```typescript
+interface N8nLiveStatus {
+  workflows: WorkflowStatus[];
+  lastChecked: Date | null;
+  isPolling: boolean;
+  changes: WorkflowChange[];
+  webhookHealth: Record<string, 'healthy' | 'unhealthy' | 'unknown'>;
+}
 
-### Phase 2: Build One-Click Automation Component
-
-**New Component: `src/components/AutomationEngine.tsx`**
-
-Features:
-- Single "Automate Everything" button
-- Real-time progress visualization (6 phases)
-- Live n8n MCP integration for workflow deployment
-- Automatic retry with AI-powered diagnosis for failures
-- Results summary with actionable exceptions
-
-UI Elements:
-- Phase progress stepper (Analyze → Generate → Deploy → Verify → Fix → Validate)
-- Live log stream showing AI agent actions
-- Success/warning/error badges per stage
-- "Review Exceptions" button for items needing human input
-
-### Phase 3: Consolidate Edge Functions
-
-**Merge into single intelligent endpoint:**
-
-| Old Functions | New Unified Function |
-|---------------|---------------------|
-| `generate-n8n-workflow/` | → `ai-orchestrator/` with `action: "generate"` |
-| `generate-n8n-workflow-from-prompt/` | → `ai-orchestrator/` with `action: "generate-stage"` |
-| `verify-n8n-workflow/` | → `ai-orchestrator/` with `action: "verify"` |
-| `verify-step/` | → `ai-orchestrator/` with `action: "verify-step"` |
-| `diagnose-fix/` | → `ai-orchestrator/` with `action: "diagnose"` |
-
-This reduces API surface and enables orchestrated multi-step workflows.
-
-### Phase 4: Add External AI API Support
-
-**New Settings Page Section or Connector Support:**
-
-Add support for user-provided API keys:
-1. **ChatGPT Pro / OpenAI API** - For GPT-4/5 agentic capabilities
-2. **Claude API** - For Anthropic's computer use features  
-3. **Perplexity API** - Via connector (already available)
-4. **Gemini API** - Via Lovable AI gateway (already integrated)
-
-Each provider enables different capabilities:
-- Perplexity: Real-time research for lead sources, pricing validation
-- Claude: Complex multi-step reasoning for workflow design
-- GPT-4/5: Tool calling for structured outputs
-- Gemini: Default fallback with Lovable AI gateway
-
-### Phase 5: Remove Redundant UI
-
-**Components to Simplify/Consolidate:**
-
-1. **Merge `ImplementationGuideDialog` + `N8nAutomationGuideDialog`** into single unified guide
-2. **Remove `ExportPrompt.tsx`** - No longer needed; AI executes directly
-3. **Remove `ExportComputerUsePrompt.tsx`** - Replaced by direct AI integration
-4. **Simplify `BusinessIdeaDialog`** - Add single "Automate" button instead of multiple export options
-
-### Phase 6: Enhance MCP Integration
-
-**Upgrade n8n MCP workflow:**
-
-1. Auto-detect when MCP is connected
-2. If connected: Deploy workflows directly via MCP
-3. If not connected: Fall back to JSON download with one-click import instructions
-4. Add "Enable Automation" setup wizard for first-time users
-
----
-
-## Technical Details
-
-### New Database Schema
-
-```sql
--- Track automation runs
-CREATE TABLE automation_runs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL,
-  business_idea_id UUID NOT NULL REFERENCES business_ideas(id),
-  status TEXT NOT NULL DEFAULT 'pending', -- pending, running, completed, failed
-  current_phase TEXT,
-  phases_completed JSONB DEFAULT '[]',
-  errors JSONB DEFAULT '[]',
-  ai_provider TEXT, -- 'lovable', 'openai', 'claude', 'perplexity'
-  created_at TIMESTAMPTZ DEFAULT now(),
-  completed_at TIMESTAMPTZ
-);
-
--- Store AI provider credentials (encrypted in secrets, reference here)
--- Note: Actual keys stored in Supabase secrets, not this table
-CREATE TABLE user_ai_preferences (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL UNIQUE,
-  preferred_provider TEXT DEFAULT 'lovable',
-  openai_configured BOOLEAN DEFAULT false,
-  claude_configured BOOLEAN DEFAULT false,
-  perplexity_configured BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+interface WorkflowStatus {
+  id: string;
+  name: string;
+  active: boolean;
+  nodeCount: number;
+  lastUpdated: string;
+  triggers: TriggerInfo[];
+  hasChangedSinceLastCheck: boolean;
+}
 ```
 
-### New Component Structure
+### 2. New Component: `N8nLiveStatusPanel`
 
-```text
-src/components/
-├── AutomationEngine/
-│   ├── index.tsx              # Main one-click button
-│   ├── AutomationProgress.tsx # Phase stepper with live updates
-│   ├── PhaseCard.tsx          # Individual phase status
-│   ├── LiveLogStream.tsx      # Real-time AI action log
-│   ├── ExceptionReview.tsx    # Items needing human input
-│   └── ProviderSelector.tsx   # AI provider preference
-├── BusinessIdeaDialog.tsx     # Simplified with "Automate" button
-└── (consolidated guides)
-```
+A real-time status dashboard that shows:
 
-### API Flow
+**Workflow Cards (per workflow):**
+- Active/Inactive badge with toggle animation
+- Node count with change indicator (e.g., "+2 nodes since last check")
+- Last modified timestamp with "recently changed" highlight
+- Webhook health indicators (green/red dots)
 
-```text
-User clicks "Automate Everything"
-         │
-         ▼
-┌─────────────────────────────────────┐
-│  POST /functions/v1/ai-orchestrator │
-│  {                                  │
-│    businessIdeaId: "...",           │
-│    action: "full-automation",       │
-│    aiProvider: "lovable"            │
-│  }                                  │
-└─────────────────────────────────────┘
-         │
-         ▼
-   ┌─────────────────┐
-   │ Phase 1: Analyze│ → Extract ICP, services, automation needs
-   └────────┬────────┘
-            ▼
-   ┌─────────────────┐
-   │ Phase 2: Generate│ → Create n8n JSON for 6 stages (parallel)
-   └────────┬────────┘
-            ▼
-   ┌─────────────────┐
-   │ Phase 3: Deploy │ → If MCP: create workflows via API
-   └────────┬────────┘      Else: prepare download bundle
-            ▼
-   ┌─────────────────┐
-   │ Phase 4: Verify │ → Check each node configuration
-   └────────┬────────┘
-            ▼
-   ┌─────────────────┐
-   │ Phase 5: Fix    │ → AI diagnoses and suggests fixes
-   └────────┬────────┘
-            ▼
-   ┌─────────────────┐
-   │ Phase 6: Validate│ → Final end-to-end test
-   └────────┬────────┘
-            ▼
-       Return summary
-```
+**Live Features:**
+- Auto-refresh countdown timer
+- Manual "Refresh Now" button
+- Change notification toast when workflows are modified in n8n
+- Pulse animation on active workflows
+
+### 3. Webhook Health Checker
+
+Create a lightweight health check system:
+
+**Approach:**
+- Extract webhook URLs from workflow trigger info
+- Ping each webhook with a HEAD request (or OPTIONS for CORS)
+- Display health status inline with workflow cards
+
+**Edge function: `n8n-webhook-health`**
+- Accepts array of webhook URLs
+- Returns health status for each
+- Respects rate limiting
+
+### 4. Test Execution Feature
+
+Add ability to trigger test runs directly:
+
+**"Test Workflow" Button:**
+- Uses MCP `execute_workflow` tool
+- Shows execution spinner
+- Displays response or error inline
+- For webhook-triggered workflows, provides a "Send Test Payload" option
+
+### 5. Change Detection & Alerts
+
+Implement diff-based change detection:
+
+**What gets tracked:**
+- Node additions/removals
+- Node parameter changes (deep diff on node configs)
+- Workflow activation status changes
+- Connection changes
+
+**Alert System:**
+- Toast notification: "Workflow X was modified in n8n"
+- Badge count on status panel: "3 changes detected"
+- Expandable change log showing what changed
 
 ---
 
 ## Files to Create
 
-1. `supabase/functions/ai-orchestrator/index.ts` - Unified AI orchestration endpoint
-2. `src/components/AutomationEngine/index.tsx` - Main one-click component
-3. `src/components/AutomationEngine/AutomationProgress.tsx` - Progress visualization
-4. `src/components/AutomationEngine/LiveLogStream.tsx` - Real-time log display
-5. `src/components/AutomationEngine/ExceptionReview.tsx` - Human review panel
-6. `src/hooks/useAutomationRun.ts` - Hook for managing automation state
+| File | Purpose |
+|------|---------|
+| `src/hooks/useN8nLiveStatus.ts` | Polling hook with diff detection |
+| `src/components/AutomationEngine/N8nLiveStatusPanel.tsx` | Live status dashboard |
+| `src/components/AutomationEngine/WorkflowHealthCard.tsx` | Individual workflow status card |
+| `src/components/AutomationEngine/WebhookHealthIndicator.tsx` | Webhook status dots |
+| `supabase/functions/n8n-webhook-health/index.ts` | Webhook ping edge function |
 
 ## Files to Modify
 
-1. `src/components/BusinessIdeaDialog.tsx` - Add "Automate Everything" button
-2. `src/pages/Dashboard.tsx` - Add automation status indicators
-3. `supabase/config.toml` - Register new edge function
-
-## Files to Remove (After Migration)
-
-1. `src/pages/ExportPrompt.tsx` - Replaced by direct automation
-2. `src/pages/ExportComputerUsePrompt.tsx` - Replaced by direct automation
-3. Potentially consolidate `generate-n8n-workflow/` and `generate-n8n-workflow-from-prompt/`
+| File | Changes |
+|------|---------|
+| `src/hooks/useN8nMcpConnection.ts` | Add diff utilities and change tracking |
+| `src/components/AutomationEngine/index.tsx` | Integrate live status panel |
+| `src/components/AutomationEngine/N8nConnectionStatus.tsx` | Add live indicator and polling controls |
 
 ---
 
-## User Experience
+## UI Preview
 
-### Before (Current)
-- 15+ clicks to set up automation
-- Manual copy/paste between apps
-- No visibility into what AI is doing
-- Errors require manual diagnosis
-
-### After (Proposed)
-- 1 click to start full automation
-- AI handles everything automatically
-- Live progress stream shows each step
-- Automatic error recovery with human review only when needed
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  n8n Live Status                               ↻ Refreshing...  │
+│  Last checked: 5 seconds ago                                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌─────────────────────────────────────┐  ┌───────────────────┐ │
+│  │ 🟢 Lead Prospecting & Discovery     │  │ 🟢 Authority      │ │
+│  │    Active | 10 nodes               │  │    Engine         │ │
+│  │    Webhooks: 🟢 Healthy             │  │    Active | 51    │ │
+│  │    Updated: 2 hours ago             │  │    nodes          │ │
+│  │    [Test Run] [Open in n8n]         │  │    🟡 1 change    │ │
+│  └─────────────────────────────────────┘  └───────────────────┘ │
+│                                                                 │
+│  📢 Change detected: "Authority Engine" - 1 node added          │
+│     └─ [Stage 5] New: "Slack: Payment Alert" node               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## Success Metrics
+## Polling Strategy
 
-- **Time to first automated workflow**: From ~2 hours → ~5 minutes
-- **User clicks required**: From 15+ → 1
-- **Manual interventions**: From always → only for exceptions
-- **Setup abandonment rate**: Expected 70% reduction
+To avoid overwhelming the MCP connector, implement smart polling:
+
+1. **Idle State**: Poll every 60 seconds
+2. **Active Monitoring**: Poll every 15 seconds when panel is visible
+3. **After Automation**: Poll every 5 seconds for 2 minutes after deployment
+4. **Background Tab**: Pause polling when tab is not visible
+5. **Rate Limit**: Maximum 1 request per 10 seconds
 
 ---
 
-## Connector Requirements
+## Test Execution Flow
 
-To enable external AI providers:
-1. **Perplexity** - Already available as connector
-2. **OpenAI/Claude** - Consider adding as connectors or use secret management
+```text
+User clicks "Test Run" on workflow
+         │
+         ▼
+┌─────────────────────────────────────┐
+│  MCP: execute_workflow              │
+│  {                                  │
+│    workflowId: "UTeSzk6g6Xy6qcDb",  │
+│    inputs: { type: "webhook",       │
+│              webhookData: {...} }   │
+│  }                                  │
+└─────────────────────────────────────┘
+         │
+         ▼
+   Show result in UI:
+   - ✓ Execution started successfully
+   - Response data preview
+   - Link to n8n execution log
+```
 
-The plan prioritizes using the existing Lovable AI gateway while enabling power users to bring their own API keys for enhanced capabilities.
+---
+
+## Technical Notes
+
+### MCP Limitation Workaround
+
+Since MCP tools are only available to the Lovable agent (not runtime JavaScript), the real-time polling will work as follows:
+
+1. **Agent-Initiated Polling**: When user clicks "Refresh" or the panel mounts, we request the agent to call MCP tools
+2. **Cache Updates**: Results are cached in `localStorage` and displayed in the UI
+3. **Supabase Realtime Bridge**: For true real-time updates, we can store workflow snapshots in the database and use Supabase Realtime to push changes to the frontend
+
+### Alternative: Supabase Realtime Bridge
+
+For fully automatic real-time updates without user interaction:
+
+1. Create `n8n_workflow_status` table with Realtime enabled
+2. Periodically sync MCP data to this table (via scheduled agent task or webhook)
+3. Frontend subscribes to table changes and updates UI instantly
+
+---
+
+## Success Criteria
+
+- Workflow status updates reflected within 30 seconds of changes in n8n
+- Webhook health checks provide accurate up/down status
+- Test execution triggers work for all trigger types
+- Change detection correctly identifies node additions/removals
+- UI provides clear visual feedback during polling
+
