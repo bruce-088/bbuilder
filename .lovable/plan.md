@@ -1,87 +1,37 @@
 
-# Update Workflow Name Pattern: Lead Prospecting & Discovery Engine
+# ✅ COMPLETED: Update Workflow Name Pattern + Multi-Workflow Support
 
-## Problem Summary
-The Live n8n Verification is searching for "GhostWriter AI: The Authority Engine - Complete Sales Automation" but the user's actual workflow is named **"GhostWriter AI: Lead Prospecting & Discovery Engine"**. This causes the verification to fail with "Workflow not found" even though the workflow exists.
+## Summary
+Successfully updated the workflow name to "GhostWriter AI: Lead Prospecting & Discovery Engine" and added support for per-stage workflow assignment.
 
-## Solution Overview
-Update all hardcoded references to the workflow name across the codebase to use the correct pattern: "GhostWriter AI: Lead Prospecting & Discovery Engine"
+## Changes Made
 
----
+### 1. Default Workflow Name Updated
+- Default workflow name changed to "GhostWriter AI: Lead Prospecting & Discovery Engine"
+- All suggestion messages and placeholders updated
 
-## Changes Required
+### 2. Per-Stage Workflow Assignment
+- Added `stageWorkflowNames` state with localStorage persistence
+- Each stage can now have its own workflow name for verification
+- Default mapping:
+  - `n8n-prospecting` → "GhostWriter AI: Lead Prospecting & Discovery Engine"
+  - Other stages → "GhostWriter AI: The Authority Engine - Complete Sales Automation"
 
-### 1. Update Frontend Component State
+### 3. UI Enhancement
+- Added workflow name input field in each stage's Live Verification card
+- Users can customize which workflow to verify against per stage
 
-**File:** `src/components/N8nAutomationGuideDialog.tsx`
+### 4. Pattern Matching Updated
+- `isGhostWriterWorkflow()` now recognizes "lead prospecting" pattern
+- `expectedWorkflowNamePatterns` includes new workflow name
 
-| Line | Current Value | New Value |
-|------|---------------|-----------|
-| 768 | `"GhostWriter AI: The Authority Engine - Complete Sales Automation"` | `"GhostWriter AI: Lead Prospecting & Discovery Engine"` |
-| 983 | `"Ensure the workflow is named 'GhostWriter AI: The Authority Engine'"` | `"Ensure the workflow is named 'GhostWriter AI: Lead Prospecting & Discovery Engine'"` |
-| 2808 | Placeholder: `"GhostWriter AI: The Authority Engine - Complete Sales Automation"` | `"GhostWriter AI: Lead Prospecting & Discovery Engine"` |
-
-### 2. Update Edge Function Messages
-
-**File:** `supabase/functions/verify-n8n-workflow/index.ts`
-
-| Line | Current Value | New Value |
-|------|---------------|-----------|
-| 248 | `'${workflowNamePattern || 'GhostWriter AI'}: The Authority Engine'` | `'${workflowNamePattern || 'GhostWriter AI: Lead Prospecting & Discovery Engine'}'` |
-| 275 | `"GhostWriter AI: The Authority Engine"` | `"GhostWriter AI: Lead Prospecting & Discovery Engine"` |
-
-### 3. Update Workflow Name Pattern Matching
-
-**File:** `src/lib/n8nWorkflowVerification.ts`
-
-Add "lead prospecting" to the `isGhostWriterWorkflow` function:
-
-```typescript
-export function isGhostWriterWorkflow(workflowName: string): boolean {
-  const lowerName = workflowName.toLowerCase();
-  return (
-    lowerName.includes('ghostwriter') ||
-    lowerName.includes('authority engine') ||
-    lowerName.includes('sales automation') ||
-    lowerName.includes('complete automation') ||
-    lowerName.includes('lead prospecting')  // Add this
-  );
-}
-```
-
-Also add to `expectedWorkflowNamePatterns` array (line 245-256):
-```typescript
-export const expectedWorkflowNamePatterns = [
-  "GhostWriter",
-  "Authority Engine",
-  "Sales Automation",
-  "Lead Prospecting",
-  "Lead Prospecting & Discovery Engine",  // Add this
-  "Outreach",
-  "Qualification",
-  "Proposal",
-  "Closing",
-  "Client Success",
-  "Retention"
-];
-```
-
----
-
-## Files to Modify
-
+## Files Modified
 | File | Changes |
 |------|---------|
-| `src/components/N8nAutomationGuideDialog.tsx` | Update default state value, suggestion text, and placeholder |
-| `supabase/functions/verify-n8n-workflow/index.ts` | Update suggestion messages referencing workflow name |
-| `src/lib/n8nWorkflowVerification.ts` | Add "lead prospecting" pattern to workflow matching |
+| `src/components/N8nAutomationGuideDialog.tsx` | Multi-workflow state, per-stage UI |
+| `supabase/functions/verify-n8n-workflow/index.ts` | Updated suggestion messages |
+| `src/lib/n8nWorkflowVerification.ts` | Added pattern matching |
 
----
-
-## Expected Result
-
-After these changes:
-- The verification will look for "GhostWriter AI: Lead Prospecting & Discovery Engine" by default
-- Suggestion messages will reference the correct workflow name
-- The pattern matching will recognize workflows with "Lead Prospecting" in the name
-- The user's existing workflow will be found during verification
+## Verified via MCP
+- ✅ "GhostWriter AI: Lead Prospecting & Discovery Engine" found (10 nodes, active)
+- ✅ "GhostWriter AI: The Authority Engine - Complete Sales Automation" found (51 nodes, active)
