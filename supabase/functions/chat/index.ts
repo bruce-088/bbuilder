@@ -24,6 +24,7 @@ You have deep expertise in:
 - Fast validation strategies that feel like play, not work
 - Revenue modeling and pricing
 - Market research and niche selection
+- **n8n workflow automation** - You can help users configure and troubleshoot n8n nodes
 
 When generating business plans, always provide:
 1. Business Name and Niche - catchy, memorable, and descriptive
@@ -48,6 +49,23 @@ COMMUNICATION STYLE:
 - Make complex things feel simple and achievable
 - End responses with encouragement or excitement about next steps
 
+N8N TROUBLESHOOTING EXPERTISE:
+When users ask for help fixing n8n nodes, you should:
+1. Analyze the provided node configuration and identify what's missing or misconfigured
+2. Provide clear, step-by-step instructions specific to the node type
+3. Explain how to set up credentials in n8n if they're missing
+4. Give specific parameter values or expressions they need to add
+5. Keep instructions practical and actionable
+
+Common n8n node fixes you know:
+- **Google Sheets**: Requires OAuth2 credentials, spreadsheet ID, and sheet name. API key method requires enabling Google Sheets API.
+- **Gmail/Email**: Requires Google OAuth2 credentials with correct scopes (gmail.send, gmail.readonly).
+- **Slack**: Can use either OAuth2 app credentials or incoming webhooks. Webhook URL goes in the httpRequest node.
+- **HTTP Request**: Check URL format, authentication headers, body format (JSON vs form data).
+- **Code nodes**: JavaScript syntax, accessing input data via $input.all() or items[0].json.
+- **If/Switch nodes**: Verify expressions match data types (string vs number comparisons).
+- **Airtable**: Requires API key and Base ID from airtable.com/account and base URL.
+
 Format your responses with clear sections and bullet points for readability. Use markdown formatting and occasional emojis to keep things fun.`;
 
 serve(async (req) => {
@@ -57,7 +75,7 @@ serve(async (req) => {
   }
 
   try {
-    const { messages, type, industry } = await req.json();
+    const { messages, type, industry, n8nContext } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
@@ -67,11 +85,36 @@ serve(async (req) => {
 
     console.log(`Processing ${type || 'chat'} request with ${messages?.length || 0} messages, industry: ${industry || 'any'}`);
 
+    // Build n8n context injection if provided
+    let enhancedSystemPrompt = SYSTEM_PROMPT;
+    if (n8nContext) {
+      const contextParts = [];
+      if (n8nContext.workflowName) {
+        contextParts.push(`**Current Workflow:** ${n8nContext.workflowName}`);
+      }
+      if (n8nContext.workflowId) {
+        contextParts.push(`**Workflow ID:** ${n8nContext.workflowId}`);
+      }
+      if (n8nContext.n8nInstanceUrl) {
+        contextParts.push(`**n8n Instance:** ${n8nContext.n8nInstanceUrl}`);
+      }
+      if (n8nContext.businessName) {
+        contextParts.push(`**Business:** ${n8nContext.businessName}${n8nContext.niche ? ` (${n8nContext.niche})` : ''}`);
+      }
+      if (n8nContext.nodes && n8nContext.nodes.length > 0) {
+        contextParts.push(`**Workflow Nodes:**\n${JSON.stringify(n8nContext.nodes, null, 2)}`);
+      }
+      
+      if (contextParts.length > 0) {
+        enhancedSystemPrompt += `\n\n---\n\n**CURRENT N8N WORKFLOW CONTEXT:**\n${contextParts.join('\n')}\n\nUse this context to provide specific, actionable guidance for fixing or configuring the user's n8n workflow.`;
+      }
+    }
+
     // Build the request body
     const requestBody: Record<string, unknown> = {
       model: "google/gemini-3-flash-preview",
       messages: [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: enhancedSystemPrompt },
         ...(messages || []),
       ],
       stream: true,

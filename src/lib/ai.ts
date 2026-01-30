@@ -5,10 +5,25 @@ export interface Message {
   content: string;
 }
 
+export interface N8nContext {
+  workflowName?: string;
+  workflowId?: string;
+  n8nInstanceUrl?: string;
+  businessName?: string;
+  niche?: string;
+  nodes?: Array<{
+    name: string;
+    type: string;
+    parameters?: Record<string, unknown>;
+    credentials?: Record<string, unknown>;
+  }>;
+}
+
 export interface StreamChatOptions {
   messages: Message[];
   type?: "chat" | "generate_ideas";
   industry?: string;
+  n8nContext?: N8nContext;
   onDelta: (deltaText: string) => void;
   onDone: () => void;
   onError?: (error: Error) => void;
@@ -18,6 +33,7 @@ export async function streamChat({
   messages,
   type = "chat",
   industry,
+  n8nContext,
   onDelta,
   onDone,
   onError,
@@ -31,7 +47,7 @@ export async function streamChat({
         "Content-Type": "application/json",
         Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
       },
-      body: JSON.stringify({ messages, type, industry }),
+      body: JSON.stringify({ messages, type, industry, n8nContext }),
     });
 
     if (!response.ok) {
