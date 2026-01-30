@@ -271,6 +271,13 @@ async function validateAutomation(results: PhaseResult[]): Promise<PhaseResult> 
   const hasErrors = results.some((r) => r.status === "error");
   const hasWarnings = results.some((r) => r.status === "warning");
 
+  // Create a summary without including the full results to avoid circular references
+  const phaseSummaries = results.map((r) => ({
+    phase: r.phase,
+    status: r.status,
+    message: r.message,
+  }));
+
   return {
     phase: "validate",
     status: hasErrors ? "error" : hasWarnings ? "warning" : "success",
@@ -286,7 +293,7 @@ async function validateAutomation(results: PhaseResult[]): Promise<PhaseResult> 
         warnings: results.filter((r) => r.status === "warning").length,
         errors: results.filter((r) => r.status === "error").length,
       },
-      phases: results,
+      phaseSummaries,
     },
     timestamp: new Date().toISOString(),
   };
