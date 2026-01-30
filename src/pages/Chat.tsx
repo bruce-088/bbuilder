@@ -26,13 +26,16 @@ import {
   MessageSquare,
   Image as ImageIcon,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  RefreshCw,
 } from "lucide-react";
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import SavePromptBanner from "@/components/SavePromptBanner";
 import PostSaveDialog from "@/components/PostSaveDialog";
+import { WorkflowContextPanel, VerifyFixButton } from "@/components/Chat";
+import { useN8nWorkflowContext } from "@/hooks/useN8nWorkflowContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -83,12 +86,16 @@ export default function Chat() {
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [showPostSaveDialog, setShowPostSaveDialog] = useState(false);
   const [isFirstSave, setIsFirstSave] = useState(false);
+  const [showN8nContext, setShowN8nContext] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const footerTextareaRef = useRef<HTMLTextAreaElement>(null);
   const hasGeneratedRef = useRef(false);
   const hasAutoSentRef = useRef(false);
+
+  // n8n Workflow Context hook
+  const workflowContext = useN8nWorkflowContext(id);
 
   // Handle paste event for screenshots
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
@@ -164,6 +171,11 @@ export default function Chat() {
       
       // Clear the navigation state to prevent re-sending on refresh
       window.history.replaceState({}, document.title);
+      
+      // Also load the workflow context if provided
+      if (state.n8nContext) {
+        setShowN8nContext(true);
+      }
       
       // Auto-send the initial prompt with n8n context
       handleAutoSend(state.initialPrompt, state.n8nContext);
@@ -588,6 +600,9 @@ export default function Chat() {
 
     messagesForAI.push({ role: "user", content: userContent });
 
+    // Get n8n context if available
+    const n8nContextForAI = workflowContext.getContextForAI();
+
     let assistantContent = "";
     const assistantId = crypto.randomUUID();
 
@@ -596,6 +611,11 @@ export default function Chat() {
     await streamChat({
       messages: messagesForAI,
       type: "chat",
+      n8nContext: n8nContextForAI ? {
+        workflowName: n8nContextForAI.workflowName,
+        workflowId: n8nContextForAI.workflowId,
+        nodes: n8nContextForAI.nodes,
+      } : undefined,
       onDelta: (chunk) => {
         assistantContent += chunk;
         setMessages((prev) =>
@@ -705,8 +725,50 @@ export default function Chat() {
             />
             <span className="font-display font-bold">Mya</span>
           </div>
+          
+          {/* n8n Context Toggle */}
+          {(showN8nContext || workflowContext.currentSnapshot) && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant={showN8nContext ? "secondary" : "ghost"}
+                  size="sm"
+                  className="ml-auto gap-2"
+                  onClick={() => setShowN8nContext(!showN8nContext)}
+                >
+                  <Workflow className="w-4 h-4" />
+                  <span className="hidden sm:inline">Workflow Context</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Toggle n8n workflow context panel</p>
+              </TooltipContent>
+            </Tooltip>
+          )}
         </div>
       </header>
+
+      {/* Workflow Context Panel */}
+      <AnimatePresence>
+        {showN8nContext && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="relative z-10 border-b border-border/50 overflow-hidden"
+          >
+            <div className="container mx-auto max-w-5xl px-4 py-3">
+              <WorkflowContextPanel
+                snapshot={workflowContext.currentSnapshot}
+                lastRefreshed={workflowContext.lastRefreshed}
+                isLoading={workflowContext.isLoading}
+                error={workflowContext.error}
+                onRefresh={() => workflowContext.refreshContext()}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Messages */}
       <main ref={mainRef} className="relative z-10 flex-1 overflow-y-auto">
@@ -893,6 +955,29 @@ export default function Chat() {
                             />
                           )}
                         </div>
+                      </div>
+                    )}
+                    {/* Verify Fix button for n8n troubleshooting messages */}
+                    {message.role === "assistant" && 
+                     message.content && 
+                     showN8nContext &&
+                     workflowContext.currentSnapshot &&
+                     !isStreaming &&
+                     (message.content.toLowerCase().includes("node") || 
+                      message.content.toLowerCase().includes("credential") ||
+                      message.content.toLowerCase().includes("parameter") ||
+                      message.content.toLowerCase().includes("n8n")) && (
+                      <div className="mt-2">
+                        <VerifyFixButton
+                          onVerify={async () => {
+                            await workflowContext.refreshContext();
+                            return workflowContext.compareSnapshots();
+                          }}
+                          onRefreshContext={async () => {
+                            await workflowContext.refreshContext();
+                          }}
+                          disabled={workflowContext.isLoading}
+                        />
                       </div>
                     )}
                   </div>

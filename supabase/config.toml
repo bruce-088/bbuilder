@@ -20,3 +20,6 @@ verify_jwt = false
 
 [functions.verify-n8n-workflow]
 verify_jwt = false
+
+[functions.n8n-data-proxy]
+verify_jwt = false

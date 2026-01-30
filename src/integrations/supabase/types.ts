@@ -208,6 +208,50 @@ export type Database = {
           },
         ]
       }
+      n8n_workflow_snapshots: {
+        Row: {
+          captured_at: string | null
+          connections: Json | null
+          conversation_id: string | null
+          id: string
+          nodes: Json
+          source: string | null
+          user_id: string
+          workflow_id: string
+          workflow_name: string
+        }
+        Insert: {
+          captured_at?: string | null
+          connections?: Json | null
+          conversation_id?: string | null
+          id?: string
+          nodes: Json
+          source?: string | null
+          user_id: string
+          workflow_id: string
+          workflow_name: string
+        }
+        Update: {
+          captured_at?: string | null
+          connections?: Json | null
+          conversation_id?: string | null
+          id?: string
+          nodes?: Json
+          source?: string | null
+          user_id?: string
+          workflow_id?: string
+          workflow_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "n8n_workflow_snapshots_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
