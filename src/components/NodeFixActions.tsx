@@ -13,6 +13,8 @@ interface NodeFixActionsProps {
   workflowId: string;
   workflowName: string;
   n8nInstanceUrl: string;
+  nodeParameters?: Record<string, unknown>;
+  credentialsConfigured?: boolean;
   businessContext: {
     businessName: string;
     niche?: string;
@@ -29,6 +31,8 @@ export default function NodeFixActions({
   workflowId,
   workflowName,
   n8nInstanceUrl,
+  nodeParameters,
+  credentialsConfigured,
   businessContext,
   onAskAI
 }: NodeFixActionsProps) {
@@ -41,8 +45,6 @@ export default function NodeFixActions({
   const getNodeLink = (): string | null => {
     if (!n8nInstanceUrl || !workflowId) return null;
     const baseUrl = n8nInstanceUrl.replace(/\/$/, '');
-    // n8n URL format: /workflow/{workflowId} - node selection requires opening the node
-    // The nodeId query param helps navigate but may not always work
     return nodeId 
       ? `${baseUrl}/workflow/${workflowId}?nodeId=${nodeId}`
       : `${baseUrl}/workflow/${workflowId}`;
@@ -50,21 +52,50 @@ export default function NodeFixActions({
 
   const nodeLink = getNodeLink();
 
-  // Generate AI prompt for fixing
+  // Format node parameters for the prompt (truncate if too large)
+  const formatNodeParams = (): string => {
+    if (!nodeParameters || Object.keys(nodeParameters).length === 0) {
+      return 'No parameters configured';
+    }
+    
+    try {
+      const formatted = JSON.stringify(nodeParameters, null, 2);
+      // Truncate if too long (keep under 1000 chars for readability)
+      if (formatted.length > 1000) {
+        return formatted.substring(0, 997) + '...';
+      }
+      return formatted;
+    } catch {
+      return 'Unable to read parameters';
+    }
+  };
+
+  // Generate AI prompt for fixing with full context
   const generateAIPrompt = (): string => {
     const issueText = issues.length > 0 ? issues.join(', ') : 'Configuration needed';
+    const paramsSection = nodeParameters && Object.keys(nodeParameters).length > 0
+      ? `\n**Current Node Parameters:**\n\`\`\`json\n${formatNodeParams()}\n\`\`\``
+      : '';
+    
+    const credentialsStatus = credentialsConfigured !== undefined
+      ? `\n**Credentials Status:** ${credentialsConfigured ? '✅ Connected' : '❌ Not configured'}`
+      : '';
+
     return `Help me fix the "${nodeName || shortNodeType}" node in my n8n workflow "${workflowName}".
 
 **Issue:** ${issueText}
 **Node Type:** ${nodeType}
-**Node Purpose:** ${purpose}
+**Node ID:** ${nodeId || 'Unknown'}
+**Node Purpose:** ${purpose}${credentialsStatus}
 **Business:** ${businessContext.businessName}${businessContext.niche ? ` (${businessContext.niche})` : ''}
+${paramsSection}
 
-Please:
-1. Check the current node configuration via MCP using get_workflow_details
-2. Tell me exactly what parameters or credentials need to be configured
-3. Provide step-by-step instructions specific to ${shortNodeType}
-4. After I make changes, verify the fix was applied correctly`;
+Based on the current configuration above, please:
+1. Identify exactly what's missing or misconfigured
+2. Tell me the specific parameters or credentials that need to be added/changed
+3. Provide step-by-step instructions to fix the ${shortNodeType} node
+4. If credentials are missing, explain how to set them up in n8n
+5. After I make changes, use MCP get_workflow_details to verify the fix`;
   };
 
   const handleAskAI = async () => {
