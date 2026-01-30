@@ -1,135 +1,202 @@
 
 
-# Plan: Real-Time n8n Workflow Status Connection
+# Plan: Connect OpenAI, Perplexity, and Claude AI Providers
 
 ## Overview
 
-Add a live status connection between the app and n8n workflows, providing real-time visibility into workflow health, configuration changes, and the ability to trigger test executions directly from the Automation Engine.
+Enable users to connect their own API keys for OpenAI, Perplexity, and Claude to unlock advanced AI capabilities in the Automation Engine. This builds on the existing `user_ai_preferences` table and provider architecture.
 
 ---
 
-## What We Can Monitor in Real-Time
+## What Each Provider Brings
 
-| Status Type | Method | Capability |
-|-------------|--------|------------|
-| Workflow Active/Inactive | MCP polling | Check if workflows are turned on |
-| Node Configuration | Diff detection | Detect when nodes are added/modified |
-| Webhook Endpoints | HTTP health checks | Verify webhooks respond correctly |
-| Last Modified | Timestamp tracking | Show when workflows were last edited |
-| Trigger Test Runs | MCP execute | Fire test executions and verify responses |
+| Provider | Strength | Use Case in Your App |
+|----------|----------|---------------------|
+| OpenAI GPT-5 | Advanced reasoning, code generation | Complex workflow analysis, detailed business plans |
+| Claude (Anthropic) | Multi-step reasoning, long context | Deep automation strategy, comprehensive troubleshooting |
+| Perplexity | Real-time web search | Market research, competitor analysis, current trends |
 
 ---
 
 ## Architecture
 
 ```text
-+---------------------------+     +-------------------+
-|   N8nLiveStatus Panel     |     |   n8n Instance    |
-|                           |     |                   |
-|  [Workflow Health Cards]  | <-- |  MCP Connector    |
-|  [Webhook Status Icons]   |     |  - search         |
-|  [Test Execution Button]  | --> |  - get_details    |
-|  [Change Detection Alert] |     |  - execute        |
-+---------------------------+     +-------------------+
-           |
-           v
-+---------------------------+
-|  Real-time State Hook     |
-|  - Polling interval       |
-|  - Diff engine            |
-|  - Health check pings     |
-+---------------------------+
+┌─────────────────────────────────────────────────────────────────┐
+│                     User Interface                              │
+├─────────────────────────────────────────────────────────────────┤
+│  ProviderSelector        │  AISettingsDialog (NEW)             │
+│  - Lovable AI ✓          │  - Add OpenAI API Key               │
+│  - OpenAI GPT-5 [+]      │  - Add Claude API Key               │
+│  - Claude [+]            │  - Connect Perplexity               │
+│  - Perplexity [+]        │  - Test connections                 │
+└────────────┬─────────────┴────────────────────────────────────-─┘
+             │
+             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   Database Layer                                │
+├─────────────────────────────────────────────────────────────────┤
+│  user_ai_preferences           │  user_api_keys (NEW)          │
+│  - preferred_provider          │  - provider (openai/claude)   │
+│  - openai_configured           │  - encrypted_key              │
+│  - claude_configured           │  - user_id                    │
+│  - perplexity_configured       │  - created_at                 │
+└────────────────────────────────┴────────────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────────────────────────────────┐
+│               ai-orchestrator Edge Function                     │
+├─────────────────────────────────────────────────────────────────┤
+│  Route based on aiProvider parameter:                           │
+│  - "lovable"    → Lovable AI Gateway (default)                  │
+│  - "openai"     → OpenAI API with user's key                   │
+│  - "claude"     → Anthropic API with user's key                │
+│  - "perplexity" → Perplexity API via connector                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Implementation Details
 
-### 1. New Hook: `useN8nLiveStatus`
+### 1. Database: Store User API Keys Securely
 
-Create a polling-based hook that provides real-time workflow status:
+Create a `user_api_keys` table to store encrypted API keys:
+
+**Table Structure:**
+- `id` (uuid, primary key)
+- `user_id` (uuid, references auth.users)
+- `provider` (text: 'openai' | 'claude')
+- `encrypted_key` (text, encrypted API key)
+- `created_at`, `updated_at` (timestamps)
+
+**RLS Policies:**
+- Users can only read/write their own keys
+- Keys are stored encrypted and decrypted only in edge functions
+
+**Note:** Perplexity uses the connector system instead of direct API keys.
+
+### 2. New Component: AISettingsDialog
+
+A settings dialog for managing AI provider connections:
 
 **Features:**
-- Configurable polling interval (default: 30 seconds)
-- Automatic diff detection between cached and live workflow state
-- Webhook endpoint health verification
-- Change event callbacks
+- Tab for each provider (OpenAI, Claude, Perplexity)
+- Secure API key input fields (masked)
+- "Test Connection" button to verify keys work
+- Connection status indicators
+- Instructions for getting API keys from each provider
 
-**State provided:**
+**UI Preview:**
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│  AI Provider Settings                                     [X]  │
+├─────────────────────────────────────────────────────────────────┤
+│  [OpenAI]  [Claude]  [Perplexity]                              │
+│                                                                 │
+│  OpenAI GPT-5                                    🟢 Connected  │
+│  ─────────────────────────────────────────────────────────────  │
+│  API Key: ••••••••••••••••sk-proj-xxxx          [Test] [Remove]│
+│                                                                 │
+│  💡 Get your API key from platform.openai.com/api-keys         │
+│                                                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  Advanced reasoning and code generation capabilities     │   │
+│  │  Best for: Complex workflow analysis, detailed plans     │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│                                            [Save Preferences]   │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### 3. Hook: useAIProviders
+
+Create a hook to manage AI provider state and operations:
+
+**Capabilities:**
+- Load user's configured providers from database
+- Save/update API keys securely
+- Test API key validity
+- Track provider availability status
+- Connect Perplexity via connector system
+
+### 4. Update ProviderSelector Component
+
+Enhance the existing component:
+
+**Changes:**
+- Show gear icon to open settings for unconfigured providers
+- Display green checkmark for configured providers
+- Remove "Soon" badge when provider is available
+- Add click handler to open AISettingsDialog
+
+### 5. Update ai-orchestrator Edge Function
+
+Add routing logic for different AI providers:
+
+**OpenAI Integration:**
 ```typescript
-interface N8nLiveStatus {
-  workflows: WorkflowStatus[];
-  lastChecked: Date | null;
-  isPolling: boolean;
-  changes: WorkflowChange[];
-  webhookHealth: Record<string, 'healthy' | 'unhealthy' | 'unknown'>;
-}
-
-interface WorkflowStatus {
-  id: string;
-  name: string;
-  active: boolean;
-  nodeCount: number;
-  lastUpdated: string;
-  triggers: TriggerInfo[];
-  hasChangedSinceLastCheck: boolean;
+async function callOpenAI(messages, userApiKey) {
+  const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${userApiKey}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "gpt-4o",
+      messages
+    })
+  });
+  return response;
 }
 ```
 
-### 2. New Component: `N8nLiveStatusPanel`
+**Claude Integration:**
+```typescript
+async function callClaude(messages, userApiKey) {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": userApiKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-20250514",
+      messages
+    })
+  });
+  return response;
+}
+```
 
-A real-time status dashboard that shows:
+**Perplexity Integration:**
+```typescript
+async function callPerplexity(messages) {
+  const PERPLEXITY_API_KEY = Deno.env.get("PERPLEXITY_API_KEY");
+  const response = await fetch("https://api.perplexity.ai/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${PERPLEXITY_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "sonar",
+      messages
+    })
+  });
+  return response;
+}
+```
 
-**Workflow Cards (per workflow):**
-- Active/Inactive badge with toggle animation
-- Node count with change indicator (e.g., "+2 nodes since last check")
-- Last modified timestamp with "recently changed" highlight
-- Webhook health indicators (green/red dots)
+### 6. Edge Function: validate-api-key
 
-**Live Features:**
-- Auto-refresh countdown timer
-- Manual "Refresh Now" button
-- Change notification toast when workflows are modified in n8n
-- Pulse animation on active workflows
+Create a function to test API key validity:
 
-### 3. Webhook Health Checker
-
-Create a lightweight health check system:
-
-**Approach:**
-- Extract webhook URLs from workflow trigger info
-- Ping each webhook with a HEAD request (or OPTIONS for CORS)
-- Display health status inline with workflow cards
-
-**Edge function: `n8n-webhook-health`**
-- Accepts array of webhook URLs
-- Returns health status for each
-- Respects rate limiting
-
-### 4. Test Execution Feature
-
-Add ability to trigger test runs directly:
-
-**"Test Workflow" Button:**
-- Uses MCP `execute_workflow` tool
-- Shows execution spinner
-- Displays response or error inline
-- For webhook-triggered workflows, provides a "Send Test Payload" option
-
-### 5. Change Detection & Alerts
-
-Implement diff-based change detection:
-
-**What gets tracked:**
-- Node additions/removals
-- Node parameter changes (deep diff on node configs)
-- Workflow activation status changes
-- Connection changes
-
-**Alert System:**
-- Toast notification: "Workflow X was modified in n8n"
-- Badge count on status panel: "3 changes detected"
-- Expandable change log showing what changed
+**Endpoints tested:**
+- OpenAI: `GET /v1/models` (lightweight check)
+- Claude: `POST /v1/messages` with minimal prompt
+- Returns success/error status for UI feedback
 
 ---
 
@@ -137,107 +204,105 @@ Implement diff-based change detection:
 
 | File | Purpose |
 |------|---------|
-| `src/hooks/useN8nLiveStatus.ts` | Polling hook with diff detection |
-| `src/components/AutomationEngine/N8nLiveStatusPanel.tsx` | Live status dashboard |
-| `src/components/AutomationEngine/WorkflowHealthCard.tsx` | Individual workflow status card |
-| `src/components/AutomationEngine/WebhookHealthIndicator.tsx` | Webhook status dots |
-| `supabase/functions/n8n-webhook-health/index.ts` | Webhook ping edge function |
+| `src/components/AISettingsDialog.tsx` | Settings UI for managing AI providers |
+| `src/hooks/useAIProviders.ts` | State management for AI provider configs |
+| `supabase/functions/validate-api-key/index.ts` | API key validation endpoint |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/hooks/useN8nMcpConnection.ts` | Add diff utilities and change tracking |
-| `src/components/AutomationEngine/index.tsx` | Integrate live status panel |
-| `src/components/AutomationEngine/N8nConnectionStatus.tsx` | Add live indicator and polling controls |
+| `src/components/AutomationEngine/ProviderSelector.tsx` | Add settings trigger, show configured status |
+| `supabase/functions/ai-orchestrator/index.ts` | Add OpenAI, Claude, Perplexity routing |
+| `src/components/AutomationEngine/index.tsx` | Integrate AISettingsDialog |
+
+## Database Changes
+
+| Change | Description |
+|--------|-------------|
+| Create `user_api_keys` table | Store encrypted API keys per user |
+| Add RLS policies | Secure user-owned key access |
 
 ---
 
-## UI Preview
+## Perplexity Connector Integration
+
+Perplexity is available as a connector, which is the recommended approach:
+
+1. User clicks "Connect Perplexity" in AISettingsDialog
+2. System uses the `connect` tool with `connector_id: perplexity`
+3. Once connected, `PERPLEXITY_API_KEY` is available in edge functions
+4. Update `user_ai_preferences.perplexity_configured = true`
+
+---
+
+## Security Considerations
+
+1. **API keys stored encrypted** - Never stored in plain text
+2. **Keys decrypted only in edge functions** - Never exposed to frontend
+3. **RLS policies** - Users can only access their own keys
+4. **No key logging** - API keys excluded from logs
+5. **Validation before storage** - Keys tested before saving
+
+---
+
+## User Flow
 
 ```text
-┌─────────────────────────────────────────────────────────────────┐
-│  n8n Live Status                               ↻ Refreshing...  │
-│  Last checked: 5 seconds ago                                    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────────────────────────────┐  ┌───────────────────┐ │
-│  │ 🟢 Lead Prospecting & Discovery     │  │ 🟢 Authority      │ │
-│  │    Active | 10 nodes               │  │    Engine         │ │
-│  │    Webhooks: 🟢 Healthy             │  │    Active | 51    │ │
-│  │    Updated: 2 hours ago             │  │    nodes          │ │
-│  │    [Test Run] [Open in n8n]         │  │    🟡 1 change    │ │
-│  └─────────────────────────────────────┘  └───────────────────┘ │
-│                                                                 │
-│  📢 Change detected: "Authority Engine" - 1 node added          │
-│     └─ [Stage 5] New: "Slack: Payment Alert" node               │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
-## Polling Strategy
-
-To avoid overwhelming the MCP connector, implement smart polling:
-
-1. **Idle State**: Poll every 60 seconds
-2. **Active Monitoring**: Poll every 15 seconds when panel is visible
-3. **After Automation**: Poll every 5 seconds for 2 minutes after deployment
-4. **Background Tab**: Pause polling when tab is not visible
-5. **Rate Limit**: Maximum 1 request per 10 seconds
-
----
-
-## Test Execution Flow
-
-```text
-User clicks "Test Run" on workflow
-         │
-         ▼
-┌─────────────────────────────────────┐
-│  MCP: execute_workflow              │
-│  {                                  │
-│    workflowId: "UTeSzk6g6Xy6qcDb",  │
-│    inputs: { type: "webhook",       │
-│              webhookData: {...} }   │
-│  }                                  │
-└─────────────────────────────────────┘
-         │
-         ▼
-   Show result in UI:
-   - ✓ Execution started successfully
-   - Response data preview
-   - Link to n8n execution log
+User opens Automation Engine
+        │
+        ▼
+Clicks gear icon on "OpenAI GPT-5"
+        │
+        ▼
+AISettingsDialog opens
+        │
+        ▼
+User enters API key → Click "Test"
+        │
+        ├── Success → "Save" button enabled
+        │               │
+        │               ▼
+        │          Key encrypted and stored
+        │               │
+        │               ▼
+        │          Provider now available in selector
+        │
+        └── Failure → Show error message
+                     "Invalid API key" or "Connection failed"
 ```
 
 ---
 
 ## Technical Notes
 
-### MCP Limitation Workaround
+### API Key Encryption
 
-Since MCP tools are only available to the Lovable agent (not runtime JavaScript), the real-time polling will work as follows:
+Use Supabase's built-in encryption via pgcrypto:
+```sql
+-- Encrypt on insert
+INSERT INTO user_api_keys (user_id, provider, encrypted_key)
+VALUES (user_id, 'openai', pgp_sym_encrypt(api_key, secret_key));
 
-1. **Agent-Initiated Polling**: When user clicks "Refresh" or the panel mounts, we request the agent to call MCP tools
-2. **Cache Updates**: Results are cached in `localStorage` and displayed in the UI
-3. **Supabase Realtime Bridge**: For true real-time updates, we can store workflow snapshots in the database and use Supabase Realtime to push changes to the frontend
+-- Decrypt in edge function
+SELECT pgp_sym_decrypt(encrypted_key::bytea, secret_key) FROM user_api_keys;
+```
 
-### Alternative: Supabase Realtime Bridge
+### Rate Limit Handling
 
-For fully automatic real-time updates without user interaction:
-
-1. Create `n8n_workflow_status` table with Realtime enabled
-2. Periodically sync MCP data to this table (via scheduled agent task or webhook)
-3. Frontend subscribes to table changes and updates UI instantly
+Each provider has different rate limits:
+- OpenAI: Handle 429 errors with exponential backoff
+- Claude: Respect rate limits in response headers
+- Perplexity: Follow their rate limit guidelines
 
 ---
 
 ## Success Criteria
 
-- Workflow status updates reflected within 30 seconds of changes in n8n
-- Webhook health checks provide accurate up/down status
-- Test execution triggers work for all trigger types
-- Change detection correctly identifies node additions/removals
-- UI provides clear visual feedback during polling
+- Users can add OpenAI and Claude API keys via the settings dialog
+- Users can connect Perplexity via the connector system
+- API keys are validated before saving
+- Provider selector shows which providers are available
+- Automation Engine routes requests to the selected provider
+- All API keys are stored securely with encryption
 
