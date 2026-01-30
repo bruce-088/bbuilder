@@ -7,7 +7,7 @@ const corsHeaders = {
 };
 
 interface ValidateRequest {
-  provider: "openai" | "claude";
+  provider: "openai" | "claude" | "perplexity";
   apiKey: string;
 }
 
@@ -82,6 +82,45 @@ async function validateClaude(apiKey: string): Promise<{ valid: boolean; error?:
   }
 }
 
+async function validatePerplexity(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+  try {
+    const response = await fetch("https://api.perplexity.ai/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "sonar",
+        messages: [{ role: "user", content: "test" }],
+        max_tokens: 1,
+      }),
+    });
+
+    if (response.ok) {
+      return { valid: true };
+    }
+
+    if (response.status === 401) {
+      return { valid: false, error: "Invalid API key" };
+    }
+
+    if (response.status === 429) {
+      // Rate limited but key is valid
+      return { valid: true };
+    }
+
+    const errorData = await response.json().catch(() => ({}));
+    return { 
+      valid: false, 
+      error: errorData.error?.message || `Perplexity API error: ${response.status}` 
+    };
+  } catch (err) {
+    console.error("Perplexity validation error:", err);
+    return { valid: false, error: "Failed to connect to Perplexity" };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -106,6 +145,9 @@ serve(async (req) => {
         break;
       case "claude":
         result = await validateClaude(apiKey);
+        break;
+      case "perplexity":
+        result = await validatePerplexity(apiKey);
         break;
       default:
         result = { valid: false, error: `Unknown provider: ${provider}` };
