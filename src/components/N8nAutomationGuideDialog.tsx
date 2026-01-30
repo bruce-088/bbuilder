@@ -2853,17 +2853,47 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
                               </CardTitle>
                             </CardHeader>
                             <CardContent className="space-y-3">
-                              {/* Per-stage workflow selector */}
+                              {/* Per-stage workflow selector with dropdown */}
                               <div className="space-y-1.5">
                                 <Label className="text-xs">Workflow for this stage</Label>
-                                <Input 
-                                  value={stageWorkflowNames[stage.id] || workflowName}
-                                  onChange={(e) => updateStageWorkflowName(stage.id, e.target.value)}
-                                  placeholder={workflowName}
-                                  className="h-8 text-xs"
-                                />
+                                {Object.keys(cachedWorkflows).length > 0 ? (
+                                  <Select
+                                    value={stageWorkflowNames[stage.id] || workflowName}
+                                    onValueChange={(value) => updateStageWorkflowName(stage.id, value)}
+                                  >
+                                    <SelectTrigger className="h-8 text-xs bg-background">
+                                      <SelectValue placeholder="Select a workflow" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-popover z-50">
+                                      {Object.entries(cachedWorkflows).map(([name, wf]) => (
+                                        <SelectItem key={wf.id} value={name} className="text-xs">
+                                          <div className="flex items-center gap-2">
+                                            <span>{name}</span>
+                                            <Badge variant="outline" className="text-[10px] py-0">
+                                              {wf.nodes.length} nodes
+                                            </Badge>
+                                            {wf.active && (
+                                              <Badge variant="secondary" className="text-[10px] py-0 bg-green-500/20 text-green-600">
+                                                Active
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                ) : (
+                                  <Input 
+                                    value={stageWorkflowNames[stage.id] || workflowName}
+                                    onChange={(e) => updateStageWorkflowName(stage.id, e.target.value)}
+                                    placeholder={workflowName}
+                                    className="h-8 text-xs"
+                                  />
+                                )}
                                 <p className="text-xs text-muted-foreground">
-                                  Verify against: <span className="font-medium">{stageWorkflowNames[stage.id] || workflowName}</span>
+                                  {Object.keys(cachedWorkflows).length > 0 
+                                    ? `${Object.keys(cachedWorkflows).length} workflow(s) available from MCP`
+                                    : 'No workflows cached - use "Cache from Agent MCP" in Stage 0'}
                                 </p>
                               </div>
                               <div className="flex items-center gap-3 flex-wrap">
