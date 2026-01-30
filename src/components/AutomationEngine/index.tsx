@@ -1,0 +1,119 @@
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Rocket, Loader2, X } from "lucide-react";
+import { useAutomationRun } from "@/hooks/useAutomationRun";
+import { AutomationProgress } from "./AutomationProgress";
+import { LiveLogStream } from "./LiveLogStream";
+import { ExceptionReview } from "./ExceptionReview";
+import { ProviderSelector } from "./ProviderSelector";
+
+interface AutomationEngineProps {
+  businessIdeaId: string;
+  businessName: string;
+  onComplete?: () => void;
+}
+
+export function AutomationEngine({ businessIdeaId, businessName, onComplete }: AutomationEngineProps) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedProvider, setSelectedProvider] = useState<string>("lovable");
+  const {
+    isRunning,
+    currentPhase,
+    phaseResults,
+    startAutomation,
+    cancelAutomation,
+    phases,
+  } = useAutomationRun();
+
+  const handleStart = async () => {
+    setIsOpen(true);
+    await startAutomation(businessIdeaId, selectedProvider);
+  };
+
+  const handleClose = () => {
+    if (isRunning) {
+      cancelAutomation();
+    }
+    setIsOpen(false);
+    if (!isRunning && onComplete) {
+      onComplete();
+    }
+  };
+
+  const hasErrors = phaseResults.some((r) => r.status === "error");
+  const hasWarnings = phaseResults.some((r) => r.status === "warning");
+  const isComplete = !isRunning && phaseResults.length > 0;
+
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <ProviderSelector value={selectedProvider} onChange={setSelectedProvider} />
+        <Button
+          onClick={handleStart}
+          disabled={isRunning}
+          className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
+        >
+          {isRunning ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Automating...
+            </>
+          ) : (
+            <>
+              <Rocket className="mr-2 h-4 w-4" />
+              Automate Everything
+            </>
+          )}
+        </Button>
+      </div>
+
+      <Dialog open={isOpen} onOpenChange={handleClose}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="flex flex-row items-center justify-between">
+            <DialogTitle className="flex items-center gap-2">
+              <Rocket className="h-5 w-5 text-primary" />
+              Automation Engine: {businessName}
+            </DialogTitle>
+            <Button variant="ghost" size="icon" onClick={handleClose}>
+              <X className="h-4 w-4" />
+            </Button>
+          </DialogHeader>
+
+          <div className="flex-1 overflow-auto space-y-6 py-4">
+            <AutomationProgress
+              phases={phases}
+              currentPhase={currentPhase}
+              phaseResults={phaseResults}
+              isRunning={isRunning}
+            />
+
+            <LiveLogStream logs={phaseResults} isRunning={isRunning} />
+
+            {isComplete && (hasErrors || hasWarnings) && (
+              <ExceptionReview
+                exceptions={phaseResults.filter(
+                  (r) => r.status === "error" || r.status === "warning"
+                )}
+              />
+            )}
+
+            {isComplete && !hasErrors && !hasWarnings && (
+              <div className="text-center py-8">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/20 mb-4">
+                  <Rocket className="h-8 w-8 text-green-600 dark:text-green-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground">
+                  Automation Complete!
+                </h3>
+                <p className="text-muted-foreground mt-2">
+                  All 6 automation stages have been processed successfully.
+                </p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
