@@ -59,6 +59,7 @@ import { generateBusinessPlanBundle } from "@/lib/bundleGenerator";
 import FixDiagnosisDialog from "./FixDiagnosisDialog";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
 import BusinessIdeaMasterPromptDialog from "./BusinessIdeaMasterPromptDialog";
+import { AutomationEngine } from "./AutomationEngine";
 import { Json } from "@/integrations/supabase/types";
 import { toast } from "sonner";
 
@@ -1161,6 +1162,23 @@ export default function BusinessIdeaDialog({
 
             {/* Action Buttons */}
             <div className="pt-4 border-t border-border space-y-2">
+              {/* One-Click Automation Engine - Primary CTA */}
+              <div className="flex items-center justify-center py-2">
+                <AutomationEngine 
+                  businessIdeaId={idea.id} 
+                  businessName={idea.business_name}
+                />
+              </div>
+
+              <div className="relative py-2">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-border" />
+                </div>
+                <div className="relative flex justify-center text-xs">
+                  <span className="bg-background px-2 text-muted-foreground">or manual setup</span>
+                </div>
+              </div>
+
               {idea.conversation_id && (
                 <Button
                   variant="outline"
@@ -1185,15 +1203,15 @@ export default function BusinessIdeaDialog({
                   aiAutomationStrategy: idea.ai_automation_strategy,
                 }}
                 trigger={
-                  <Button className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 btn-glow gap-2">
+                  <Button variant="outline" className="w-full gap-2">
                     <Zap className="w-4 h-4" />
-                    Full Automation Setup Guide
+                    Manual Setup Guide
                   </Button>
                 }
               />
               <Button
-                variant="outline"
-                className="w-full gap-2"
+                variant="ghost"
+                className="w-full gap-2 text-muted-foreground"
                 disabled={generatingMasterJson}
                 onClick={downloadMasterWorkflowJson}
               >
@@ -1217,7 +1235,7 @@ export default function BusinessIdeaDialog({
                   aiAutomationStrategy: idea.ai_automation_strategy,
                 }}
                 trigger={
-                  <Button variant="outline" className="w-full gap-2">
+                  <Button variant="ghost" className="w-full gap-2 text-muted-foreground">
                     <Wand2 className="w-4 h-4" />
                     Generate LLM Master Prompt
                   </Button>

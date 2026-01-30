@@ -49,6 +49,59 @@ export type Database = {
           },
         ]
       }
+      automation_runs: {
+        Row: {
+          ai_provider: string | null
+          business_idea_id: string
+          completed_at: string | null
+          created_at: string
+          current_phase: string | null
+          errors: Json | null
+          id: string
+          phase_logs: Json | null
+          phases_completed: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ai_provider?: string | null
+          business_idea_id: string
+          completed_at?: string | null
+          created_at?: string
+          current_phase?: string | null
+          errors?: Json | null
+          id?: string
+          phase_logs?: Json | null
+          phases_completed?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ai_provider?: string | null
+          business_idea_id?: string
+          completed_at?: string | null
+          created_at?: string
+          current_phase?: string | null
+          errors?: Json | null
+          id?: string
+          phase_logs?: Json | null
+          phases_completed?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_business_idea_id_fkey"
+            columns: ["business_idea_id"]
+            isOneToOne: false
+            referencedRelation: "business_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       business_ideas: {
         Row: {
           ai_automation_strategy: Json
@@ -274,6 +327,39 @@ export type Database = {
           display_name?: string | null
           email?: string | null
           id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_ai_preferences: {
+        Row: {
+          claude_configured: boolean | null
+          created_at: string
+          id: string
+          openai_configured: boolean | null
+          perplexity_configured: boolean | null
+          preferred_provider: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          claude_configured?: boolean | null
+          created_at?: string
+          id?: string
+          openai_configured?: boolean | null
+          perplexity_configured?: boolean | null
+          preferred_provider?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          claude_configured?: boolean | null
+          created_at?: string
+          id?: string
+          openai_configured?: boolean | null
+          perplexity_configured?: boolean | null
+          preferred_provider?: string | null
           updated_at?: string
           user_id?: string
         }
