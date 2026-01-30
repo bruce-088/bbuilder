@@ -129,8 +129,70 @@ export function useN8nLiveStatus(options: UseN8nLiveStatusOptions = {}) {
   const pollingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isVisibleRef = useRef(true);
   const lastPollTimeRef = useRef<number>(0);
+  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Load cached workflows from localStorage
+  // Extract trigger info from nodes
+  function extractTriggers(nodes?: Array<{ name: string; type: string; parameters?: any }>): TriggerInfo[] {
+    if (!nodes) return [];
+    
+    return nodes
+      .filter((n) => n.type.toLowerCase().includes("trigger") || n.type.toLowerCase().includes("webhook"))
+      .map((n) => ({
+        type: n.type,
+        webhookUrl: n.parameters?.path ? `${localStorage.getItem("n8n_instance_url") || ""}/webhook/${n.parameters.path}` : undefined,
+        schedule: n.parameters?.cronExpression,
+      }));
+  }
+
+  // Convert database snapshot to WorkflowStatus
+  const snapshotToWorkflowStatus = useCallback((snapshot: any): WorkflowStatus => {
+    const nodes = Array.isArray(snapshot.nodes) ? snapshot.nodes : [];
+    return {
+      id: snapshot.workflow_id,
+      name: snapshot.workflow_name,
+      active: true, // Snapshots are from active workflows
+      nodeCount: nodes.length,
+      lastUpdated: snapshot.captured_at ?? new Date().toISOString(),
+      triggers: extractTriggers(nodes),
+      hasChangedSinceLastCheck: false,
+      nodes: nodes,
+    };
+  }, []);
+
+  // Load workflows from database
+  const loadFromDatabase = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from("n8n_workflow_snapshots")
+        .select("*")
+        .order("captured_at", { ascending: false });
+
+      if (error) {
+        console.error("Error loading workflow snapshots:", error);
+        return [];
+      }
+
+      if (!data || data.length === 0) {
+        return [];
+      }
+
+      // Deduplicate by workflow_id, keeping most recent
+      const uniqueWorkflows = new Map<string, any>();
+      for (const snapshot of data) {
+        if (!uniqueWorkflows.has(snapshot.workflow_id)) {
+          uniqueWorkflows.set(snapshot.workflow_id, snapshot);
+        }
+      }
+
+      const mapped = Array.from(uniqueWorkflows.values()).map(snapshotToWorkflowStatus);
+      return mapped;
+    } catch (error) {
+      console.error("Error loading from database:", error);
+      return [];
+    }
+  }, [snapshotToWorkflowStatus]);
+
+  // Load cached workflows from localStorage (fallback)
   const loadFromCache = useCallback(() => {
     try {
       const cached = localStorage.getItem("n8n_cached_workflows");
@@ -147,12 +209,6 @@ export function useN8nLiveStatus(options: UseN8nLiveStatusOptions = {}) {
           nodes: wf.nodes,
         }));
 
-        setState((prev) => ({
-          ...prev,
-          workflows: mapped,
-          lastChecked: new Date(),
-        }));
-        previousWorkflowsRef.current = mapped;
         return mapped;
       }
     } catch (error) {
@@ -160,19 +216,6 @@ export function useN8nLiveStatus(options: UseN8nLiveStatusOptions = {}) {
     }
     return [];
   }, []);
-
-  // Extract trigger info from nodes
-  function extractTriggers(nodes?: Array<{ name: string; type: string; parameters?: any }>): TriggerInfo[] {
-    if (!nodes) return [];
-    
-    return nodes
-      .filter((n) => n.type.toLowerCase().includes("trigger") || n.type.toLowerCase().includes("webhook"))
-      .map((n) => ({
-        type: n.type,
-        webhookUrl: n.parameters?.path ? `${localStorage.getItem("n8n_instance_url") || ""}/webhook/${n.parameters.path}` : undefined,
-        schedule: n.parameters?.cronExpression,
-      }));
-  }
 
   // Check webhook health via edge function
   const checkWebhookHealth = useCallback(async (webhookUrls: string[]) => {
@@ -195,7 +238,48 @@ export function useN8nLiveStatus(options: UseN8nLiveStatusOptions = {}) {
     }
   }, []);
 
-  // Refresh workflow data from cache and detect changes
+  // Process workflow updates and detect changes
+  const processWorkflowUpdate = useCallback((workflows: WorkflowStatus[]) => {
+    // Detect changes
+    if (previousWorkflowsRef.current.length > 0 && workflows.length > 0) {
+      const detectedChanges = diffWorkflows(previousWorkflowsRef.current, workflows);
+
+      if (detectedChanges.length > 0) {
+        // Mark workflows with changes
+        const workflowsWithChanges = workflows.map((wf) => ({
+          ...wf,
+          hasChangedSinceLastCheck: detectedChanges.some((c) => c.workflowId === wf.id),
+        }));
+
+        setState((prev) => ({
+          ...prev,
+          workflows: workflowsWithChanges,
+          changes: [...detectedChanges, ...prev.changes].slice(0, 20),
+          lastChecked: new Date(),
+        }));
+
+        // Notify about changes
+        if (onChangesDetected) {
+          onChangesDetected(detectedChanges);
+        }
+
+        // Show toast for significant changes
+        toast.info(`${detectedChanges.length} change${detectedChanges.length > 1 ? "s" : ""} detected in n8n workflows`);
+        
+        previousWorkflowsRef.current = workflowsWithChanges;
+        return;
+      }
+    }
+
+    setState((prev) => ({
+      ...prev,
+      workflows,
+      lastChecked: new Date(),
+    }));
+    previousWorkflowsRef.current = workflows;
+  }, [onChangesDetected]);
+
+  // Refresh workflow data from database and cache
   const refresh = useCallback(async () => {
     const now = Date.now();
     // Rate limit: minimum 10 seconds between polls
@@ -207,36 +291,14 @@ export function useN8nLiveStatus(options: UseN8nLiveStatusOptions = {}) {
     setState((prev) => ({ ...prev, isPolling: true }));
 
     try {
-      const workflows = loadFromCache();
-
-      // Detect changes
-      if (previousWorkflowsRef.current.length > 0 && workflows.length > 0) {
-        const detectedChanges = diffWorkflows(previousWorkflowsRef.current, workflows);
-
-        if (detectedChanges.length > 0) {
-          // Mark workflows with changes
-          const workflowsWithChanges = workflows.map((wf) => ({
-            ...wf,
-            hasChangedSinceLastCheck: detectedChanges.some((c) => c.workflowId === wf.id),
-          }));
-
-          setState((prev) => ({
-            ...prev,
-            workflows: workflowsWithChanges,
-            changes: [...detectedChanges, ...prev.changes].slice(0, 20), // Keep last 20 changes
-          }));
-
-          // Notify about changes
-          if (onChangesDetected) {
-            onChangesDetected(detectedChanges);
-          }
-
-          // Show toast for significant changes
-          toast.info(`${detectedChanges.length} change${detectedChanges.length > 1 ? "s" : ""} detected in n8n workflows`);
-        }
+      // Try database first, then fall back to cache
+      let workflows = await loadFromDatabase();
+      
+      if (workflows.length === 0) {
+        workflows = loadFromCache();
       }
 
-      previousWorkflowsRef.current = workflows;
+      processWorkflowUpdate(workflows);
 
       // Check webhook health
       const webhookUrls = workflows.flatMap((wf) =>
@@ -255,14 +317,13 @@ export function useN8nLiveStatus(options: UseN8nLiveStatusOptions = {}) {
 
       setState((prev) => ({
         ...prev,
-        lastChecked: new Date(),
         isPolling: false,
       }));
     } catch (error) {
       console.error("Error refreshing workflow status:", error);
       setState((prev) => ({ ...prev, isPolling: false }));
     }
-  }, [loadFromCache, checkWebhookHealth, onChangesDetected]);
+  }, [loadFromDatabase, loadFromCache, checkWebhookHealth, processWorkflowUpdate]);
 
   // Clear change indicators for a workflow
   const clearChanges = useCallback((workflowId?: string) => {
@@ -284,7 +345,58 @@ export function useN8nLiveStatus(options: UseN8nLiveStatusOptions = {}) {
     return `${baseUrl.replace(/\/+$/, "")}/workflow/${workflowId}`;
   }, []);
 
-  // Setup polling with visibility awareness
+  // Setup Supabase Realtime subscription
+  useEffect(() => {
+    if (!enabled) return;
+
+    // Subscribe to realtime changes on n8n_workflow_snapshots
+    channelRef.current = supabase
+      .channel("n8n-workflow-snapshots-realtime")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "n8n_workflow_snapshots",
+        },
+        async (payload) => {
+          console.log("Realtime update received:", payload.eventType);
+          
+          // Reload all workflows from database on any change
+          const workflows = await loadFromDatabase();
+          if (workflows.length > 0) {
+            processWorkflowUpdate(workflows);
+            
+            // Check webhook health for updated workflows
+            const webhookUrls = workflows.flatMap((wf) =>
+              wf.triggers
+                .filter((t) => t.webhookUrl)
+                .map((t) => t.webhookUrl!)
+            );
+
+            if (webhookUrls.length > 0) {
+              const health = await checkWebhookHealth(webhookUrls);
+              setState((prev) => ({
+                ...prev,
+                webhookHealth: health,
+              }));
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log("Realtime subscription status:", status);
+      });
+
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [enabled, loadFromDatabase, processWorkflowUpdate, checkWebhookHealth]);
+
+  // Setup polling as fallback with visibility awareness
   useEffect(() => {
     if (!enabled) return;
 
@@ -299,9 +411,9 @@ export function useN8nLiveStatus(options: UseN8nLiveStatusOptions = {}) {
     document.addEventListener("visibilitychange", handleVisibilityChange);
 
     // Initial load
-    loadFromCache();
+    refresh();
 
-    // Start polling
+    // Start fallback polling (less frequent since we have realtime)
     const poll = () => {
       if (isVisibleRef.current) {
         refresh();
@@ -317,7 +429,7 @@ export function useN8nLiveStatus(options: UseN8nLiveStatusOptions = {}) {
         clearTimeout(pollingTimeoutRef.current);
       }
     };
-  }, [enabled, pollingInterval, refresh, loadFromCache]);
+  }, [enabled, pollingInterval, refresh]);
 
   return {
     ...state,
