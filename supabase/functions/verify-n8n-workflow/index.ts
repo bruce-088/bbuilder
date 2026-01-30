@@ -272,17 +272,22 @@ serve(async (req) => {
           status: "MCP_NOT_CONNECTED",
           confidence: "low",
           summary: mcpConnected 
-            ? "Workflow not found. Ensure 'GhostWriter AI: Lead Prospecting & Discovery Engine' is marked as 'Available in MCP' in n8n workflow settings."
+            ? `Workflow data not loaded. Use "Verify Workflow Exists" in Stage 0 to fetch '${workflowNamePattern || 'GhostWriter AI: Lead Prospecting & Discovery Engine'}' from your n8n instance first.`
             : "n8n MCP not connected. Connect your n8n instance in Project Settings → Connectors to enable live verification.",
           workflowActive: false,
           nodeVerification: [],
-          suggestions: [
-            mcpConnected 
-              ? "Open your n8n workflow → Settings → Toggle 'Available in MCP' → Save"
-              : "Go to Project Settings → Connectors → Connect n8n",
-            "Ensure your n8n instance has MCP access enabled (Settings → MCP access)"
-          ],
-          connectionRequired: !mcpConnected
+          suggestions: mcpConnected
+            ? [
+                "Go to Stage 0: n8n Instance Setup",
+                "Click 'Verify Workflow Exists' button to cache workflow data",
+                "Return to this stage and click 'Verify Against Live Workflow' again"
+              ]
+            : [
+                "Go to Project Settings → Connectors → Connect n8n",
+                "Ensure your n8n instance has MCP access enabled (Settings → MCP access)"
+              ],
+          connectionRequired: !mcpConnected,
+          dataRequired: mcpConnected && !workflowData
         }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
