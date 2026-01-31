@@ -1,170 +1,123 @@
 
-# Plan: Fix n8n JSON Download for Proper Import
+
+# Plan: Add Director.ai Prompt Download to FixGuidancePopover
 
 ## Problem Analysis
 
-The "Download" button in the DeploymentPanel downloads JSON that n8n cannot import because:
+Currently, the `FixGuidancePopover` component shows three destination options for fix prompts:
+1. **Mya Chat** - Clickable, opens a chat with the basic fix details
+2. **Director.ai / Claude Computer Use** - Static display only (not clickable)
+3. **n8n Workflow Editor** - Static display only
 
-1. **Wrong data structure**: The generated workflows are stored as `{stage1: {...}, stage2: {...}, ...}` - multiple stages as object keys
-2. **Missing required fields**: n8n requires a workflow to have `{name, nodes, connections, settings, active}` at the top level
-3. **No extraction logic**: Unlike `N8nWorkflowDialog.tsx` which has `extractN8nWorkflowJson()` to properly parse and structure the output, `DeploymentPanel.tsx` just serializes the raw AI output directly
-
-### Comparison
-
-**N8nWorkflowDialog.tsx (works):**
-- Uses `extractN8nWorkflowJson()` to find JSON blocks in markdown
-- Scores candidate workflows by completeness (nodes, connections, settings)
-- Ensures required fields exist (`connections`, `settings`, `name`, `active`)
-- Outputs a single workflow object ready for n8n import
-
-**DeploymentPanel.tsx (broken):**
-- Directly serializes `generateResult?.data?.workflows` without validation
-- No extraction or transformation logic
-- Downloads whatever the AI returned, which is often:
-  - A multi-stage object: `{stage1: {...}, stage2: {...}}`
-  - Raw markdown with embedded JSON
-  - Incomplete workflow structure
+The user wants the **Director.ai / Claude Computer Use** box to be clickable and download a prompt that is:
+- Specifically optimized for Director.ai browser automation
+- Different from the Mya Chat prompt (which uses `fixDetails`)
+- Uses the enhanced `directorAiPrompt` that includes n8n URLs, browser actions, and validation criteria
 
 ## Solution
 
-Update `DeploymentPanel.tsx` to properly transform the generated workflows into n8n-importable format:
-
-1. **Add workflow transformation logic** - Convert multi-stage format to single master workflow
-2. **Add validation** - Ensure the JSON has required n8n fields
-3. **Provide individual stage downloads** - Option to download each stage separately
-4. **Add error feedback** - Alert users if JSON extraction fails
+Make the Director.ai box interactive with a download action that saves the enhanced Director.ai-optimized prompt as a `.md` file.
 
 ---
 
 ## Technical Changes
 
-### 1. Create a utility function for n8n workflow formatting
+### 1. Update FixGuidancePopover Component
 
-Add a helper to convert the raw workflow data into proper n8n format:
+**File:** `src/components/AutomationEngine/FixGuidancePopover.tsx`
 
+Convert the static Director.ai `<div>` into an interactive `<button>` with:
+- Click handler that downloads the `directorAiPrompt` as a markdown file
+- Visual feedback (download icon, hover states)
+- "Downloaded!" state indicator after successful download
+- Separate copied/downloaded state from the generic "Copy to Clipboard" button
+
+| Change | Description |
+|--------|-------------|
+| Add `directorDownloaded` state | Track download status for visual feedback |
+| Add `handleDownloadDirectorPrompt` function | Create blob and trigger download |
+| Convert static `<div>` to `<button>` | Make Director.ai option interactive |
+| Add Download icon | Show download action affordance |
+| Style active state | Highlight when enhanced prompt available |
+
+### 2. Implementation Details
+
+**New handler function:**
 ```typescript
-function formatForN8nImport(
-  workflows: Record<string, unknown>, 
-  businessName: string
-): object | null {
-  // Check if it's already a valid n8n workflow
-  if (workflows.nodes && Array.isArray(workflows.nodes)) {
-    return {
-      name: workflows.name || `${businessName} Automation`,
-      nodes: workflows.nodes,
-      connections: workflows.connections || {},
-      settings: workflows.settings || { executionOrder: "v1" },
-      active: false
-    };
-  }
-  
-  // Handle multi-stage format: {stage1: {...}, stage2: {...}}
-  const stageKeys = Object.keys(workflows).filter(k => 
-    k.startsWith('stage') || workflows[k]?.nodes
-  );
-  
-  if (stageKeys.length === 0) {
-    return null;
-  }
-  
-  // Merge all stages into a master workflow with vertical offsets
-  const allNodes = [];
-  const allConnections = {};
-  
-  stageKeys.forEach((key, index) => {
-    const stage = workflows[key];
-    const yOffset = index * 400;
-    
-    // Add nodes with position offset and stage prefix
-    stage.nodes?.forEach(node => {
-      allNodes.push({
-        ...node,
-        id: `stage${index + 1}_${node.id}`,
-        name: `[Stage ${index + 1}] ${node.name}`,
-        position: [node.position[0], node.position[1] + yOffset]
-      });
-    });
-    
-    // Remap connections
-    // ... connection remapping logic
-  });
-  
-  return {
-    name: `${businessName} - Complete Automation`,
-    nodes: allNodes,
-    connections: allConnections,
-    settings: { executionOrder: "v1" },
-    active: false
-  };
-}
-```
-
-### 2. Update DeploymentPanel.tsx handleDownload
-
-Replace the current simple serialization with proper formatting:
-
-```typescript
-const handleDownload = () => {
-  if (!generatedWorkflows) return;
-
-  // Format for n8n import
-  const formattedWorkflow = formatForN8nImport(generatedWorkflows, businessName);
-  
-  if (!formattedWorkflow) {
-    toast({
-      title: "Invalid workflow format",
-      description: "Could not convert to n8n format. Try regenerating the workflow.",
-      variant: "destructive",
-    });
+const handleDownloadDirectorPrompt = () => {
+  if (!directorAiPrompt) {
+    toast.error("Director.ai prompt not available");
     return;
   }
-
-  const blob = new Blob([JSON.stringify(formattedWorkflow, null, 2)], {
-    type: "application/json",
-  });
   
-  // ... rest of download logic
+  const blob = new Blob([directorAiPrompt], { type: "text/markdown" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  const timestamp = Date.now();
+  a.download = `director-ai-fix-${nodeType || "automation"}-${timestamp}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  setDirectorDownloaded(true);
+  toast.success("Director.ai prompt downloaded!");
+  setTimeout(() => setDirectorDownloaded(false), 3000);
 };
 ```
 
-### 3. Add "Download Individual Stage" option
-
-Provide a dropdown or list to download specific stages:
-
+**Updated UI element:**
 ```typescript
-const handleDownloadStage = (stageKey: string) => {
-  const stage = generatedWorkflows[stageKey];
-  if (!stage) return;
-  
-  const formatted = formatSingleStage(stage, stageKey, businessName);
-  // ... download logic
-};
+<button
+  onClick={handleDownloadDirectorPrompt}
+  disabled={!hasEnhancedPrompt}
+  className={`w-full flex items-center gap-3 p-2.5 rounded-lg transition-colors text-left ${
+    hasEnhancedPrompt 
+      ? "bg-primary/5 border border-primary/20 hover:bg-primary/10 cursor-pointer" 
+      : "bg-muted/50 opacity-50 cursor-not-allowed"
+  }`}
+>
+  <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+    hasEnhancedPrompt ? "bg-primary/10" : "bg-muted"
+  }`}>
+    {directorDownloaded ? (
+      <Check className="h-4 w-4 text-emerald-500" />
+    ) : (
+      <Bot className="h-4 w-4 text-primary" />
+    )}
+  </div>
+  <div className="flex-1 min-w-0">
+    <p className="text-sm font-medium">
+      {directorDownloaded ? "Downloaded!" : "Director.ai / Claude Computer Use"}
+    </p>
+    <p className="text-xs text-muted-foreground">
+      {hasEnhancedPrompt 
+        ? "Click to download optimized prompt" 
+        : "Enhanced prompt not available"
+      }
+    </p>
+  </div>
+  {hasEnhancedPrompt && !directorDownloaded && (
+    <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+  )}
+  {hasEnhancedPrompt && (
+    <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
+      Best
+    </Badge>
+  )}
+</button>
 ```
 
-### 4. Add validation feedback in UI
+---
 
-Show warning if the workflow structure seems incomplete:
+## Prompt Differentiation
 
-```typescript
-const workflowStatus = useMemo(() => {
-  if (!generatedWorkflows) return null;
-  
-  const formatted = formatForN8nImport(generatedWorkflows, businessName);
-  if (!formatted) return { valid: false, message: "Invalid format" };
-  
-  const nodeCount = formatted.nodes?.length || 0;
-  const hasConnections = Object.keys(formatted.connections || {}).length > 0;
-  
-  return {
-    valid: nodeCount > 0,
-    nodeCount,
-    hasConnections,
-    message: nodeCount > 0 
-      ? `${nodeCount} nodes ready for import` 
-      : "No valid nodes found"
-  };
-}, [generatedWorkflows, businessName]);
-```
+| Target | Prompt Source | Content |
+|--------|---------------|---------|
+| Mya Chat | `fixDetails` | Basic fix description, steps, and solution summary |
+| Director.ai | `directorAiPrompt` | Full browser automation prompt with n8n URLs, business context JSON, step-by-step actions, validation criteria, and report format |
+| Copy to Clipboard | `directorAiPrompt` (if available) or `fixDetails` | Same as Director.ai if enhanced, otherwise basic |
 
 ---
 
@@ -172,44 +125,27 @@ const workflowStatus = useMemo(() => {
 
 | File | Changes |
 |------|---------|
-| `src/components/AutomationEngine/DeploymentPanel.tsx` | Add `formatForN8nImport()` function, update `handleDownload()` and `handleCopyJson()` to use it, add validation UI feedback |
+| `src/components/AutomationEngine/FixGuidancePopover.tsx` | Add download handler, convert static div to button, add Download icon import, add state for download feedback |
 
 ---
 
-## Expected Behavior After Fix
+## Expected Behavior After Implementation
 
-1. **Download button** → Downloads a single `.json` file that n8n can directly import via "File → Import from File"
-2. **Copy JSON button** → Copies properly formatted JSON that can be pasted in n8n
-3. **Validation feedback** → Shows node count and connection status before download
-4. **Error handling** → Alerts user if workflow couldn't be formatted, suggests regenerating
+1. **Director.ai box** → Clickable when enhanced prompt is available
+2. **Click action** → Downloads `.md` file named `director-ai-fix-{phase}-{timestamp}.md`
+3. **Visual feedback** → Shows "Downloaded!" with checkmark after download
+4. **Disabled state** → Grayed out and non-clickable when no enhanced prompt exists
+5. **Badge retained** → "Best" badge still shows when enhanced prompt available
+6. **Icon change** → Shows Download icon instead of just the Bot icon
 
 ---
 
 ## Validation Criteria
 
-The downloaded JSON should:
-- Have a `name` field (string)
-- Have a `nodes` array with valid node objects
-- Have a `connections` object
-- Have a `settings` object with `executionOrder`
-- Have `active: false`
+- Clicking the Director.ai box downloads a `.md` file
+- File contains the full Director.ai optimized prompt (n8n URLs, JSON context, browser actions)
+- Mya Chat still opens chat with basic fix details (unchanged)
+- Copy to Clipboard copies the enhanced prompt (unchanged)
+- Download works when enhanced prompt is available
+- Box is disabled/grayed when no enhanced prompt exists
 
-Example valid structure:
-```json
-{
-  "name": "My Business - Complete Automation",
-  "nodes": [
-    {
-      "id": "abc123",
-      "name": "Schedule Trigger",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.2,
-      "position": [250, 300],
-      "parameters": {}
-    }
-  ],
-  "connections": {},
-  "settings": { "executionOrder": "v1" },
-  "active": false
-}
-```
