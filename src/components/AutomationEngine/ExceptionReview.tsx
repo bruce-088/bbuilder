@@ -535,6 +535,11 @@ export function ExceptionReview({
                               directorAiPrompt={getDirectorAiPrompt(fix)}
                               onCopy={() => handleCopyFixDetails(fix, index)}
                               copied={copiedFixes.has(index)}
+                              nodeType={fix.phase}
+                              issueType={fix.rootCause.slice(0, 100)}
+                              rootCause={fix.rootCause}
+                              solutionSummary={fix.solution}
+                              workflowName={businessContext?.businessName}
                             />
                           </>
                         ) : (
@@ -550,6 +555,11 @@ export function ExceptionReview({
                               directorAiPrompt={getDirectorAiPrompt(fix)}
                               onCopy={() => handleCopyFixDetails(fix, index)}
                               copied={copiedFixes.has(index)}
+                              nodeType={fix.phase}
+                              issueType={fix.rootCause.slice(0, 100)}
+                              rootCause={fix.rootCause}
+                              solutionSummary={fix.solution}
+                              workflowName={businessContext?.businessName}
                             />
                             <Button
                               variant="secondary"

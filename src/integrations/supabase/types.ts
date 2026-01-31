@@ -223,6 +223,48 @@ export type Database = {
         }
         Relationships: []
       }
+      fix_knowledge_base: {
+        Row: {
+          created_at: string
+          fix_prompt: string
+          id: string
+          issue_type: string
+          node_type: string
+          root_cause: string | null
+          solution_summary: string | null
+          success_count: number
+          updated_at: string
+          user_id: string
+          workflow_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          fix_prompt: string
+          id?: string
+          issue_type: string
+          node_type: string
+          root_cause?: string | null
+          solution_summary?: string | null
+          success_count?: number
+          updated_at?: string
+          user_id: string
+          workflow_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          fix_prompt?: string
+          id?: string
+          issue_type?: string
+          node_type?: string
+          root_cause?: string | null
+          solution_summary?: string | null
+          success_count?: number
+          updated_at?: string
+          user_id?: string
+          workflow_name?: string | null
+        }
+        Relationships: []
+      }
       implementation_progress: {
         Row: {
           business_idea_id: string | null
