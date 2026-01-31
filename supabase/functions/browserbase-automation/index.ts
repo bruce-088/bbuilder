@@ -11,7 +11,7 @@ const LOVABLE_AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 // ============= Types =============
 
 interface AutomationRequest {
-  action: "start" | "status" | "stop" | "execute" | "create-context" | "get-context";
+  action: "start" | "status" | "stop" | "execute" | "create-context" | "get-context" | "check-credentials";
   fixPrompt?: string;
   n8nInstanceUrl?: string;
   workflowId?: string;
@@ -1139,11 +1139,22 @@ serve(async (req) => {
         );
       }
 
+      case "check-credentials": {
+        // Simply return whether credentials are configured
+        return new Response(
+          JSON.stringify({
+            success: true,
+            credentialsConfigured: true,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       default:
         return new Response(
           JSON.stringify({
             success: false,
-            error: `Unknown action: ${action}. Valid actions are: start, status, stop, execute, create-context, get-context`,
+            error: `Unknown action: ${action}. Valid actions are: start, status, stop, execute, create-context, get-context, check-credentials`,
           }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
