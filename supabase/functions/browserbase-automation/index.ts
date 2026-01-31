@@ -823,10 +823,15 @@ async function createSession(projectId: string, apiKey: string, contextId?: stri
       projectId,
       browserSettings: {
         viewport: { width: 1920, height: 1080 },
+        ...(contextId && {
+          context: {
+            id: contextId,
+            persist: true,
+          },
+        }),
       },
       keepAlive: true,
       timeout: 300,
-      ...(contextId && { contextId }),
     }),
   });
 
