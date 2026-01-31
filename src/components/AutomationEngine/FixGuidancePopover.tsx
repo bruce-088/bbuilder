@@ -1,8 +1,12 @@
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles } from "lucide-react";
+import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 interface FixGuidancePopoverProps {
   trigger: React.ReactNode;
@@ -20,19 +24,47 @@ export function FixGuidancePopover({
   copied 
 }: FixGuidancePopoverProps) {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
 
   // Use enhanced prompt if available, otherwise fall back to basic details
   const promptToCopy = directorAiPrompt || fixDetails;
   const hasEnhancedPrompt = !!directorAiPrompt;
 
-  const handleChatWithMya = () => {
-    // Navigate to chat with fix context pre-loaded
-    navigate("/chat", {
-      state: {
-        prefillMessage: `I need help with this automation fix:\n\n${fixDetails}`,
-        fixContext: fixDetails,
-      },
-    });
+  const handleChatWithMya = async () => {
+    if (!user) {
+      toast.error("Please sign in to chat with Mya");
+      navigate("/auth");
+      return;
+    }
+
+    setIsCreatingChat(true);
+
+    try {
+      // Create a new conversation
+      const { data: conversation, error } = await supabase
+        .from("conversations")
+        .insert({
+          user_id: user.id,
+          title: "Automation Fix Help",
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Navigate to the new chat with fix context
+      navigate(`/chat/${conversation.id}`, {
+        state: {
+          initialPrompt: `I need help with this automation fix:\n\n${fixDetails}`,
+        },
+      });
+    } catch (error) {
+      console.error("Error creating chat:", error);
+      toast.error("Failed to start chat. Please try again.");
+    } finally {
+      setIsCreatingChat(false);
+    }
   };
 
   const handleCopyPrompt = () => {
@@ -76,13 +108,20 @@ export function FixGuidancePopover({
             {/* Chat with Mya */}
             <button
               onClick={handleChatWithMya}
-              className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors text-left"
+              disabled={isCreatingChat}
+              className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-primary/5 hover:bg-primary/10 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
-                <MessageSquare className="h-4 w-4 text-primary" />
+                {isCreatingChat ? (
+                  <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                ) : (
+                  <MessageSquare className="h-4 w-4 text-primary" />
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Mya Chat</p>
+                <p className="text-sm font-medium">
+                  {isCreatingChat ? "Opening chat..." : "Mya Chat"}
+                </p>
                 <p className="text-xs text-muted-foreground">Get step-by-step walkthrough</p>
               </div>
               <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
