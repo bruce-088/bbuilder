@@ -88,7 +88,10 @@ interface CreateSessionResponse extends SessionResponse {
 // ============= n8n Selector Fallback Map =============
 
 // Robust selector mappings for n8n UI elements with fallbacks
+// Priority: data-testid → ARIA roles → class-based → text-based → generic fallbacks
 const N8N_SELECTORS: Record<string, string[]> = {
+  // ============= Credential Modals =============
+  
   // Credential save buttons
   "credential-save": [
     'button[data-testid="credential-save-button"]',
@@ -98,6 +101,168 @@ const N8N_SELECTORS: Record<string, string[]> = {
     '.credential-modal button[type="submit"]',
     'button:has-text("Save")',
     '.modal-content button.primary',
+  ],
+  
+  // Credential modal container
+  "credential-modal": [
+    '[data-testid="credential-edit-dialog"]',
+    '[data-testid="credential-modal"]',
+    '.credential-modal',
+    '[role="dialog"]:has(.credential)',
+    '.modal-content:has([data-testid*="credential"])',
+    '.el-dialog:has(.credential)',
+  ],
+  
+  // Credential input fields (standard text inputs)
+  "credential-input": [
+    '[data-testid="parameter-input-field"]',
+    '.credential-parameter input',
+    '.parameter-input-list input[type="text"]',
+    '.credential-input input',
+    '[data-testid*="parameter-input-"] input',
+    '.n8n-input-field input',
+  ],
+  
+  // Credential secret/password inputs
+  "credential-secret-input": [
+    '[data-testid="parameter-input-field"][type="password"]',
+    'input[type="password"]',
+    '.credential-parameter input[type="password"]',
+    '[data-testid*="secret"] input',
+    '[data-testid*="apiKey"] input',
+    '[data-testid*="password"] input',
+    '.sensitive-input input',
+  ],
+  
+  // Test connection button
+  "credential-test-button": [
+    '[data-testid="credential-test-button"]',
+    'button:has-text("Test")',
+    'button:has-text("Test Connection")',
+    '.credential-test-btn',
+    'button[data-testid="test-connection"]',
+  ],
+  
+  // Credential type selection dropdown
+  "credential-type-select": [
+    '[data-testid="new-credential-type-select"]',
+    '[data-testid="credential-type-select"]',
+    '.credential-type-select',
+    '[role="combobox"]:has-text("Select Credential")',
+    '.credential-selector-dropdown',
+  ],
+  
+  // Credential dropdown in node config
+  "credential-dropdown": [
+    '[data-testid="credential-select"]',
+    '.credential-selector',
+    '.n8n-credential-select',
+    '.parameter-input-list .n8n-select',
+    '[data-testid="node-credential-select"]',
+  ],
+  
+  // ============= Expression Editors =============
+  
+  // Expression editor input (CodeMirror-based)
+  "expression-editor": [
+    '[data-testid="inline-expression-editor-input"]',
+    '[data-testid="expression-editor"]',
+    '.expression-editor .cm-content',
+    '.cm-editor .cm-content',
+    '.inline-expression-editor',
+    '.expression-input .cm-line',
+    '.expression-editor-input',
+  ],
+  
+  // Toggle to switch between fixed/expression mode
+  "expression-toggle": [
+    '[data-testid="expression-toggle"]',
+    'button[title="Expression"]',
+    '.expression-toggle',
+    '[aria-label="Toggle expression"]',
+    'button.expression-mode-toggle',
+    '[data-testid="switch-expression"]',
+  ],
+  
+  // ============= Code Nodes =============
+  
+  // Code node editor area
+  "code-editor": [
+    '[data-testid="code-node-tab-code"]',
+    '[data-testid="code-editor"]',
+    '.code-node-editor .cm-content',
+    '.cm-editor[data-language]',
+    '.monaco-editor textarea',
+    '.code-node .cm-content',
+    '[data-testid="code-input"] .cm-content',
+  ],
+  
+  // Code node tab buttons (Code/Settings tabs)
+  "code-node-tab": [
+    '[data-testid="code-node-tab"]',
+    '.code-node-tabs button',
+    '[role="tab"]:has-text("Code")',
+    '.n8n-tabs button',
+    '[data-testid="ndv-tab-code"]',
+  ],
+  
+  // Code language selector (JavaScript/Python)
+  "code-language-select": [
+    '[data-testid="code-language-select"]',
+    '.code-node-language-select',
+    '[data-testid="select-language"]',
+    '.language-selector',
+    '[data-testid="code-mode-select"]',
+  ],
+  
+  // ============= Node Configuration =============
+  
+  // Generic parameter input fields
+  "parameter-input": [
+    '[data-testid="parameter-input-field"]',
+    '.parameter-input input',
+    '.parameter-input textarea',
+    '.n8n-input input',
+    '[data-testid*="input-field"]',
+    '.n8n-input-field input',
+  ],
+  
+  // Parameter labels/names
+  "parameter-label": [
+    '[data-testid="parameter-label"]',
+    '.parameter-label',
+    '.parameter-name',
+    'label.n8n-input-label',
+    '.parameter-heading',
+  ],
+  
+  // Add option/field buttons
+  "add-option-button": [
+    '[data-testid="add-option-button"]',
+    'button:has-text("Add Option")',
+    'button:has-text("Add Field")',
+    '.add-option',
+    '[data-testid="add-field"]',
+    'button.add-option-button',
+  ],
+  
+  // Collection/array items
+  "collection-item": [
+    '[data-testid="collection-item"]',
+    '.collection-parameter-item',
+    '.parameter-collection-item',
+    '.n8n-collection-item',
+    '.collection-entry',
+  ],
+  
+  // Resource locator component
+  "resource-selector": [
+    '[data-testid="resource-locator"]',
+    '[data-testid="resource-select"]',
+    '.resource-locator',
+    '.rlc-input',
+    '[data-testid="rlc-container"]',
+    '.resource-locator-container',
   ],
   
   // Dropdown inputs
@@ -122,13 +287,115 @@ const N8N_SELECTORS: Record<string, string[]> = {
     'li.select-option',
   ],
   
-  // Node panel
+  // Input fields
+  "text-input": [
+    'input.n8n-input',
+    '.n8n-input input',
+    'input[type="text"]',
+    '.parameter-input input',
+    'textarea.n8n-input',
+  ],
+  
+  // ============= NDV (Node Details View) =============
+  
+  // NDV container
+  "ndv-container": [
+    '[data-testid="ndv-container"]',
+    '.ndv-body',
+    '.node-details-view',
+    '[data-testid="node-details-view"]',
+    '.ndv-wrapper',
+  ],
+  
+  // Node panel (alias for ndv-container)
   "node-panel": [
     '[data-testid="ndv-container"]',
     '.ndv-body',
     '.node-details-view',
     '.n8n-node-panel',
   ],
+  
+  // NDV close/back button
+  "ndv-close": [
+    '[data-testid="ndv-close-button"]',
+    '[data-testid="back-to-canvas"]',
+    '.ndv-close',
+    'button[aria-label="Close"]',
+    '.ndv-back-button',
+  ],
+  
+  // NDV output panel
+  "ndv-output-panel": [
+    '[data-testid="ndv-output-panel"]',
+    '.output-panel',
+    '.ndv-output',
+    '[data-testid="output-panel"]',
+    '.output-data-panel',
+  ],
+  
+  // NDV input panel
+  "ndv-input-panel": [
+    '[data-testid="ndv-input-panel"]',
+    '.input-panel',
+    '.ndv-input',
+    '[data-testid="input-panel"]',
+    '.input-data-panel',
+  ],
+  
+  // Run data tabs
+  "run-data-tab": [
+    '[data-testid="run-data-tab"]',
+    '[role="tab"]:has-text("Output")',
+    '.run-data-tabs [role="tab"]',
+    '[data-testid="output-data-tab"]',
+  ],
+  
+  // ============= Workflow Canvas =============
+  
+  // Canvas/workflow area
+  "canvas": [
+    '.vue-flow',
+    '.n8n-canvas',
+    '[data-testid="canvas"]',
+    '.workflow-canvas',
+  ],
+  
+  // Add node button
+  "add-node-button": [
+    '[data-testid="add-node-button"]',
+    '[data-testid="canvas-add-node"]',
+    'button[title="Add node"]',
+    '.add-node-button',
+    '[data-testid="canvas-plus-button"]',
+  ],
+  
+  // Node creator/search panel
+  "node-creator": [
+    '[data-testid="node-creator"]',
+    '.node-creator',
+    '[data-testid="nodes-panel"]',
+    '.nodes-list-panel',
+  ],
+  
+  // Node creator search bar
+  "node-creator-search": [
+    '[data-testid="node-creator-search-bar"]',
+    '.node-creator-search input',
+    'input[placeholder*="Search"]',
+    '[data-testid="search-nodes"]',
+    '.node-search-input',
+  ],
+  
+  // Canvas node elements
+  "canvas-node": [
+    '[data-testid*="canvas-node-"]',
+    '.vue-flow__node',
+    '.n8n-node',
+    '[data-node-name]',
+    '.workflow-node',
+  ],
+  
+  // ============= Buttons =============
   
   // Execute button
   "execute-button": [
@@ -147,31 +414,6 @@ const N8N_SELECTORS: Record<string, string[]> = {
     'button:has-text("Save")',
   ],
   
-  // Canvas/workflow area
-  "canvas": [
-    '.vue-flow',
-    '.n8n-canvas',
-    '[data-testid="canvas"]',
-    '.workflow-canvas',
-  ],
-  
-  // Credential dropdown
-  "credential-dropdown": [
-    '[data-testid="credential-select"]',
-    '.credential-selector',
-    '.n8n-credential-select',
-    '.parameter-input-list .n8n-select',
-  ],
-  
-  // Input fields
-  "text-input": [
-    'input.n8n-input',
-    '.n8n-input input',
-    'input[type="text"]',
-    '.parameter-input input',
-    'textarea.n8n-input',
-  ],
-  
   // Close/cancel buttons
   "close-modal": [
     'button[data-testid="close-modal"]',
@@ -179,6 +421,34 @@ const N8N_SELECTORS: Record<string, string[]> = {
     'button.close',
     '[aria-label="Close"]',
     'button:has-text("Cancel")',
+  ],
+  
+  // ============= Settings & Toggles =============
+  
+  // Settings tab
+  "settings-tab": [
+    '[data-testid="settings-tab"]',
+    '[role="tab"]:has-text("Settings")',
+    'button:has-text("Settings")',
+    '[data-testid="ndv-tab-settings"]',
+  ],
+  
+  // Toggle switches
+  "toggle-switch": [
+    '[data-testid="toggle"]',
+    '.n8n-switch',
+    '[role="switch"]',
+    '.el-switch',
+    '.n8n-toggle',
+  ],
+  
+  // Checkboxes
+  "checkbox": [
+    '[data-testid="checkbox"]',
+    '.n8n-checkbox',
+    'input[type="checkbox"]',
+    '[role="checkbox"]',
+    '.el-checkbox',
   ],
 };
 
@@ -666,32 +936,86 @@ Available step types:
 - scroll: Scroll the page. Provide direction (up/down).
 - evaluate: Run JavaScript. Provide expression.
 
-**CRITICAL: n8n SELECTOR SHORTCUTS** - Use these for reliable element targeting:
+**CRITICAL: n8n SELECTOR SHORTCUTS** - Use these for reliable element targeting with built-in fallbacks:
+
+// Credential Modals
+- "n8n:credential-modal" → Credential edit dialog container
+- "n8n:credential-input" → Standard credential field inputs
+- "n8n:credential-secret-input" → Password/API key/secret fields
+- "n8n:credential-test-button" → Test connection button
+- "n8n:credential-type-select" → Credential type dropdown
+- "n8n:credential-dropdown" → Credential selection in node config
 - "n8n:credential-save" → Save button in credential modals
+
+// Expression Editors (CodeMirror-based)
+- "n8n:expression-editor" → CodeMirror expression input field
+- "n8n:expression-toggle" → Toggle between fixed value and expression mode
+
+// Code Nodes
+- "n8n:code-editor" → Code node editor area (CodeMirror/Monaco)
+- "n8n:code-node-tab" → Code/Settings tab buttons
+- "n8n:code-language-select" → JavaScript/Python language selector
+
+// Node Configuration
+- "n8n:parameter-input" → Any parameter input field
+- "n8n:parameter-label" → Parameter labels/names
+- "n8n:add-option-button" → Add optional field buttons
+- "n8n:collection-item" → Collection/array items
+- "n8n:resource-selector" → Resource locator component
 - "n8n:dropdown-input" → Dropdown input fields
 - "n8n:dropdown-item" → Items in dropdown menus
-- "n8n:node-panel" → Node details panel
+- "n8n:text-input" → Text input fields
+
+// NDV (Node Details View)
+- "n8n:ndv-container" → Full node details panel
+- "n8n:node-panel" → Node details panel (alias)
+- "n8n:ndv-close" → Back to canvas / close button
+- "n8n:ndv-output-panel" → Output data panel
+- "n8n:ndv-input-panel" → Input data panel
+- "n8n:run-data-tab" → Run data tabs (Output/Input)
+
+// Workflow Canvas
+- "n8n:canvas" → Workflow canvas area
+- "n8n:add-node-button" → Add node to canvas button
+- "n8n:node-creator" → Node creator/search panel
+- "n8n:node-creator-search" → Search bar for nodes
+- "n8n:canvas-node" → Any node on the canvas
+
+// Buttons
 - "n8n:execute-button" → Execute/test node button
 - "n8n:workflow-save" → Save workflow button
-- "n8n:credential-dropdown" → Credential selection dropdown
-- "n8n:text-input" → Text input fields
 - "n8n:close-modal" → Close/cancel modal buttons
 
+// Settings & Toggles
+- "n8n:settings-tab" → Settings tab button
+- "n8n:toggle-switch" → Toggle switches
+- "n8n:checkbox" → Checkbox inputs
+
 **n8n UI PATTERNS:**
-- Credential modals: Wait for modal, fill fields, click "n8n:credential-save"
+- Credential modals: Wait for "n8n:credential-modal", fill "n8n:credential-input" fields, click "n8n:credential-save"
+- Expression editors: Click "n8n:expression-toggle" first, then interact with "n8n:expression-editor"
+- Code nodes: Select "n8n:code-node-tab", then type in "n8n:code-editor"
 - Dropdowns: Click "n8n:dropdown-input", wait 500ms, click "n8n:dropdown-item"
-- Node config: Open node panel, use "n8n:text-input" for fields
+- Node config: Open "n8n:node-panel", use parameter selectors for fields
 - After clicking dropdowns, use ArrowDown + Enter for selection if click fails
+
+**CODEMIRROR HANDLING:**
+- CodeMirror editors (.cm-content) require special handling
+- First click to focus, then use Input.insertText for typing
+- Cannot use standard type() directly on CodeMirror
 
 **ROBUST APPROACH:**
 1. Always wait for elements before interacting (500-1000ms)
 2. Use n8n: shortcuts when targeting n8n UI elements
 3. For dropdowns, add a small delay between opening and selecting
 4. If a button might not be visible, scroll first
+5. For CodeMirror editors, click first then insert text
 
 Return ONLY a valid JSON array. Example:
 [
-  { "action": "waitForSelector", "selector": "n8n:credential-save", "timeout": 5000 },
+  { "action": "waitForSelector", "selector": "n8n:credential-modal", "timeout": 5000 },
+  { "action": "click", "selector": "n8n:credential-input" },
+  { "action": "type", "selector": "n8n:credential-input", "text": "my-api-key" },
   { "action": "click", "selector": "n8n:credential-save" }
 ]`;
 
