@@ -42,6 +42,12 @@ const providerMeta = [
     description: "Real-time web research",
     icon: Search,
   },
+  {
+    id: "gemini" as AIProvider,
+    name: "Gemini",
+    description: "Google's multimodal AI",
+    icon: Sparkles,
+  },
 ];
 
 export function ProviderSelector({ value, onChange, disabled, onOpenSettings }: ProviderSelectorProps) {
