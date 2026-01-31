@@ -35,6 +35,7 @@ export interface FixPromptContext {
   n8nOptions?: DirectorAiOptions;
   workflowNodes?: N8nNodeContext[];
   verificationData?: VerificationData;
+  knowledgeBaseHits?: number;
 }
 
 function getN8nUrlInfo(options?: DirectorAiOptions): { instanceUrl: string; workflowUrl: string; hostingType: string } {
@@ -89,7 +90,7 @@ function generateDefaultVerificationData(issue: FixIssue): VerificationData {
 }
 
 export function generateDirectorAiFixPrompt(context: FixPromptContext): string {
-  const { issue, businessContext, n8nOptions, verificationData: providedVerificationData } = context;
+  const { issue, businessContext, n8nOptions, verificationData: providedVerificationData, knowledgeBaseHits } = context;
   const urlInfo = getN8nUrlInfo(n8nOptions);
   
   // Use provided verification data or generate defaults
@@ -100,6 +101,7 @@ export function generateDirectorAiFixPrompt(context: FixPromptContext): string {
 ## Mode: BROWSER AUTOMATION REMEDIATION
 
 ⚠️ This is a FIX task. Perform the actions needed to resolve the failed verification.
+${knowledgeBaseHits && knowledgeBaseHits > 0 ? `\n📚 **Knowledge Base Enhanced:** This prompt includes insights from ${knowledgeBaseHits} previously successful fix${knowledgeBaseHits > 1 ? 'es' : ''}.` : ''}
 
 `;
 
