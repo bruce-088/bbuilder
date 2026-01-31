@@ -1,13 +1,14 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp, Copy } from "lucide-react";
+import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp, Copy, Eye, Zap } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useFixKnowledgeBase } from "@/hooks/useFixKnowledgeBase";
+import { useBrowserbaseAutomation } from "@/hooks/useBrowserbaseAutomation";
 
 interface FixGuidancePopoverProps {
   trigger: React.ReactNode;
@@ -20,6 +21,8 @@ interface FixGuidancePopoverProps {
   rootCause?: string;
   solutionSummary?: string;
   workflowName?: string;
+  n8nInstanceUrl?: string;
+  workflowId?: string;
 }
 
 export function FixGuidancePopover({ 
@@ -33,6 +36,8 @@ export function FixGuidancePopover({
   rootCause,
   solutionSummary,
   workflowName,
+  n8nInstanceUrl,
+  workflowId,
 }: FixGuidancePopoverProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -40,10 +45,14 @@ export function FixGuidancePopover({
   const [markedAsFixed, setMarkedAsFixed] = useState(false);
   const [directorCopied, setDirectorCopied] = useState(false);
   const { saveSuccessfulFix, isSaving } = useFixKnowledgeBase();
+  const browserbase = useBrowserbaseAutomation();
 
   // Use enhanced prompt if available, otherwise fall back to basic details
   const promptToCopy = directorAiPrompt || fixDetails;
   const hasEnhancedPrompt = !!directorAiPrompt;
+  
+  // Get n8n URL from props or localStorage
+  const effectiveN8nUrl = n8nInstanceUrl || localStorage.getItem("n8n_workflow_path") || "";
 
   const handleChatWithMya = async () => {
     if (!user) {
@@ -98,6 +107,25 @@ export function FixGuidancePopover({
     setTimeout(() => setDirectorCopied(false), 3000);
   };
 
+  const handleRunBrowserbase = async () => {
+    if (!hasEnhancedPrompt) {
+      toast.error("Enhanced prompt required for automation");
+      return;
+    }
+
+    if (!effectiveN8nUrl) {
+      toast.error("n8n instance URL not configured. Please set it in settings.");
+      return;
+    }
+
+    await browserbase.startAutomation({
+      fixPrompt: directorAiPrompt!,
+      n8nInstanceUrl: effectiveN8nUrl,
+      workflowId: workflowId,
+      workflowName: workflowName,
+    });
+  };
+
   const handleMarkAsFixed = async () => {
     if (!nodeType || !issueType) {
       toast.error("Missing fix context");
@@ -146,8 +174,71 @@ export function FixGuidancePopover({
             </p>
           )}
 
+          {/* Browserbase Automation Section */}
+          {hasEnhancedPrompt && effectiveN8nUrl && (
+            <div className="space-y-2">
+              <p className="text-xs text-muted-foreground font-medium">
+                🤖 AI Browser Agent
+              </p>
+              
+              {/* Run Browserbase Automation */}
+              <button
+                onClick={handleRunBrowserbase}
+                disabled={browserbase.isRunning}
+                className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 hover:bg-emerald-500/20 transition-colors text-left disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <div className="flex items-center justify-center w-8 h-8 rounded-full bg-emerald-500/20">
+                  {browserbase.isRunning ? (
+                    <Loader2 className="h-4 w-4 text-emerald-400 animate-spin" />
+                  ) : (
+                    <Zap className="h-4 w-4 text-emerald-400" />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-emerald-400">
+                    {browserbase.isRunning ? "Running automation..." : "Run Auto-Fix"}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    AI browser agent executes the fix
+                  </p>
+                </div>
+                <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
+                  New
+                </Badge>
+              </button>
+
+              {/* Live Session Link */}
+              {browserbase.debugUrl && (
+                <a
+                  href={browserbase.debugUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 text-xs text-blue-400 hover:text-blue-300 bg-blue-500/10 rounded-md hover:bg-blue-500/20 transition-colors"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  Watch live session
+                  <ExternalLink className="h-3 w-3 ml-auto" />
+                </a>
+              )}
+
+              {/* Status indicator */}
+              {browserbase.status !== "idle" && (
+                <div className={`text-xs px-2 py-1 rounded ${
+                  browserbase.status === "completed" 
+                    ? "bg-emerald-500/10 text-emerald-400" 
+                    : browserbase.status === "failed" 
+                    ? "bg-red-500/10 text-red-400"
+                    : "bg-blue-500/10 text-blue-400"
+                }`}>
+                  Status: {browserbase.status}
+                  {browserbase.error && ` - ${browserbase.error}`}
+                </div>
+              )}
+            </div>
+          )}
+
           <p className="text-xs text-muted-foreground">
-            Paste this prompt in:
+            Or paste this prompt in:
           </p>
 
           <div className="space-y-2">

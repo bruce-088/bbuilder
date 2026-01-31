@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.validate-api-key]
 verify_jwt = false
+
+[functions.browserbase-automation]
+verify_jwt = false
+
+[functions.n8n-webhook-health]
+verify_jwt = false

@@ -596,6 +596,8 @@ export function ExceptionReview({
                               rootCause={fix.rootCause}
                               solutionSummary={fix.solution}
                               workflowName={businessContext?.businessName}
+                              n8nInstanceUrl={n8nOptions?.n8nWorkflowPath || localStorage.getItem("n8n_workflow_path") || ""}
+                              workflowId={businessIdeaId}
                             />
                           </>
                         ) : (
@@ -616,6 +618,8 @@ export function ExceptionReview({
                               rootCause={fix.rootCause}
                               solutionSummary={fix.solution}
                               workflowName={businessContext?.businessName}
+                              n8nInstanceUrl={n8nOptions?.n8nWorkflowPath || localStorage.getItem("n8n_workflow_path") || ""}
+                              workflowId={businessIdeaId}
                             />
                             <Button
                               variant="secondary"
