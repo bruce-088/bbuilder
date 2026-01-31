@@ -1,216 +1,350 @@
 
+# Plan: Browserbase Edge Function Integration for Automated n8n Fixes
 
-# Plan: Enhance Director.ai Fix Prompts with Explicit n8n Canvas Navigation Instructions
+## Overview
 
-## Problem Analysis
+Create an edge function that integrates with the Browserbase API to programmatically execute browser automations for n8n workflow fixes. This will allow users to click a single "Run Fix" button instead of manually copying prompts to Director.ai or Claude Computer Use.
 
-Director.ai reported this feedback after receiving the current fix prompt:
-> "I am unable to navigate the workflow canvas to find and access the nodes that need fixing. The canvas is showing a vertical line of nodes but I cannot see them clearly or access their configuration panels."
+## Architecture
 
-**Root Cause:** The current `generateDirectorAiFixPrompt` function generates high-level fix steps (like "Update the Claude node API key") but lacks explicit browser automation instructions for:
-- How to navigate the n8n canvas (zoom, pan, scroll)
-- How to select and click on specific nodes
-- How to open node configuration panels
-- Visual cues to identify the correct node
+```text
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         User Interface                                   │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────────────────┐ │
+│  │ Execute Fix    │  │ Run Browserbase│  │ View Live Session          │ │
+│  │ (existing)     │  │ Automation     │  │ (debug URL)                │ │
+│  └───────┬────────┘  └───────┬────────┘  └────────────────────────────┘ │
+└──────────┼───────────────────┼──────────────────────────────────────────┘
+           │                   │
+           ▼                   ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                    Edge Function: browserbase-automation                  │
+│  ┌──────────────┐  ┌───────────────┐  ┌────────────────┐                 │
+│  │ Create       │  │ Execute       │  │ Poll Status    │                 │
+│  │ Session      │──│ Actions via   │──│ & Return       │                 │
+│  │              │  │ Stagehand     │  │ Results        │                 │
+│  └──────────────┘  └───────────────┘  └────────────────┘                 │
+└──────────────────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌──────────────────────────────────────────────────────────────────────────┐
+│                        Browserbase Cloud                                  │
+│  ┌──────────────┐  ┌───────────────┐  ┌────────────────┐                 │
+│  │ Cloud Browser│  │ Session       │  │ Debug/Live     │                 │
+│  │ Instance     │  │ Management    │  │ View URLs      │                 │
+│  └──────────────┘  └───────────────┘  └────────────────┘                 │
+└──────────────────────────────────────────────────────────────────────────┘
+```
 
-## Solution
+## Implementation Steps
 
-Enhance the Director.ai fix prompt generator to include a dedicated **n8n Canvas Navigation** section with explicit browser actions for interacting with the n8n workflow editor.
+### Phase 1: Edge Function Creation
+
+**Create `supabase/functions/browserbase-automation/index.ts`**
+
+This edge function will:
+1. Accept fix prompt and n8n configuration
+2. Create a Browserbase session via REST API
+3. Execute browser actions using the Stagehand-compatible format
+4. Return session ID and debug URLs for monitoring
+5. Poll for completion and return results
+
+Key endpoints:
+- `POST /v1/sessions` - Create browser session
+- Session connects via `connectUrl` for automation
+- Debug URLs allow users to watch the automation live
+
+### Phase 2: Hook and State Management
+
+**Create `src/hooks/useBrowserbaseAutomation.ts`**
+
+This hook will:
+- Manage automation state (idle, running, completed, failed)
+- Call the edge function with fix context
+- Provide live session URL for debugging
+- Handle polling for automation completion
+- Return structured results
+
+### Phase 3: UI Integration
+
+**Modify `src/components/AutomationEngine/FixGuidancePopover.tsx`**
+
+Add a new "Run Browserbase Automation" button that:
+- Triggers the automation flow
+- Shows loading state with live session link
+- Displays success/failure results
+- Falls back to copy-paste flow if automation fails
+
+**Modify `src/components/AutomationEngine/ExceptionReview.tsx`**
+
+Add "Auto-Fix with Browserbase" button to fix cards that:
+- Replaces/augments the "Execute Fix" button for compatible fixes
+- Shows real-time automation progress
+- Links to live session for debugging
+
+### Phase 4: Secrets Configuration
+
+**Required Secrets:**
+- `BROWSERBASE_API_KEY` - API key from Browserbase dashboard
+- `BROWSERBASE_PROJECT_ID` - Project ID for session creation
+
+Users will need to add these secrets before using the feature.
 
 ---
 
-## Technical Changes
+## Technical Details
 
-### File: `src/lib/directorAiFixPromptGenerator.ts`
-
-Add a new section to the generated prompt that provides explicit n8n UI navigation instructions.
-
-| Change | Description |
-|--------|-------------|
-| Add `generateCanvasNavigationInstructions()` helper | Generates node-specific navigation steps |
-| Add n8n UI navigation section | Includes zoom, pan, and node selection instructions |
-| Add visual identification cues | Describes what each node type looks like in n8n |
-| Add keyboard shortcuts | Include n8n keyboard shortcuts for navigation |
-
-### New Helper Function
+### Edge Function: `browserbase-automation/index.ts`
 
 ```typescript
-function generateCanvasNavigationInstructions(nodeNames: string[]): string {
-  return `
-## n8n Canvas Navigation Guide
+// Core structure
+interface AutomationRequest {
+  action: "start" | "status" | "stop";
+  fixPrompt: string;
+  n8nInstanceUrl: string;
+  workflowId: string;
+  sessionId?: string; // For status/stop actions
+}
 
-### How to Find Nodes on the Canvas
-1. **Zoom Out First**: Press \`Ctrl/Cmd + -\` or use scroll wheel while holding Ctrl to zoom out and see all nodes
-2. **Use Node Search**: Press \`Ctrl/Cmd + K\` to open the command palette, type the node name to jump to it
-3. **Pan the Canvas**: Click and drag on empty canvas space to pan around
-4. **Fit All Nodes**: Press \`Ctrl/Cmd + 0\` to fit all nodes in view
-
-### How to Open a Node's Configuration Panel
-1. **Single Click** on any node to select it (node gets highlighted with blue border)
-2. **Double Click** on the node to open its configuration panel (slides in from the right)
-3. Alternatively: Right-click the node and select "Open" from the context menu
-
-### Visual Node Identification
-${nodeNames.map(name => `- **${name}**: Look for a rectangular node with "${name}" label at the top`).join('\n')}
-
-### Nodes That Need Fixing
-${nodeNames.map((name, i) => `${i + 1}. Locate the **"${name}"** node on the canvas
-   - Double-click to open its configuration panel
-   - The panel will slide in from the right side of the screen`).join('\n')}
-
-### Troubleshooting Canvas Navigation
-- If nodes appear too small: Zoom in with \`Ctrl/Cmd + +\`
-- If canvas is panning unexpectedly: Click on empty space to deselect any nodes
-- If node panel won't open: Try clicking elsewhere first, then double-click the target node
-`;
+interface AutomationResponse {
+  success: boolean;
+  sessionId: string;
+  debugUrl: string;     // Live view URL for user monitoring
+  connectUrl: string;   // WebSocket URL for Stagehand
+  status: "running" | "completed" | "failed";
+  result?: {
+    actionsTaken: string[];
+    screenshots: string[];
+    errors: string[];
+  };
 }
 ```
 
-### Updated `generateDirectorAiFixPrompt` Function
+### Browser Actions Flow
 
-Add the canvas navigation section after "N8N Environment" and before "Issue Details":
+The edge function will translate the Director.ai prompt into Stagehand actions:
 
 ```typescript
-// Extract node names from steps or fix context
-const nodeNamesToFix = extractNodeNamesFromSteps(issue.steps);
-
-prompt += generateCanvasNavigationInstructions(nodeNamesToFix);
-
-// Enhance Fix Actions with explicit click instructions
-prompt += `## Fix Actions
-Execute the following browser actions to resolve this issue:
-
-1. Navigate to ${urlInfo.workflowUrl}
-2. Wait for the workflow canvas to fully load (nodes should be visible)
-3. Press \`Ctrl/Cmd + 0\` to fit all nodes in view
-`;
-
-issue.steps.forEach((step, i) => {
-  // Add explicit click/navigation context to each step
-  prompt += `${i + 4}. ${enhanceStepWithUIActions(step)}\n`;
-});
+// Example action sequence
+const actions = [
+  { type: "navigate", url: n8nWorkflowUrl },
+  { type: "wait", selector: ".n8n-canvas" },
+  { type: "act", instruction: "Press Ctrl+0 to fit all nodes in view" },
+  { type: "act", instruction: "Double-click on the Claude node to open configuration" },
+  { type: "act", instruction: "Click on the Credentials dropdown" },
+  // ... extracted from fix prompt
+];
 ```
 
-### New Helper: Extract Node Names
+### Hook: `useBrowserbaseAutomation.ts`
 
 ```typescript
-function extractNodeNamesFromSteps(steps: string[]): string[] {
-  const nodePatterns = [
-    /(?:the\s+)?["']?([A-Z][a-zA-Z0-9\s]+)["']?\s+node/gi,
-    /(?:Update|Configure|Fix|Open)\s+["']?([A-Z][a-zA-Z0-9\s]+)["']?/gi,
-  ];
-  
-  const nodeNames = new Set<string>();
-  steps.forEach(step => {
-    nodePatterns.forEach(pattern => {
-      let match;
-      while ((match = pattern.exec(step)) !== null) {
-        const name = match[1].trim();
-        if (name.length > 2 && !['the', 'this', 'that'].includes(name.toLowerCase())) {
-          nodeNames.add(name);
-        }
-      }
-    });
-  });
-  
-  return Array.from(nodeNames);
-}
-```
-
-### New Helper: Enhance Steps with UI Actions
-
-```typescript
-function enhanceStepWithUIActions(step: string): string {
-  // If step mentions a node, add explicit click instructions
-  const nodeMatch = step.match(/["']?([A-Z][a-zA-Z0-9\s]+)["']?\s+node/i);
-  if (nodeMatch) {
-    const nodeName = nodeMatch[1];
-    return `**Double-click** on the "${nodeName}" node to open its configuration panel. ${step}`;
-  }
-  
-  // If step mentions credentials, add navigation context
-  if (step.toLowerCase().includes('credential')) {
-    return `${step}. Look for the "Credential" dropdown field in the node's configuration panel.`;
-  }
-  
-  // If step mentions API key, add field location context
-  if (step.toLowerCase().includes('api key') || step.toLowerCase().includes('apikey')) {
-    return `${step}. The API key field is typically in the "Authentication" or "Credentials" section of the node panel.`;
-  }
-  
-  return step;
+interface UseBrowserbaseAutomation {
+  startAutomation: (params: AutomationParams) => Promise<void>;
+  stopAutomation: () => Promise<void>;
+  status: "idle" | "starting" | "running" | "completed" | "failed";
+  debugUrl: string | null;
+  result: AutomationResult | null;
+  error: string | null;
 }
 ```
 
 ---
+
+## Files to Create
+
+| File | Purpose |
+|------|---------|
+| `supabase/functions/browserbase-automation/index.ts` | Edge function for Browserbase API integration |
+| `src/hooks/useBrowserbaseAutomation.ts` | React hook for managing automation state |
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `src/lib/directorAiFixPromptGenerator.ts` | Add canvas navigation helper functions and enhance fix prompt generation |
+| `supabase/config.toml` | Add `[functions.browserbase-automation]` with `verify_jwt = false` |
+| `src/components/AutomationEngine/FixGuidancePopover.tsx` | Add "Run Browserbase" button with live session link |
+| `src/components/AutomationEngine/ExceptionReview.tsx` | Add auto-fix button to fix recommendation cards |
 
 ---
 
-## Example Enhanced Output
+## Edge Function Code Structure
 
-Before (current):
-```
-## Fix Actions
-1. Navigate to https://n8n.example.com/workflows
-2. Update the Claude node API key
-3. Connect the Beehiiv credentials
-4. Fix the Email node template
-```
+```typescript
+// supabase/functions/browserbase-automation/index.ts
 
-After (enhanced):
-```
-## n8n Canvas Navigation Guide
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-### How to Find Nodes on the Canvas
-1. **Zoom Out First**: Press `Ctrl/Cmd + -` or use scroll wheel while holding Ctrl
-2. **Use Node Search**: Press `Ctrl/Cmd + K` to open the command palette
-3. **Pan the Canvas**: Click and drag on empty canvas space
-4. **Fit All Nodes**: Press `Ctrl/Cmd + 0`
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, ...",
+};
 
-### How to Open a Node's Configuration Panel
-1. **Single Click** on any node to select it
-2. **Double Click** on the node to open its configuration panel
+const BROWSERBASE_API_URL = "https://api.browserbase.com";
 
-### Nodes That Need Fixing
-1. Locate the **"Claude"** node on the canvas
-   - Double-click to open its configuration panel
-2. Locate the **"Beehiiv"** node on the canvas
-   - Double-click to open its configuration panel
-3. Locate the **"Email"** node on the canvas
-   - Double-click to open its configuration panel
+interface AutomationRequest {
+  action: "start" | "status" | "stop";
+  fixPrompt: string;
+  n8nInstanceUrl: string;
+  workflowId: string;
+  workflowName?: string;
+  sessionId?: string;
+}
 
-## Fix Actions
-1. Navigate to https://n8n.example.com/workflows
-2. Wait for the workflow canvas to fully load
-3. Press `Ctrl/Cmd + 0` to fit all nodes in view
-4. **Double-click** on the "Claude" node to open its configuration panel. Update the API key in the "Credentials" section.
-5. **Double-click** on the "Beehiiv" node to open its configuration panel. Connect the credentials dropdown.
-6. **Double-click** on the "Email" node to open its configuration panel. Fix the HTML template field.
+async function createSession(projectId: string, apiKey: string) {
+  const response = await fetch(`${BROWSERBASE_API_URL}/v1/sessions`, {
+    method: "POST",
+    headers: {
+      "X-BB-API-Key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      projectId,
+      browserSettings: {
+        viewport: { width: 1920, height: 1080 },
+      },
+    }),
+  });
+  return response.json();
+}
+
+async function executeAutomation(sessionId: string, connectUrl: string, actions: string[]) {
+  // Use Browserbase connect URL to execute Stagehand actions
+  // This would integrate with Stagehand SDK for natural language actions
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const BROWSERBASE_API_KEY = Deno.env.get("BROWSERBASE_API_KEY");
+  const BROWSERBASE_PROJECT_ID = Deno.env.get("BROWSERBASE_PROJECT_ID");
+
+  if (!BROWSERBASE_API_KEY || !BROWSERBASE_PROJECT_ID) {
+    return new Response(
+      JSON.stringify({ 
+        error: "Browserbase credentials not configured. Add BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID secrets." 
+      }),
+      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  try {
+    const body: AutomationRequest = await req.json();
+    
+    if (body.action === "start") {
+      // 1. Create Browserbase session
+      const session = await createSession(BROWSERBASE_PROJECT_ID, BROWSERBASE_API_KEY);
+      
+      // 2. Return session info for client to monitor
+      return new Response(
+        JSON.stringify({
+          success: true,
+          sessionId: session.id,
+          debugUrl: `https://www.browserbase.com/sessions/${session.id}`,
+          connectUrl: session.connectUrl,
+          status: "running",
+        }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    // ... handle status and stop actions
+    
+  } catch (error) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+});
 ```
 
 ---
 
-## Expected Behavior After Implementation
+## UI Components Update
 
-1. Director.ai prompts will include explicit canvas navigation instructions
-2. AI agents will know how to zoom, pan, and search for nodes
-3. Each fix step will include explicit "double-click to open" instructions
-4. Node names will be extracted and listed with navigation guidance
-5. Keyboard shortcuts for n8n will be included for faster navigation
+### FixGuidancePopover - New Button
+
+```tsx
+{/* Run Browserbase Automation */}
+<button
+  onClick={handleRunBrowserbase}
+  disabled={isRunningAutomation || !hasBrowserbaseCredentials}
+  className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors text-left"
+>
+  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+    {isRunningAutomation ? (
+      <Loader2 className="h-4 w-4 text-primary animate-spin" />
+    ) : (
+      <Bot className="h-4 w-4 text-primary" />
+    )}
+  </div>
+  <div className="flex-1 min-w-0">
+    <p className="text-sm font-medium">
+      {isRunningAutomation ? "Running automation..." : "Run Browserbase Automation"}
+    </p>
+    <p className="text-xs text-muted-foreground">
+      AI browser agent executes the fix for you
+    </p>
+  </div>
+  {automationDebugUrl && (
+    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+  )}
+</button>
+
+{/* Live Session Link */}
+{automationDebugUrl && (
+  <a 
+    href={automationDebugUrl} 
+    target="_blank" 
+    className="text-xs text-blue-400 hover:underline flex items-center gap-1"
+  >
+    <Eye className="h-3 w-3" /> Watch live session
+  </a>
+)}
+```
 
 ---
 
-## Validation Criteria
+## User Flow
 
-- Generated prompts include "n8n Canvas Navigation Guide" section
-- Keyboard shortcuts (Ctrl+K, Ctrl+0, etc.) are documented
-- Node names are extracted from fix steps and listed
-- Each step includes explicit click/double-click instructions
-- Director.ai can successfully navigate to and open node configuration panels
+1. User sees a fix recommendation in Exception Review
+2. User clicks "Run Browserbase Automation" button
+3. Edge function creates a Browserbase session
+4. User gets a "Watch live session" link to monitor in real-time
+5. Browser automation navigates to n8n, opens the node, applies fixes
+6. Automation completes and returns success/failure status
+7. User can verify the fix was applied correctly
 
+---
+
+## Secrets Required
+
+Before using this feature, users must configure:
+
+| Secret | Description |
+|--------|-------------|
+| `BROWSERBASE_API_KEY` | API key from https://browserbase.com/settings |
+| `BROWSERBASE_PROJECT_ID` | Project ID from Browserbase dashboard |
+
+The edge function will return a helpful error message if these are not configured.
+
+---
+
+## Limitations and Considerations
+
+1. **Session Duration**: Browserbase sessions have timeouts (configurable up to 6 hours)
+2. **Cost**: Browserbase has usage-based pricing for browser minutes
+3. **n8n Authentication**: User may need to be logged into n8n in the browser context
+4. **Complexity**: Some fixes may require OAuth flows that can't be fully automated
+
+---
+
+## Future Enhancements
+
+1. **Context Persistence**: Save browser context to maintain n8n login across sessions
+2. **Screenshot Capture**: Take before/after screenshots for verification
+3. **Rollback Support**: Capture workflow state before changes for undo capability
+4. **Batch Fixes**: Execute multiple fixes in a single session to reduce costs
