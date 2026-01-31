@@ -29,6 +29,7 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
     phaseResults,
     startAutomation,
     applyAIFixes,
+    executeAIFix,
     cancelAutomation,
     phases,
   } = useAutomationRun();
@@ -61,6 +62,10 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
       (r) => r.status === "error" || r.status === "warning"
     );
     return await applyAIFixes(businessIdeaId, exceptions, selectedProvider);
+  };
+
+  const handleExecuteFix = async (fix: import("@/hooks/useAutomationRun").AIFix) => {
+    return await executeAIFix(businessIdeaId, fix, selectedProvider);
   };
 
   return (
@@ -141,6 +146,8 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
                   (r) => r.status === "error" || r.status === "warning"
                 )}
                 onApplyAIFixes={handleApplyAIFixes}
+                onExecuteFix={handleExecuteFix}
+                businessIdeaId={businessIdeaId}
               />
             )}
 

@@ -29,6 +29,26 @@ export interface AutomationRun {
   completedAt: string | null;
 }
 
+export interface AIFix {
+  phase: string;
+  rootCause: string;
+  solution: string;
+  steps: string[];
+  prevention: string;
+  confidence: "high" | "medium" | "low";
+  automatable: boolean;
+  automationMethod?: "workflow_json" | "api_call" | "none";
+  workflowPatch?: Record<string, unknown>;
+  requiredUserAction?: string;
+}
+
+export interface ExecuteFixResult {
+  success: boolean;
+  message: string;
+  updatedWorkflowJson?: object;
+  importUrl?: string;
+}
+
 interface UseAutomationRunReturn {
   run: AutomationRun | null;
   isRunning: boolean;
@@ -36,6 +56,7 @@ interface UseAutomationRunReturn {
   phaseResults: PhaseResult[];
   startAutomation: (businessIdeaId: string, aiProvider?: string) => Promise<void>;
   applyAIFixes: (businessIdeaId: string, exceptions: PhaseResult[], aiProvider?: string) => Promise<PhaseResult | null>;
+  executeAIFix: (businessIdeaId: string, fix: AIFix, aiProvider?: string) => Promise<ExecuteFixResult>;
   cancelAutomation: () => void;
   phases: AutomationPhase[];
 }
@@ -236,6 +257,59 @@ export function useAutomationRun(): UseAutomationRunReturn {
     [user, toast]
   );
 
+  const executeAIFix = useCallback(
+    async (businessIdeaId: string, fix: AIFix, aiProvider: string = "lovable"): Promise<ExecuteFixResult> => {
+      if (!user) {
+        return {
+          success: false,
+          message: "Authentication required. Please sign in to execute fixes.",
+        };
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              action: "execute-fix",
+              businessIdeaId,
+              aiProvider,
+              fix,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Request failed with status ${response.status}`);
+        }
+
+        const result = await response.json();
+
+        return {
+          success: result.status === "success",
+          message: result.message,
+          updatedWorkflowJson: result.data?.updatedWorkflowJson,
+          importUrl: result.data?.importUrl,
+        };
+      } catch (error) {
+        console.error("Execute fix error:", error);
+        return {
+          success: false,
+          message: error instanceof Error ? error.message : "Unknown error occurred",
+        };
+      }
+    },
+    [user]
+  );
+
   return {
     run,
     isRunning,
@@ -243,6 +317,7 @@ export function useAutomationRun(): UseAutomationRunReturn {
     phaseResults,
     startAutomation,
     applyAIFixes,
+    executeAIFix,
     cancelAutomation,
     phases: AUTOMATION_PHASES,
   };
