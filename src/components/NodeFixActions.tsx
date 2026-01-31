@@ -242,12 +242,10 @@ Based on the current configuration above, please:
           variant="ghost"
           size="sm"
           className="h-6 px-2 text-xs gap-1 text-muted-foreground hover:text-foreground"
-          asChild
+          onClick={() => window.open(nodeLink, "_blank", "noopener,noreferrer")}
         >
-          <a href={nodeLink} target="_blank" rel="noopener noreferrer">
-            <ExternalLink className="w-3 h-3" />
-            Open in n8n
-          </a>
+          <ExternalLink className="w-3 h-3" />
+          Open in n8n
         </Button>
       )}
 
