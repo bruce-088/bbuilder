@@ -15,6 +15,7 @@ import {
   Zap,
   Brain,
   Search,
+  Sparkles,
   CheckCircle2,
   XCircle,
   Loader2,
@@ -45,14 +46,17 @@ export function AISettingsDialog({
   const [openaiKey, setOpenaiKey] = useState("");
   const [claudeKey, setClaudeKey] = useState("");
   const [perplexityKey, setPerplexityKey] = useState("");
+  const [geminiKey, setGeminiKey] = useState("");
   const [showOpenaiKey, setShowOpenaiKey] = useState(false);
   const [showClaudeKey, setShowClaudeKey] = useState(false);
   const [showPerplexityKey, setShowPerplexityKey] = useState(false);
+  const [showGeminiKey, setShowGeminiKey] = useState(false);
   const [activeTab, setActiveTab] = useState("openai");
 
   const openaiProvider = providers.find((p) => p.id === "openai");
   const claudeProvider = providers.find((p) => p.id === "claude");
   const perplexityProvider = providers.find((p) => p.id === "perplexity");
+  const geminiProvider = providers.find((p) => p.id === "gemini");
 
   const handleSaveOpenAI = async () => {
     if (!openaiKey.trim()) return;
@@ -90,6 +94,18 @@ export function AISettingsDialog({
     await removeApiKey("perplexity");
   };
 
+  const handleSaveGemini = async () => {
+    if (!geminiKey.trim()) return;
+    const success = await saveApiKey("gemini", geminiKey.trim());
+    if (success) {
+      setGeminiKey("");
+    }
+  };
+
+  const handleRemoveGemini = async () => {
+    await removeApiKey("gemini");
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -98,7 +114,7 @@ export function AISettingsDialog({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="openai" className="flex items-center gap-1.5">
               <Zap className="h-3.5 w-3.5" />
               OpenAI
@@ -110,6 +126,13 @@ export function AISettingsDialog({
               <Brain className="h-3.5 w-3.5" />
               Claude
               {claudeProvider?.configured && (
+                <CheckCircle2 className="h-3 w-3 text-green-500" />
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="gemini" className="flex items-center gap-1.5">
+              <Sparkles className="h-3.5 w-3.5" />
+              Gemini
+              {geminiProvider?.configured && (
                 <CheckCircle2 className="h-3 w-3 text-green-500" />
               )}
             </TabsTrigger>
@@ -338,6 +361,116 @@ export function AISettingsDialog({
                 <li>• Deep automation strategy</li>
                 <li>• Comprehensive troubleshooting</li>
                 <li>• Long-form content generation</li>
+              </ul>
+            </div>
+          </TabsContent>
+
+          {/* Gemini Tab */}
+          <TabsContent value="gemini" className="space-y-4 mt-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="font-medium">Google Gemini</h3>
+                <p className="text-sm text-muted-foreground">
+                  Multimodal AI with strong reasoning
+                </p>
+              </div>
+              {geminiProvider?.configured ? (
+                <Badge variant="default" className="bg-green-600">
+                  <CheckCircle2 className="h-3 w-3 mr-1" />
+                  Connected
+                </Badge>
+              ) : (
+                <Badge variant="secondary">
+                  <XCircle className="h-3 w-3 mr-1" />
+                  Not Connected
+                </Badge>
+              )}
+            </div>
+
+            {geminiProvider?.configured ? (
+              <div className="space-y-3">
+                <Alert>
+                  <AlertDescription className="flex items-center justify-between">
+                    <span>Your Gemini API key is configured and ready to use.</span>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleRemoveGemini}
+                      disabled={saving}
+                    >
+                      <Trash2 className="h-3.5 w-3.5 mr-1" />
+                      Remove
+                    </Button>
+                  </AlertDescription>
+                </Alert>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label htmlFor="gemini-key">API Key</Label>
+                  <div className="relative">
+                    <Input
+                      id="gemini-key"
+                      type={showGeminiKey ? "text" : "password"}
+                      placeholder="AIza..."
+                      value={geminiKey}
+                      onChange={(e) => setGeminiKey(e.target.value)}
+                      className="pr-10"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3"
+                      onClick={() => setShowGeminiKey(!showGeminiKey)}
+                    >
+                      {showGeminiKey ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <a
+                    href="https://aistudio.google.com/apikey"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline flex items-center gap-1"
+                  >
+                    Get your API key
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                  <Button
+                    onClick={handleSaveGemini}
+                    disabled={!geminiKey.trim() || saving || testing === "gemini"}
+                  >
+                    {testing === "gemini" ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Testing...
+                      </>
+                    ) : saving ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      "Save & Connect"
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="bg-muted/50 rounded-lg p-3 text-sm">
+              <p className="font-medium mb-1">Best for:</p>
+              <ul className="text-muted-foreground space-y-0.5">
+                <li>• Multimodal tasks (text + images)</li>
+                <li>• Large context processing</li>
+                <li>• Fast, cost-effective generation</li>
               </ul>
             </div>
           </TabsContent>
