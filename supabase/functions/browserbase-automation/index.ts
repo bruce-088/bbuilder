@@ -8,12 +8,13 @@ const corsHeaders = {
 const BROWSERBASE_API_URL = "https://api.browserbase.com";
 
 interface AutomationRequest {
-  action: "start" | "status" | "stop" | "execute";
+  action: "start" | "status" | "stop" | "execute" | "create-context" | "get-context";
   fixPrompt?: string;
   n8nInstanceUrl?: string;
   workflowId?: string;
   workflowName?: string;
   sessionId?: string;
+  contextId?: string;
   actions?: BrowserAction[];
 }
 
@@ -23,6 +24,13 @@ interface BrowserAction {
   selector?: string;
   instruction?: string;
   timeout?: number;
+}
+
+interface ContextResponse {
+  id: string;
+  projectId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 interface SessionResponse {
@@ -45,7 +53,50 @@ interface CreateSessionResponse extends SessionResponse {
   connectUrl: string;
 }
 
-async function createSession(projectId: string, apiKey: string): Promise<CreateSessionResponse> {
+// Create a persistent context for storing cookies/localStorage
+async function createContext(projectId: string, apiKey: string): Promise<ContextResponse> {
+  const response = await fetch(`${BROWSERBASE_API_URL}/v1/contexts`, {
+    method: "POST",
+    headers: {
+      "X-BB-API-Key": apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      projectId,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to create Browserbase context: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+// Get an existing context
+async function getContext(contextId: string, apiKey: string): Promise<ContextResponse | null> {
+  const response = await fetch(`${BROWSERBASE_API_URL}/v1/contexts/${contextId}`, {
+    method: "GET",
+    headers: {
+      "X-BB-API-Key": apiKey,
+    },
+  });
+
+  if (response.status === 404) {
+    return null;
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to get context: ${response.status} ${errorText}`);
+  }
+
+  return response.json();
+}
+
+// Create session with optional context for auth persistence
+async function createSession(projectId: string, apiKey: string, contextId?: string): Promise<CreateSessionResponse> {
   const response = await fetch(`${BROWSERBASE_API_URL}/v1/sessions`, {
     method: "POST",
     headers: {
@@ -59,6 +110,7 @@ async function createSession(projectId: string, apiKey: string): Promise<CreateS
       },
       keepAlive: true,
       timeout: 300, // 5 minute timeout
+      ...(contextId && { contextId }), // Include context if provided
     }),
   });
 
@@ -200,11 +252,64 @@ serve(async (req) => {
 
   try {
     const body: AutomationRequest = await req.json();
-    const { action, fixPrompt, n8nInstanceUrl, workflowId, workflowName, sessionId, actions: providedActions } = body;
+    const { action, fixPrompt, n8nInstanceUrl, workflowId, workflowName, sessionId, contextId, actions: providedActions } = body;
 
-    console.log(`Browserbase automation action: ${action}`, { workflowId, workflowName, sessionId });
+    console.log(`Browserbase automation action: ${action}`, { workflowId, workflowName, sessionId, contextId });
 
     switch (action) {
+      // Create a persistent context for storing n8n auth
+      case "create-context": {
+        const context = await createContext(BROWSERBASE_PROJECT_ID, BROWSERBASE_API_KEY);
+        
+        console.log(`Created persistent context ${context.id}`);
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            contextId: context.id,
+            message: "Persistent context created. Sessions using this context will share cookies and localStorage.",
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      // Verify a context still exists
+      case "get-context": {
+        if (!contextId) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: "contextId is required",
+            }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const context = await getContext(contextId, BROWSERBASE_API_KEY);
+        
+        if (!context) {
+          return new Response(
+            JSON.stringify({
+              success: false,
+              exists: false,
+              message: "Context not found or expired",
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            exists: true,
+            contextId: context.id,
+            createdAt: context.createdAt,
+            updatedAt: context.updatedAt,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
       case "start": {
         if (!fixPrompt || !n8nInstanceUrl) {
           return new Response(
@@ -216,23 +321,25 @@ serve(async (req) => {
           );
         }
 
-        // Create a new Browserbase session
-        const session = await createSession(BROWSERBASE_PROJECT_ID, BROWSERBASE_API_KEY);
+        // Create a new Browserbase session with optional context for auth persistence
+        const session = await createSession(BROWSERBASE_PROJECT_ID, BROWSERBASE_API_KEY, contextId);
         
         // Parse the fix prompt into browser actions
         const browserActions = parseFixPromptToActions(fixPrompt, n8nInstanceUrl);
 
-        console.log(`Created session ${session.id} with ${browserActions.length} actions`);
+        console.log(`Created session ${session.id} with ${browserActions.length} actions${contextId ? ` (using context ${contextId})` : ''}`);
 
         return new Response(
           JSON.stringify({
             success: true,
             sessionId: session.id,
+            contextId: session.contextId || contextId,
             debugUrl: `https://www.browserbase.com/sessions/${session.id}`,
             connectUrl: session.connectUrl,
             status: "running",
             actions: browserActions,
-            message: `Session created. ${browserActions.length} actions queued for execution.`,
+            message: `Session created${contextId ? ' with persistent auth context' : ''}. ${browserActions.length} actions queued for execution.`,
+            authPersisted: !!contextId,
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );

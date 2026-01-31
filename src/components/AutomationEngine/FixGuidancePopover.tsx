@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp, Copy, Eye, Zap } from "lucide-react";
+import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp, Copy, Eye, Zap, KeyRound, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -177,9 +177,17 @@ export function FixGuidancePopover({
           {/* Browserbase Automation Section */}
           {hasEnhancedPrompt && effectiveN8nUrl && (
             <div className="space-y-2">
-              <p className="text-xs text-muted-foreground font-medium">
-                🤖 AI Browser Agent
-              </p>
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-muted-foreground font-medium">
+                  🤖 AI Browser Agent
+                </p>
+                {browserbase.authPersisted && (
+                  <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30 flex items-center gap-1">
+                    <KeyRound className="h-2.5 w-2.5" />
+                    Auth Saved
+                  </Badge>
+                )}
+              </div>
               
               {/* Run Browserbase Automation */}
               <button
@@ -199,13 +207,34 @@ export function FixGuidancePopover({
                     {browserbase.isRunning ? "Running automation..." : "Run Auto-Fix"}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    AI browser agent executes the fix
+                    {browserbase.contextId 
+                      ? "Using saved n8n login session" 
+                      : "AI browser agent executes the fix"
+                    }
                   </p>
                 </div>
                 <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-400 border-emerald-500/30">
                   New
                 </Badge>
               </button>
+
+              {/* Auth persistence hint */}
+              {!browserbase.authPersisted && !browserbase.isRunning && (
+                <p className="text-[10px] text-muted-foreground/70 px-1">
+                  💡 Log into n8n once during a session to save auth for future runs
+                </p>
+              )}
+
+              {/* Clear auth context option */}
+              {browserbase.contextId && (
+                <button
+                  onClick={() => browserbase.clearStoredContext(effectiveN8nUrl)}
+                  className="flex items-center gap-1.5 text-[10px] text-muted-foreground hover:text-foreground transition-colors px-1"
+                >
+                  <X className="h-3 w-3" />
+                  Clear saved login
+                </button>
+              )}
 
               {/* Live Session Link */}
               {browserbase.debugUrl && (
