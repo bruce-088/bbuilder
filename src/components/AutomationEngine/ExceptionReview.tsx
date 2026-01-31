@@ -11,6 +11,8 @@ import {
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import { FixGuidancePopover } from "./FixGuidancePopover";
 import type { PhaseResult } from "@/hooks/useAutomationRun";
 
@@ -46,6 +48,7 @@ interface ExceptionReviewProps {
 export function ExceptionReview({ exceptions, onApplyAIFixes, onExecuteFix, businessIdeaId }: ExceptionReviewProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>("all");
   const [isApplyingFixes, setIsApplyingFixes] = useState(false);
@@ -153,14 +156,51 @@ export function ExceptionReview({ exceptions, onApplyAIFixes, onExecuteFix, busi
     }, 3000);
   };
 
-  const handleChatWithMya = (fix: AIFix) => {
+  const handleChatWithMya = async (fix: AIFix) => {
+    if (!user) {
+      toast({
+        title: "Sign in required",
+        description: "Please sign in to chat with Mya.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     const fixDetails = getFixDetailsText(fix);
-    navigate("/chat", {
-      state: {
-        prefillMessage: `I need help with this automation fix:\n\n${fixDetails}`,
-        fixContext: fixDetails,
-      },
-    });
+    
+    try {
+      // Create a new conversation first
+      const { data: conversation, error } = await supabase
+        .from("conversations")
+        .insert({
+          user_id: user.id,
+          title: `Fix: ${fix.phase} Phase`,
+        })
+        .select("id")
+        .single();
+
+      if (error) throw error;
+
+      // Navigate to the new conversation with the fix context
+      navigate(`/chat/${conversation.id}`, {
+        state: {
+          initialPrompt: `I need help with this automation fix:\n\n${fixDetails}`,
+          n8nContext: {
+            workflowId: businessIdeaId || "unknown",
+            workflowName: `${fix.phase} Phase Fix`,
+            nodes: fix.workflowPatch?.nodes || [],
+            connections: fix.workflowPatch?.connections || {},
+          },
+        },
+      });
+    } catch (error) {
+      console.error("Error creating conversation:", error);
+      toast({
+        title: "Error",
+        description: "Could not start chat. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const toggleFix = (index: number) => {
