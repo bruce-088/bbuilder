@@ -21,6 +21,7 @@ export interface AutomationResult {
   errors?: string[];
   startedAt?: string;
   completedAt?: string;
+  authPersisted?: boolean;
 }
 
 export interface AutomationParams {
@@ -33,6 +34,7 @@ export interface AutomationParams {
 interface StartResponse {
   success: boolean;
   sessionId?: string;
+  contextId?: string;
   debugUrl?: string;
   connectUrl?: string;
   status?: string;
@@ -40,6 +42,7 @@ interface StartResponse {
   message?: string;
   error?: string;
   credentialsConfigured?: boolean;
+  authPersisted?: boolean;
 }
 
 interface StatusResponse {
@@ -53,6 +56,21 @@ interface StatusResponse {
   error?: string;
 }
 
+interface ContextResponse {
+  success: boolean;
+  contextId?: string;
+  exists?: boolean;
+  message?: string;
+  error?: string;
+}
+
+// Helper to get context key for localStorage
+function getContextStorageKey(n8nUrl: string): string {
+  // Normalize URL to create a consistent key
+  const normalized = n8nUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
+  return `browserbase_context_${normalized}`;
+}
+
 export function useBrowserbaseAutomation() {
   const [status, setStatus] = useState<AutomationStatus>("idle");
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -61,6 +79,8 @@ export function useBrowserbaseAutomation() {
   const [error, setError] = useState<string | null>(null);
   const [actions, setActions] = useState<BrowserAction[]>([]);
   const [credentialsConfigured, setCredentialsConfigured] = useState<boolean | null>(null);
+  const [contextId, setContextId] = useState<string | null>(null);
+  const [authPersisted, setAuthPersisted] = useState<boolean>(false);
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -73,6 +93,78 @@ export function useBrowserbaseAutomation() {
       }
     };
   }, []);
+
+  // Create a new persistent context
+  const createContext = useCallback(async (): Promise<string | null> => {
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke<ContextResponse>(
+        "browserbase-automation",
+        {
+          body: { action: "create-context" },
+        }
+      );
+
+      if (fnError || !data?.success) {
+        console.error("Failed to create context:", fnError || data?.error);
+        return null;
+      }
+
+      return data.contextId || null;
+    } catch (err) {
+      console.error("Context creation failed:", err);
+      return null;
+    }
+  }, []);
+
+  // Verify an existing context is still valid
+  const verifyContext = useCallback(async (ctxId: string): Promise<boolean> => {
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke<ContextResponse>(
+        "browserbase-automation",
+        {
+          body: { action: "get-context", contextId: ctxId },
+        }
+      );
+
+      if (fnError) {
+        console.error("Context verification error:", fnError);
+        return false;
+      }
+
+      return data?.exists === true;
+    } catch (err) {
+      console.error("Context verification failed:", err);
+      return false;
+    }
+  }, []);
+
+  // Get or create a context for a specific n8n instance
+  const getOrCreateContext = useCallback(async (n8nUrl: string): Promise<string | null> => {
+    const storageKey = getContextStorageKey(n8nUrl);
+    const storedContextId = localStorage.getItem(storageKey);
+
+    // Check if we have a stored context and verify it's still valid
+    if (storedContextId) {
+      const isValid = await verifyContext(storedContextId);
+      if (isValid) {
+        console.log(`Using existing context for ${n8nUrl}: ${storedContextId}`);
+        return storedContextId;
+      } else {
+        // Context expired or deleted, remove from storage
+        localStorage.removeItem(storageKey);
+      }
+    }
+
+    // Create a new context
+    const newContextId = await createContext();
+    if (newContextId) {
+      localStorage.setItem(storageKey, newContextId);
+      console.log(`Created new context for ${n8nUrl}: ${newContextId}`);
+      toast.success("Created persistent auth context for n8n");
+    }
+
+    return newContextId;
+  }, [createContext, verifyContext]);
 
   const checkStatus = useCallback(async (sid: string): Promise<StatusResponse | null> => {
     try {
@@ -146,8 +238,13 @@ export function useBrowserbaseAutomation() {
     setResult(null);
     setSessionId(null);
     setDebugUrl(null);
+    setAuthPersisted(false);
 
     try {
+      // Get or create a persistent context for this n8n instance
+      const ctxId = await getOrCreateContext(params.n8nInstanceUrl);
+      setContextId(ctxId);
+
       const { data, error: fnError } = await supabase.functions.invoke<StartResponse>(
         "browserbase-automation",
         {
@@ -157,6 +254,7 @@ export function useBrowserbaseAutomation() {
             n8nInstanceUrl: params.n8nInstanceUrl,
             workflowId: params.workflowId,
             workflowName: params.workflowName,
+            contextId: ctxId, // Include context for auth persistence
           },
         }
       );
@@ -178,25 +276,37 @@ export function useBrowserbaseAutomation() {
       setDebugUrl(data.debugUrl!);
       setActions(data.actions || []);
       setStatus("running");
+      setAuthPersisted(!!data.authPersisted);
+
+      // Update context ID if returned from server
+      if (data.contextId) {
+        setContextId(data.contextId);
+        const storageKey = getContextStorageKey(params.n8nInstanceUrl);
+        localStorage.setItem(storageKey, data.contextId);
+      }
 
       setResult({
         sessionId: data.sessionId!,
         status: "running",
         totalActions: data.actions?.length || 0,
         startedAt: new Date().toISOString(),
+        authPersisted: !!data.authPersisted,
       });
 
       // Start polling for status
       startPolling(data.sessionId!);
 
-      toast.success("Automation started! Click 'Watch Live' to see it in action.");
+      const authMessage = data.authPersisted 
+        ? "Automation started with persistent auth! Click 'Watch Live' to see it."
+        : "Automation started! Click 'Watch Live' to see it. Log in once to persist auth.";
+      toast.success(authMessage);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
       setError(errorMessage);
       setStatus("failed");
       toast.error(errorMessage);
     }
-  }, [startPolling]);
+  }, [startPolling, getOrCreateContext]);
 
   const stopAutomation = useCallback(async (): Promise<void> => {
     if (!sessionId) {
@@ -247,6 +357,17 @@ export function useBrowserbaseAutomation() {
     setResult(null);
     setError(null);
     setActions([]);
+    setContextId(null);
+    setAuthPersisted(false);
+  }, []);
+
+  // Clear the stored context for a specific n8n instance (useful if user wants to re-login)
+  const clearStoredContext = useCallback((n8nUrl: string) => {
+    const storageKey = getContextStorageKey(n8nUrl);
+    localStorage.removeItem(storageKey);
+    setContextId(null);
+    setAuthPersisted(false);
+    toast.info("Auth context cleared. You'll need to log in again on next run.");
   }, []);
 
   return {
@@ -258,6 +379,8 @@ export function useBrowserbaseAutomation() {
     error,
     actions,
     credentialsConfigured,
+    contextId,
+    authPersisted,
     
     // Computed
     isRunning: status === "running" || status === "starting",
@@ -268,5 +391,7 @@ export function useBrowserbaseAutomation() {
     stopAutomation,
     checkStatus: sessionId ? () => checkStatus(sessionId) : undefined,
     reset,
+    clearStoredContext,
+    getOrCreateContext,
   };
 }
