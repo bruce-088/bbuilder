@@ -10,7 +10,7 @@ const corsHeaders = {
 interface AutomationRequest {
   action: "full-automation" | "analyze" | "generate" | "deploy" | "verify" | "diagnose" | "validate";
   businessIdeaId: string;
-  aiProvider?: "lovable" | "openai" | "claude" | "perplexity";
+  aiProvider?: "lovable" | "openai" | "claude" | "perplexity" | "gemini";
   runId?: string;
   phase?: string;
   nodeData?: Record<string, unknown>;
@@ -133,6 +133,36 @@ async function callPerplexity(
   return response;
 }
 
+async function callGemini(
+  messages: Array<{ role: string; content: string }>,
+  apiKey: string
+): Promise<Response> {
+  // Convert messages to Gemini format
+  const systemMessage = messages.find((m) => m.role === "system");
+  const otherMessages = messages.filter((m) => m.role !== "system");
+  
+  const contents = otherMessages.map((m) => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }],
+  }));
+
+  const response = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        contents,
+        systemInstruction: systemMessage ? { parts: [{ text: systemMessage.content }] } : undefined,
+      }),
+    }
+  );
+
+  return response;
+}
+
 // Helper to call the appropriate AI provider
 async function callAI(
   messages: Array<{ role: string; content: string }>,
@@ -182,6 +212,20 @@ async function callAI(
         throw new Error("Perplexity API key not configured. Please add your API key in AI Settings.");
       }
       return callPerplexity(messages, keyData.encrypted_key);
+    }
+
+    case "gemini": {
+      const { data: keyData } = await supabase
+        .from("user_api_keys")
+        .select("encrypted_key")
+        .eq("user_id", userId)
+        .eq("provider", "gemini")
+        .maybeSingle();
+
+      if (!keyData?.encrypted_key) {
+        throw new Error("Gemini API key not configured. Please add your API key in AI Settings.");
+      }
+      return callGemini(messages, keyData.encrypted_key);
     }
 
     default:

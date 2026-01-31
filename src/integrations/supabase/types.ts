@@ -336,6 +336,7 @@ export type Database = {
         Row: {
           claude_configured: boolean | null
           created_at: string
+          gemini_configured: boolean | null
           id: string
           openai_configured: boolean | null
           perplexity_configured: boolean | null
@@ -346,6 +347,7 @@ export type Database = {
         Insert: {
           claude_configured?: boolean | null
           created_at?: string
+          gemini_configured?: boolean | null
           id?: string
           openai_configured?: boolean | null
           perplexity_configured?: boolean | null
@@ -356,6 +358,7 @@ export type Database = {
         Update: {
           claude_configured?: boolean | null
           created_at?: string
+          gemini_configured?: boolean | null
           id?: string
           openai_configured?: boolean | null
           perplexity_configured?: boolean | null
