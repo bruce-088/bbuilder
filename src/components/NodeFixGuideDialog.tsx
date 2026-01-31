@@ -422,11 +422,13 @@ export default function NodeFixGuideDialog({
             {/* Open in n8n Button */}
             {nodeLink && (
               <div className="pt-2">
-                <Button variant="outline" className="w-full gap-2" asChild>
-                  <a href={nodeLink} target="_blank" rel="noopener noreferrer">
-                    <ExternalLink className="w-4 h-4" />
-                    Open Workflow in n8n
-                  </a>
+                <Button 
+                  variant="outline" 
+                  className="w-full gap-2"
+                  onClick={() => window.open(nodeLink, "_blank", "noopener,noreferrer")}
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  Open Workflow in n8n
                 </Button>
               </div>
             )}

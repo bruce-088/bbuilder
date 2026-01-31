@@ -21,6 +21,7 @@ import {
   Zap,
 } from "lucide-react";
 import NodeFixActions from "./NodeFixActions";
+import { openExternalUrl } from "@/lib/openExternalUrl";
 
 interface ChecklistItem {
   item: string;
@@ -471,16 +472,10 @@ export default function VerificationResultsDisplay({
         <Button 
           variant="outline" 
           className="w-full gap-2"
-          asChild
+          onClick={() => openExternalUrl(`${n8nInstanceUrl.replace(/\/$/, '')}/workflow/${workflowId}`)}
         >
-          <a 
-            href={`${n8nInstanceUrl.replace(/\/$/, '')}/workflow/${workflowId}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <ExternalLink className="w-4 h-4" />
-            Open Workflow in n8n to Fix Issues
-          </a>
+          <ExternalLink className="w-4 h-4" />
+          Open Workflow in n8n to Fix Issues
         </Button>
       )}
     </div>

@@ -175,11 +175,18 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
           </Button>
 
           {getImportUrl() && (
-            <Button asChild variant="default" size="sm">
-              <a href={getImportUrl()!} target="_blank" rel="noopener noreferrer">
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Open n8n
-              </a>
+            <Button 
+              variant="default" 
+              size="sm"
+              onClick={() => {
+                const url = getImportUrl();
+                if (url) {
+                  window.open(url, "_blank", "noopener,noreferrer");
+                }
+              }}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open n8n
             </Button>
           )}
         </div>
