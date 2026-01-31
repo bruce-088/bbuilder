@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp, Copy, Eye, Zap, KeyRound, X, CheckCircle2, XCircle, ImageIcon } from "lucide-react";
+import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp, Copy, Eye, Zap, KeyRound, X, CheckCircle2, XCircle, ImageIcon, List } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -11,6 +11,7 @@ import { useFixKnowledgeBase } from "@/hooks/useFixKnowledgeBase";
 import { useBrowserbaseAutomation, ActionResult } from "@/hooks/useBrowserbaseAutomation";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { BrowserbaseExecutionPanel } from "./BrowserbaseExecutionPanel";
 
 interface FixGuidancePopoverProps {
   trigger: React.ReactNode;
@@ -47,6 +48,7 @@ export function FixGuidancePopover({
   const [markedAsFixed, setMarkedAsFixed] = useState(false);
   const [directorCopied, setDirectorCopied] = useState(false);
   const [showScreenshot, setShowScreenshot] = useState<string | null>(null);
+  const [showFullDetails, setShowFullDetails] = useState(false);
   const { saveSuccessfulFix, isSaving } = useFixKnowledgeBase();
   const browserbase = useBrowserbaseAutomation();
 
@@ -348,14 +350,25 @@ export function FixGuidancePopover({
 
                 {/* Reset button when completed/failed */}
                 {(browserbase.status === "completed" || browserbase.status === "failed") && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={browserbase.reset}
-                    className="w-full text-xs"
-                  >
-                    Run Again
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowFullDetails(true)}
+                      className="flex-1 text-xs"
+                    >
+                      <List className="h-3 w-3 mr-1.5" />
+                      View Details
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={browserbase.reset}
+                      className="flex-1 text-xs"
+                    >
+                      Run Again
+                    </Button>
+                  </div>
                 )}
               </div>
             )}
@@ -489,6 +502,26 @@ export function FixGuidancePopover({
               />
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Full Execution Details Dialog */}
+      <Dialog open={showFullDetails} onOpenChange={setShowFullDetails}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Browserbase Execution Details</DialogTitle>
+          </DialogHeader>
+          <BrowserbaseExecutionPanel
+            actions={browserbase.actions}
+            executionResults={browserbase.executionResults}
+            currentActionIndex={browserbase.currentActionIndex}
+            status={browserbase.status}
+            isRunning={browserbase.isRunning}
+            debugUrl={browserbase.debugUrl}
+            finalScreenshot={browserbase.result?.finalScreenshot}
+            totalExecutionTime={browserbase.result?.executionTimeMs}
+            onViewScreenshot={setShowScreenshot}
+          />
         </DialogContent>
       </Dialog>
     </>
