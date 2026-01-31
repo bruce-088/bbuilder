@@ -52,24 +52,49 @@ function getN8nUrlInfo(options?: DirectorAiOptions): { instanceUrl: string; work
 
 /**
  * Extract node names from fix steps using pattern matching
+ * Focuses on extracting clean node names like "Claude", "Beehiiv", "Email", etc.
  */
 function extractNodeNamesFromSteps(steps: string[]): string[] {
-  const nodePatterns = [
-    /(?:the\s+)?["']?([A-Z][a-zA-Z0-9\s]+)["']?\s+node/gi,
-    /(?:Update|Configure|Fix|Open)\s+["']?([A-Z][a-zA-Z0-9\s]+)["']?/gi,
+  const nodeNames = new Set<string>();
+  
+  // Common n8n node name patterns - look for capitalized words followed by "node"
+  const nodePattern = /(?:the\s+)?["']?([A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+)?)["']?\s+node/gi;
+  
+  // Also look for action + node name patterns
+  const actionPattern = /(?:Update|Configure|Fix|Open|Connect)\s+(?:the\s+)?["']?([A-Z][a-zA-Z0-9]+)["']?/gi;
+  
+  // Specific well-known n8n nodes to look for
+  const knownNodes = [
+    'Claude', 'OpenAI', 'GPT', 'Anthropic',
+    'Gmail', 'Email', 'SMTP', 'Outlook',
+    'Slack', 'Discord', 'Telegram', 'WhatsApp',
+    'HTTP Request', 'Webhook', 'API',
+    'Google Sheets', 'Airtable', 'Notion', 'Excel',
+    'Beehiiv', 'Mailchimp', 'ConvertKit', 'SendGrid',
+    'Stripe', 'PayPal', 'Square',
+    'Supabase', 'Postgres', 'MySQL', 'MongoDB',
+    'HTML', 'Code', 'Function', 'Set', 'Merge', 'Filter',
+    'Schedule', 'Cron', 'Trigger', 'Manual',
   ];
   
-  const nodeNames = new Set<string>();
-  const excludeWords = ['the', 'this', 'that', 'any', 'each', 'all', 'your'];
+  const excludeWords = ['the', 'this', 'that', 'any', 'each', 'all', 'your', 'node', 'with', 'and', 'for'];
   
   steps.forEach(step => {
-    nodePatterns.forEach(pattern => {
-      // Reset regex state
+    // Check for known nodes first
+    knownNodes.forEach(nodeName => {
+      if (step.toLowerCase().includes(nodeName.toLowerCase())) {
+        nodeNames.add(nodeName);
+      }
+    });
+    
+    // Then try regex patterns
+    [nodePattern, actionPattern].forEach(pattern => {
       pattern.lastIndex = 0;
       let match;
       while ((match = pattern.exec(step)) !== null) {
         const name = match[1].trim();
-        if (name.length > 2 && !excludeWords.includes(name.toLowerCase())) {
+        // Only add if it's a clean short name (likely a node type)
+        if (name.length >= 3 && name.length <= 25 && !excludeWords.includes(name.toLowerCase())) {
           nodeNames.add(name);
         }
       }
