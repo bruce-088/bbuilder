@@ -40,14 +40,32 @@ export function useN8nMcpConnection() {
     try {
       const cached = localStorage.getItem("n8n_cached_workflows");
       if (cached) {
-        const workflows = JSON.parse(cached) as N8nWorkflow[];
-        setState(prev => ({
-          ...prev,
-          isConnected: true,
-          isChecking: false,
-          workflows,
-        }));
-        return workflows;
+        const parsed = JSON.parse(cached);
+        
+        // Handle both array format and object wrapper format
+        let workflows: N8nWorkflow[] = [];
+        if (Array.isArray(parsed)) {
+          workflows = parsed;
+        } else if (parsed && typeof parsed === "object") {
+          // Try common wrapper patterns
+          if (Array.isArray(parsed.workflows)) {
+            workflows = parsed.workflows;
+          } else if (Array.isArray(parsed.data)) {
+            workflows = parsed.data;
+          } else if (Array.isArray(parsed.items)) {
+            workflows = parsed.items;
+          }
+        }
+        
+        if (workflows.length > 0) {
+          setState(prev => ({
+            ...prev,
+            isConnected: true,
+            isChecking: false,
+            workflows,
+          }));
+          return workflows;
+        }
       }
     } catch (error) {
       console.error("Error loading cached workflows:", error);
