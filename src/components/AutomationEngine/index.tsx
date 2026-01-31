@@ -108,6 +108,7 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
               currentPhase={currentPhase}
               phaseResults={phaseResults}
               isRunning={isRunning}
+              activeProvider={selectedProvider}
             />
 
             {/* Live Status Panel - shows real-time workflow health */}

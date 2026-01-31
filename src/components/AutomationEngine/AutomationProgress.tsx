@@ -1,5 +1,6 @@
-import { CheckCircle2, Circle, Loader2, AlertTriangle, XCircle } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, AlertTriangle, XCircle, Sparkles, Bot, Brain, Search, Gem } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
 import type { PhaseResult, AutomationPhase } from "@/hooks/useAutomationRun";
 
 interface AutomationProgressProps {
@@ -7,12 +8,23 @@ interface AutomationProgressProps {
   currentPhase: string | null;
   phaseResults: PhaseResult[];
   isRunning: boolean;
+  activeProvider?: string;
 }
+
+const providerConfig: Record<string, { name: string; icon: React.ElementType; color: string }> = {
+  lovable: { name: "Lovable AI", icon: Sparkles, color: "bg-primary/10 text-primary border-primary/20" },
+  openai: { name: "OpenAI", icon: Bot, color: "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" },
+  claude: { name: "Claude", icon: Brain, color: "bg-orange-500/10 text-orange-600 border-orange-500/20" },
+  perplexity: { name: "Perplexity", icon: Search, color: "bg-blue-500/10 text-blue-600 border-blue-500/20" },
+  gemini: { name: "Gemini", icon: Gem, color: "bg-purple-500/10 text-purple-600 border-purple-500/20" },
+};
 
 export function AutomationProgress({
   phases,
   currentPhase,
   phaseResults,
+  isRunning,
+  activeProvider = "lovable",
 }: AutomationProgressProps) {
   const getPhaseStatus = (phaseId: string) => {
     const result = phaseResults.find((r) => r.phase === phaseId);
@@ -39,9 +51,33 @@ export function AutomationProgress({
     }
   };
 
+  const provider = providerConfig[activeProvider] || providerConfig.lovable;
+  const ProviderIcon = provider.icon;
+
   return (
     <div className="space-y-4">
-      <h3 className="text-sm font-medium text-muted-foreground">Automation Progress</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-muted-foreground">Automation Progress</h3>
+        
+        {/* Active Provider Indicator */}
+        <Badge 
+          variant="outline" 
+          className={cn(
+            "flex items-center gap-1.5 px-2.5 py-1 font-medium",
+            provider.color,
+            isRunning && "animate-pulse"
+          )}
+        >
+          <ProviderIcon className="h-3.5 w-3.5" />
+          <span className="text-xs">{provider.name}</span>
+          {isRunning && (
+            <span className="relative flex h-2 w-2 ml-1">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-current opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-current"></span>
+            </span>
+          )}
+        </Badge>
+      </div>
       
       <div className="relative">
         {/* Progress line */}
