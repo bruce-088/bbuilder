@@ -1,158 +1,176 @@
 
+# Plan: Detailed Action-by-Action Breakdown for Browserbase Automation
 
-# Fix: Browserbase CDP Target Attachment
+## Overview
+Add a new `BrowserbaseExecutionPanel` component that provides a rich, detailed view of each automation action as it executes. This panel will replace the compact execution progress in `FixGuidancePopover` and can also be integrated into the main `AutomationEngine` dialog for full visibility.
 
-## Problem Identified
+## Current State Analysis
 
-The Browserbase automation is failing with:
-```
-Error: 'Page.enable' wasn't found
-```
+### Existing Data Structure
+The `useBrowserbaseAutomation` hook already tracks:
+- `actions`: Array of `BrowserAction` objects (planned actions)
+- `executionResults`: Array of `ActionResult` objects with status, screenshots, errors, and timing
+- `currentActionIndex`: Current action being executed
+- `status`: Overall automation status
 
-## Root Cause Analysis
+### Current UI Limitations
+1. The execution progress in `FixGuidancePopover` is compact (max 32px height per action)
+2. No timeline visualization showing action sequence
+3. Error details are truncated
+4. Screenshots require individual clicks to view
+5. No timing breakdown per action
+6. No selector debugging info (which fallback matched)
 
-The CDP (Chrome DevTools Protocol) has two connection levels:
+## Implementation Plan
 
-1. **Browser-level WebSocket** - What `connectUrl` provides
-   - Only `Target.*` and `Browser.*` commands work here
-   - No `Page.*`, `DOM.*`, `Input.*` commands available
+### 1. Create `BrowserbaseExecutionPanel` Component
+**File:** `src/components/AutomationEngine/BrowserbaseExecutionPanel.tsx`
 
-2. **Target-level Session** - After attaching to a page target
-   - All `Page.*`, `DOM.*`, `Input.*`, `Runtime.*` commands work here
-   - Requires a `sessionId` from `Target.attachToTarget`
+A dedicated panel with:
+- **Timeline View**: Vertical stepper showing all actions with status indicators
+- **Action Cards**: Expandable cards for each action showing:
+  - Action type icon (navigate, click, type, wait, screenshot)
+  - Description/instruction
+  - Status badge (pending, running, completed, failed, skipped)
+  - Execution time
+  - Error message (if failed)
+  - Screenshot preview (if captured)
+  - Selector info (which selector matched for debugging)
+- **Summary Header**: Total actions, completed/failed counts, total execution time
+- **Live Progress Bar**: Animated progress showing current action
+- **Final Screenshot Section**: Large preview of final state
 
-The current implementation connects to Browserbase's WebSocket and immediately tries to call `Page.enable`, but that command doesn't exist at the browser level.
+### 2. Update Types for Enhanced Tracking
+**File:** `src/hooks/useBrowserbaseAutomation.ts`
 
-## Solution
-
-Update the `CDPClient` class to:
-
-1. After connecting, call `Target.getTargets()` to list all targets
-2. Find a target of type `"page"`
-3. Call `Target.attachToTarget({ targetId, flatten: true })` to get a `sessionId`
-4. Use the `sessionId` in all subsequent CDP commands
-
-## Technical Changes
-
-### File: `supabase/functions/browserbase-automation/index.ts`
-
-**Update CDPClient class:**
-
-1. Add a `targetSessionId` property to store the attached target's session ID
-
-2. Modify the `send()` method to include `sessionId` when calling target-level commands
-
-3. Add a new `attachToPage()` method:
-
+Extend `ActionResult` interface to include:
 ```typescript
-async attachToPage(): Promise<void> {
-  // Get all available targets
-  const { targetInfos } = await this.send("Target.getTargets") as { 
-    targetInfos: Array<{ targetId: string; type: string; url: string }> 
-  };
-  
-  // Find a page target
-  const pageTarget = targetInfos.find(t => t.type === "page");
-  if (!pageTarget) {
-    throw new Error("No page target found");
-  }
-  
-  // Attach to the page target with flatten: true for simpler messaging
-  const { sessionId } = await this.send("Target.attachToTarget", {
-    targetId: pageTarget.targetId,
-    flatten: true,
-  }) as { sessionId: string };
-  
-  this.targetSessionId = sessionId;
-  console.log(`CDP: Attached to page target: ${pageTarget.url}`);
+interface ActionResult {
+  // Existing fields...
+  selectorUsed?: string;      // Which selector actually matched
+  fallbacksAttempted?: number; // How many fallbacks were tried
+  startTime?: string;         // When action started
+  endTime?: string;           // When action ended
 }
 ```
 
-4. Modify the `send()` method to include sessionId for target-level commands:
+### 3. Create Action Type Icons and Labels
+**File:** `src/components/AutomationEngine/BrowserbaseExecutionPanel.tsx`
 
-```typescript
-async send(method: string, params?: object, timeout = 30000): Promise<unknown> {
-  // ... existing validation ...
-  
-  const id = ++this.messageId;
-  // Include sessionId for target-level commands (not Target.* or Browser.*)
-  const needsSession = !method.startsWith("Target.") && 
-                       !method.startsWith("Browser.");
-  
-  const message = JSON.stringify({ 
-    id, 
-    method, 
-    params,
-    ...(needsSession && this.targetSessionId && { 
-      sessionId: this.targetSessionId 
-    }),
-  });
-  
-  // ... rest of existing code ...
-}
-```
+Map action types to visual representations:
+- `navigate` → Globe icon, "Navigate to [URL]"
+- `wait` → Clock icon, "Wait for [selector/timeout]"
+- `act` → MousePointer icon, instruction text
+- `screenshot` → Camera icon, "Capture screenshot"
+- `extract` → Download icon, "Extract data"
 
-5. Update `connect()` or create initialization flow:
+### 4. Integrate Panel into AutomationEngine Dialog
+**File:** `src/components/AutomationEngine/index.tsx`
 
-```typescript
-async initialize(): Promise<void> {
-  await this.attachToPage();
-  await this.enableDomains();
-}
-```
+Add a new collapsible section when Browserbase automation is running or has results:
+- Shows during "Fix" phase execution
+- Displays detailed breakdown of browser actions
+- Persists after completion for review
 
-6. Update the `executeAutomation` function to call the new initialization:
+### 5. Enhance FixGuidancePopover with "View Details" Link
+**File:** `src/components/AutomationEngine/FixGuidancePopover.tsx`
 
-```typescript
-// Before:
-await cdp.connect(connectUrl);
-await cdp.enableDomains();
+Add a button to open a full-screen dialog with the detailed execution panel when results exist.
 
-// After:
-await cdp.connect(connectUrl);
-await cdp.attachToPage();
-await cdp.enableDomains();
-```
-
-## Implementation Summary
-
-| Change | Description |
-|--------|-------------|
-| Add `targetSessionId` property | Store the session ID from Target.attachToTarget |
-| Add `attachToPage()` method | Find and attach to page target |
-| Update `send()` method | Include sessionId for non-Target/Browser commands |
-| Update `executeAutomation()` | Call attachToPage() after connect() |
-| Update message response handling | Handle sessionId in incoming messages |
-
-## CDP Message Flow
+## Component Structure
 
 ```text
-Client                              Browserbase
-  |                                     |
-  |---- WebSocket Connect ------------->|
-  |<--- Connected ----------------------|
-  |                                     |
-  |---- Target.getTargets ------------->|
-  |<--- {targetInfos: [...]} -----------|
-  |                                     |
-  |---- Target.attachToTarget --------->|
-  |     {targetId, flatten: true}       |
-  |<--- {sessionId: "..."} -------------|
-  |                                     |
-  |---- Page.enable (with sessionId) -->|
-  |<--- Success ------------------------|
-  |                                     |
-  |---- DOM.enable (with sessionId) --->|
-  |<--- Success ------------------------|
++------------------------------------------+
+|  Browserbase Execution Details           |
+|  ----------------------------------------|
+|  [=============================>     ]   |
+|  12/15 actions completed • 8.3s elapsed  |
++------------------------------------------+
+|                                          |
+|  [✓] Navigate to n8n workflows page      |
+|      https://n8n.srv.../workflow/123     |
+|      Completed in 1.2s                   |
+|  ----------------------------------------|
+|  [✓] Click "Execute Workflow" button     |
+|      Selector: button[data-testid=...]   |
+|      Completed in 0.3s                   |
+|  ----------------------------------------|
+|  [▸] Wait for execution to complete      |  <- Currently running
+|      Waiting for .execution-success...   |
+|  ----------------------------------------|
+|  [○] Capture final screenshot            |  <- Pending
+|  ----------------------------------------|
+|  [○] Verify workflow status              |  <- Pending
+|                                          |
++------------------------------------------+
+|  Final Screenshot:                       |
+|  +------------------------------------+  |
+|  |                                    |  |
+|  |     [Screenshot Preview]           |  |
+|  |                                    |  |
+|  +------------------------------------+  |
++------------------------------------------+
 ```
 
-## Testing Verification
+## Files to Create
 
-After this fix:
-1. Session creation should succeed (already working)
-2. CDP connection should succeed (already working)
-3. `Target.getTargets()` should return page targets
-4. `Target.attachToTarget()` should return a sessionId
-5. `Page.enable` should succeed with the sessionId
-6. All subsequent automation actions should work
+| File | Purpose |
+|------|---------|
+| `src/components/AutomationEngine/BrowserbaseExecutionPanel.tsx` | Main detailed breakdown component |
+
+## Files to Modify
+
+| File | Changes |
+|------|---------|
+| `src/hooks/useBrowserbaseAutomation.ts` | Add enhanced action tracking fields |
+| `src/components/AutomationEngine/index.tsx` | Integrate BrowserbaseExecutionPanel |
+| `src/components/AutomationEngine/FixGuidancePopover.tsx` | Add "View Full Details" button |
+
+## Technical Details
+
+### BrowserbaseExecutionPanel Props
+```typescript
+interface BrowserbaseExecutionPanelProps {
+  actions: BrowserAction[];
+  executionResults: ActionResult[];
+  currentActionIndex: number;
+  status: AutomationStatus;
+  isRunning: boolean;
+  debugUrl?: string | null;
+  finalScreenshot?: string;
+  totalExecutionTime?: number;
+  onViewScreenshot?: (screenshot: string) => void;
+}
+```
+
+### Action Status Styling
+- **Pending**: Gray circle, muted text
+- **Running**: Blue pulsing dot, primary text, animated border
+- **Completed**: Green checkmark, success text
+- **Failed**: Red X icon, destructive text, error message visible
+- **Skipped**: Gray dash, muted/strikethrough text
+
+### Animation Details
+- Current action has a subtle pulse animation
+- Completed actions slide in with a checkmark animation
+- Progress bar smoothly transitions between actions
+- Failed actions have a subtle shake animation
+
+## Edge Cases Handled
+
+1. **No Actions**: Show "No actions planned" message
+2. **All Failed**: Show prominent error summary at top
+3. **Timeout**: Display which action timed out and the wait duration
+4. **Selector Fallbacks**: Show which fallback selector succeeded
+5. **Large Action Count**: Virtual scrolling for 50+ actions
+6. **Screenshot Loading**: Skeleton loader while images decode
+
+## Testing Considerations
+
+After implementation:
+1. Run a full Browserbase automation and verify each action appears in real-time
+2. Verify failed actions show clear error messages
+3. Confirm screenshots are viewable in the panel
+4. Test with different action counts (5, 20, 50+)
+5. Verify the panel works in both FixGuidancePopover context and AutomationEngine dialog
 
