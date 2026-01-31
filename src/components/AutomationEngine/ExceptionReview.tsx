@@ -6,9 +6,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { 
   AlertTriangle, XCircle, ChevronDown, ExternalLink, Copy, Sparkles, 
   Loader2, CheckCircle2, Lightbulb, Shield, ListChecks, MessageSquare,
-  Play, Zap, Hand
+  Play, Zap, Hand, Database
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +17,7 @@ import { FixGuidancePopover } from "./FixGuidancePopover";
 import { generateDirectorAiFixPrompt, type BusinessContext, type FixIssue } from "@/lib/directorAiFixPromptGenerator";
 import { type DirectorAiOptions } from "@/lib/directorAiPromptGenerator";
 import { type VerificationData } from "@/lib/verificationPromptGenerator";
+import { useFixKnowledgeBase, generateVerificationDataFromKnowledgeBase, type FixKnowledgeEntry } from "@/hooks/useFixKnowledgeBase";
 import type { PhaseResult } from "@/hooks/useAutomationRun";
 
 type FilterType = "all" | "errors" | "warnings";
@@ -61,6 +62,8 @@ export function ExceptionReview({
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const { findFixesByPhase, isLoading: isLoadingKnowledge } = useFixKnowledgeBase();
+  
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>("all");
   const [isApplyingFixes, setIsApplyingFixes] = useState(false);
@@ -68,6 +71,20 @@ export function ExceptionReview({
   const [expandedFixes, setExpandedFixes] = useState<Set<number>>(new Set([0]));
   const [executingFixes, setExecutingFixes] = useState<Set<number>>(new Set());
   const [copiedFixes, setCopiedFixes] = useState<Set<number>>(new Set());
+  const [knowledgeBaseCache, setKnowledgeBaseCache] = useState<Map<string, FixKnowledgeEntry[]>>(new Map());
+
+  // Pre-fetch knowledge base entries when fixes are available
+  useEffect(() => {
+    if (fixResult?.fixes) {
+      const phases = [...new Set(fixResult.fixes.map(f => f.phase))];
+      phases.forEach(async (phase) => {
+        if (!knowledgeBaseCache.has(phase)) {
+          const entries = await findFixesByPhase(phase);
+          setKnowledgeBaseCache(prev => new Map(prev).set(phase, entries));
+        }
+      });
+    }
+  }, [fixResult, findFixesByPhase, knowledgeBaseCache]);
 
   const togglePhase = (phase: string) => {
     setExpandedPhases((prev) => {
@@ -156,8 +173,8 @@ export function ExceptionReview({
     return `Phase: ${fix.phase}\nRoot Cause: ${fix.rootCause}\nSolution: ${fix.solution}\nSteps:\n${fix.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}\nPrevention: ${fix.prevention}${fix.requiredUserAction ? `\n\nRequired Manual Action: ${fix.requiredUserAction}` : ""}`;
   };
 
-  // Enhanced Director.ai prompt for computer use agents
-  const getDirectorAiPrompt = (fix: AIFix): string => {
+  // Enhanced Director.ai prompt for computer use agents (uses knowledge base)
+  const getDirectorAiPrompt = useCallback((fix: AIFix): string => {
     const fixIssue: FixIssue = {
       phase: fix.phase,
       rootCause: fix.rootCause,
@@ -171,31 +188,41 @@ export function ExceptionReview({
       workflowPatch: fix.workflowPatch,
     };
 
-    // Create verification data from fix context (matches guide format)
-    const verificationData: VerificationData = {
-      checkDescription: fix.solution || `Verify ${fix.phase} phase is correctly configured`,
-      automatedActions: fix.steps,
-      successIndicators: [
-        "Workflow executes without errors",
-        "Expected output data appears",
-        `${fix.phase} phase shows as complete`,
-        "No warning or error indicators on nodes"
-      ],
-      failureIndicators: [
-        "Error indicators on nodes",
-        "Workflow fails to execute",
-        "Missing credentials or configuration",
-        "API returns error response"
-      ]
-    };
+    // Get cached knowledge base entries for this phase
+    const knowledgeEntries = knowledgeBaseCache.get(fix.phase) || [];
+    
+    // Generate verification data enhanced with knowledge base (if available)
+    const verificationData: VerificationData = knowledgeEntries.length > 0
+      ? generateVerificationDataFromKnowledgeBase(
+          knowledgeEntries,
+          fix.phase,
+          fix.solution || `Verify ${fix.phase} phase is correctly configured`
+        )
+      : {
+          checkDescription: fix.solution || `Verify ${fix.phase} phase is correctly configured`,
+          automatedActions: fix.steps,
+          successIndicators: [
+            "Workflow executes without errors",
+            "Expected output data appears",
+            `${fix.phase} phase shows as complete`,
+            "No warning or error indicators on nodes"
+          ],
+          failureIndicators: [
+            "Error indicators on nodes",
+            "Workflow fails to execute",
+            "Missing credentials or configuration",
+            "API returns error response"
+          ]
+        };
 
     return generateDirectorAiFixPrompt({
       issue: fixIssue,
       businessContext,
       n8nOptions,
       verificationData,
+      knowledgeBaseHits: knowledgeEntries.length,
     });
-  };
+  }, [businessContext, n8nOptions, knowledgeBaseCache]);
 
   const handleCopyFixDetails = (fix: AIFix, index: number) => {
     const text = getFixDetailsText(fix);
@@ -453,6 +480,15 @@ export function ExceptionReview({
                             >
                               {fix.automatable ? "Automatable" : "Manual"}
                             </Badge>
+                            {(knowledgeBaseCache.get(fix.phase)?.length ?? 0) > 0 && (
+                              <Badge 
+                                variant="outline" 
+                                className="text-[10px] px-1.5 py-0 bg-blue-500/10 text-blue-400 border-blue-500/30"
+                              >
+                                <Database className="h-2.5 w-2.5 mr-0.5" />
+                                KB
+                              </Badge>
+                            )}
                           </div>
                           <p className="text-xs text-muted-foreground line-clamp-1">
                             {fix.solution}

@@ -4,32 +4,35 @@
 ## Status: ✅ COMPLETED
 
 ## Summary
-Updated `directorAiFixPromptGenerator.ts` to produce prompts that exactly match the structure and style used in the N8N Full Automation Setup Guide (`fixPromptGenerator.ts` and `verificationPromptGenerator.ts`).
+Updated `directorAiFixPromptGenerator.ts` to produce prompts that exactly match the structure and style used in the N8N Full Automation Setup Guide, with knowledge base integration for more accurate fix prompts.
 
 ## Changes Made
 
 ### 1. `src/lib/directorAiFixPromptGenerator.ts`
 - Restructured prompt format to match guide style with JSON business context blocks
 - Added `VerificationData` interface import and support
-- Simplified environment config to essential fields (Instance URL, Workflow Dashboard, Hosting Type)
+- Added `knowledgeBaseHits` property to show when KB was used
+- Simplified environment config to essential fields
 - Added success/failure indicators with ✅/❌ format
-- Added mode declaration with warning icon ("⚠️ This is a FIX task")
-- Matched exact report format table structure
-- Added `generateDefaultVerificationData()` for fallback when not provided
+- Added mode declaration with warning icon
 
-### 2. `src/components/AutomationEngine/ExceptionReview.tsx`
-- Added `VerificationData` import
-- Updated `getDirectorAiPrompt()` to create verification data from fix context
-- Passes `verificationData` to `generateDirectorAiFixPrompt()`
+### 2. `src/hooks/useFixKnowledgeBase.ts`
+- Added `PHASE_NODE_MAPPINGS` for phase-to-node-type lookups
+- Added `findFixesByPhase()` function to query KB by phase name
+- Added `generateVerificationDataFromKnowledgeBase()` to create enhanced verification data from past fixes
+- Added `getEnhancedVerificationData()` async helper
+- KB entries now contribute node-type-specific indicators (HTTP, Gmail, Sheets, OpenAI, Webhook)
 
-## Output Format
-The generated prompts now match the N8N guide style exactly:
-- JSON business context block
-- Environment table with 3 key fields
-- Issue details with phase, root cause, confidence
-- "What Was Being Verified" section
-- "Why It Failed" diagnosis
-- Numbered fix actions with navigation first
-- Success indicators (✅) and failure indicators (❌)
-- Structured report format table
-- Error handling and prevention sections
+### 3. `src/components/AutomationEngine/ExceptionReview.tsx`
+- Integrated `useFixKnowledgeBase` hook
+- Added `knowledgeBaseCache` state to pre-fetch KB entries for fix phases
+- Updated `getDirectorAiPrompt()` to use KB-enhanced verification data
+- Added "KB" badge indicator when knowledge base data is used
+
+## Knowledge Base Integration
+When generating fix prompts:
+1. Looks up previously successful fixes by phase name
+2. Maps phase to relevant node types (prospecting → httpRequest, googleSheets, etc.)
+3. Extracts success/failure indicators from past fixes
+4. Shows "📚 Knowledge Base Enhanced" in prompt when KB data is used
+5. Displays "KB" badge on fix cards in UI
