@@ -8,12 +8,14 @@ import {
   Loader2, CheckCircle2, Lightbulb, Shield, ListChecks, MessageSquare,
   Play, Zap, Hand
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { FixGuidancePopover } from "./FixGuidancePopover";
+import { generateDirectorAiFixPrompt, type BusinessContext, type FixIssue } from "@/lib/directorAiFixPromptGenerator";
+import { type DirectorAiOptions } from "@/lib/directorAiPromptGenerator";
 import type { PhaseResult } from "@/hooks/useAutomationRun";
 
 type FilterType = "all" | "errors" | "warnings";
@@ -38,14 +40,23 @@ interface AIFixResult {
   provider: string;
 }
 
-interface ExceptionReviewProps {
+export interface ExceptionReviewProps {
   exceptions: PhaseResult[];
   onApplyAIFixes?: () => Promise<PhaseResult | null>;
   onExecuteFix?: (fix: AIFix) => Promise<{ success: boolean; message: string; updatedWorkflowJson?: object; importUrl?: string }>;
   businessIdeaId?: string;
+  businessContext?: BusinessContext;
+  n8nOptions?: DirectorAiOptions;
 }
 
-export function ExceptionReview({ exceptions, onApplyAIFixes, onExecuteFix, businessIdeaId }: ExceptionReviewProps) {
+export function ExceptionReview({ 
+  exceptions, 
+  onApplyAIFixes, 
+  onExecuteFix, 
+  businessIdeaId,
+  businessContext,
+  n8nOptions 
+}: ExceptionReviewProps) {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -139,8 +150,31 @@ export function ExceptionReview({ exceptions, onApplyAIFixes, onExecuteFix, busi
     }
   };
 
+  // Basic fix details text (for quick reference)
   const getFixDetailsText = (fix: AIFix) => {
     return `Phase: ${fix.phase}\nRoot Cause: ${fix.rootCause}\nSolution: ${fix.solution}\nSteps:\n${fix.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}\nPrevention: ${fix.prevention}${fix.requiredUserAction ? `\n\nRequired Manual Action: ${fix.requiredUserAction}` : ""}`;
+  };
+
+  // Enhanced Director.ai prompt for computer use agents
+  const getDirectorAiPrompt = (fix: AIFix): string => {
+    const fixIssue: FixIssue = {
+      phase: fix.phase,
+      rootCause: fix.rootCause,
+      solution: fix.solution,
+      steps: fix.steps,
+      prevention: fix.prevention,
+      confidence: fix.confidence,
+      automatable: fix.automatable,
+      automationMethod: fix.automationMethod,
+      requiredUserAction: fix.requiredUserAction,
+      workflowPatch: fix.workflowPatch,
+    };
+
+    return generateDirectorAiFixPrompt({
+      issue: fixIssue,
+      businessContext,
+      n8nOptions,
+    });
   };
 
   const handleCopyFixDetails = (fix: AIFix, index: number) => {
@@ -498,6 +532,7 @@ export function ExceptionReview({ exceptions, onApplyAIFixes, onExecuteFix, busi
                                 </Button>
                               }
                               fixDetails={getFixDetailsText(fix)}
+                              directorAiPrompt={getDirectorAiPrompt(fix)}
                               onCopy={() => handleCopyFixDetails(fix, index)}
                               copied={copiedFixes.has(index)}
                             />
@@ -512,6 +547,7 @@ export function ExceptionReview({ exceptions, onApplyAIFixes, onExecuteFix, busi
                                 </Button>
                               }
                               fixDetails={getFixDetailsText(fix)}
+                              directorAiPrompt={getDirectorAiPrompt(fix)}
                               onCopy={() => handleCopyFixDetails(fix, index)}
                               copied={copiedFixes.has(index)}
                             />
