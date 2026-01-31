@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp } from "lucide-react";
+import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp, Download } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -38,6 +38,7 @@ export function FixGuidancePopover({
   const { user } = useAuth();
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [markedAsFixed, setMarkedAsFixed] = useState(false);
+  const [directorDownloaded, setDirectorDownloaded] = useState(false);
   const { saveSuccessfulFix, isSaving } = useFixKnowledgeBase();
 
   // Use enhanced prompt if available, otherwise fall back to basic details
@@ -83,6 +84,28 @@ export function FixGuidancePopover({
   const handleCopyPrompt = () => {
     navigator.clipboard.writeText(promptToCopy);
     onCopy();
+  };
+
+  const handleDownloadDirectorPrompt = () => {
+    if (!directorAiPrompt) {
+      toast.error("Director.ai prompt not available");
+      return;
+    }
+    
+    const blob = new Blob([directorAiPrompt], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const timestamp = Date.now();
+    a.download = `director-ai-fix-${nodeType || "automation"}-${timestamp}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    
+    setDirectorDownloaded(true);
+    toast.success("Director.ai prompt downloaded!");
+    setTimeout(() => setDirectorDownloaded(false), 3000);
   };
 
   const handleMarkAsFixed = async () => {
@@ -160,26 +183,45 @@ export function FixGuidancePopover({
               <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
             </button>
 
-            {/* Director.ai / Computer Use - Now highlighted when enhanced */}
-            <div className={`flex items-center gap-3 p-2.5 rounded-lg ${hasEnhancedPrompt ? "bg-primary/5 border border-primary/20" : "bg-muted/50"}`}>
-              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${hasEnhancedPrompt ? "bg-primary/10" : "bg-muted"}`}>
-                <Bot className={`h-4 w-4 ${hasEnhancedPrompt ? "text-primary" : "text-muted-foreground"}`} />
+            {/* Director.ai / Computer Use - Clickable download */}
+            <button
+              onClick={handleDownloadDirectorPrompt}
+              disabled={!hasEnhancedPrompt}
+              className={`w-full flex items-center gap-3 p-2.5 rounded-lg transition-colors text-left ${
+                hasEnhancedPrompt 
+                  ? "bg-primary/5 border border-primary/20 hover:bg-primary/10 cursor-pointer" 
+                  : "bg-muted/50 opacity-50 cursor-not-allowed"
+              }`}
+            >
+              <div className={`flex items-center justify-center w-8 h-8 rounded-full ${
+                hasEnhancedPrompt ? "bg-primary/10" : "bg-muted"
+              }`}>
+                {directorDownloaded ? (
+                  <Check className="h-4 w-4 text-emerald-500" />
+                ) : (
+                  <Bot className={`h-4 w-4 ${hasEnhancedPrompt ? "text-primary" : "text-muted-foreground"}`} />
+                )}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium">Director.ai / Claude Computer Use</p>
+                <p className="text-sm font-medium">
+                  {directorDownloaded ? "Downloaded!" : "Director.ai / Claude Computer Use"}
+                </p>
                 <p className="text-xs text-muted-foreground">
                   {hasEnhancedPrompt 
-                    ? "Optimized for browser automation" 
-                    : "For automated browser-based fixes"
+                    ? "Click to download optimized prompt" 
+                    : "Enhanced prompt not available"
                   }
                 </p>
               </div>
+              {hasEnhancedPrompt && !directorDownloaded && (
+                <Download className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              )}
               {hasEnhancedPrompt && (
                 <Badge variant="outline" className="text-[10px] bg-emerald-500/10 text-emerald-500 border-emerald-500/30">
                   Best
                 </Badge>
               )}
-            </div>
+            </button>
 
             {/* n8n Editor */}
             <div className="flex items-center gap-3 p-2.5 rounded-lg bg-muted/50">
