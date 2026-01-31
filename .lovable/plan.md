@@ -1,176 +1,109 @@
 
-# Plan: Detailed Action-by-Action Breakdown for Browserbase Automation
 
-## Overview
-Add a new `BrowserbaseExecutionPanel` component that provides a rich, detailed view of each automation action as it executes. This panel will replace the compact execution progress in `FixGuidancePopover` and can also be integrated into the main `AutomationEngine` dialog for full visibility.
+## Configure n8n Instance URL and Test Browserbase Automation
 
-## Current State Analysis
+### Overview
+To test the BrowserbaseExecutionPanel with live action data, we need to:
+1. Configure an n8n instance URL in localStorage
+2. Navigate to the Automation Engine for a business idea
+3. Trigger an exception that enables the "Run Auto-Fix" button
+4. Execute the Browserbase automation and observe the real-time panel updates
 
-### Existing Data Structure
-The `useBrowserbaseAutomation` hook already tracks:
-- `actions`: Array of `BrowserAction` objects (planned actions)
-- `executionResults`: Array of `ActionResult` objects with status, screenshots, errors, and timing
-- `currentActionIndex`: Current action being executed
-- `status`: Overall automation status
+### Current State
+- **Browserbase Credentials**: Already configured (`BROWSERBASE_API_KEY` and `BROWSERBASE_PROJECT_ID` secrets exist)
+- **BrowserbaseExecutionPanel**: Already integrated into the AutomationEngine dialog
+- **n8n URL Storage**: Uses `localStorage` with key `n8n_instance_url`
 
-### Current UI Limitations
-1. The execution progress in `FixGuidancePopover` is compact (max 32px height per action)
-2. No timeline visualization showing action sequence
-3. Error details are truncated
-4. Screenshots require individual clicks to view
-5. No timing breakdown per action
-6. No selector debugging info (which fallback matched)
+### Step-by-Step Implementation
 
-## Implementation Plan
+#### Step 1: Set n8n Instance URL via Browser Console
+You can configure the n8n instance URL directly in your browser's developer console while on the dashboard:
 
-### 1. Create `BrowserbaseExecutionPanel` Component
-**File:** `src/components/AutomationEngine/BrowserbaseExecutionPanel.tsx`
+```javascript
+// Set your n8n instance URL (choose one option):
 
-A dedicated panel with:
-- **Timeline View**: Vertical stepper showing all actions with status indicators
-- **Action Cards**: Expandable cards for each action showing:
-  - Action type icon (navigate, click, type, wait, screenshot)
-  - Description/instruction
-  - Status badge (pending, running, completed, failed, skipped)
-  - Execution time
-  - Error message (if failed)
-  - Screenshot preview (if captured)
-  - Selector info (which selector matched for debugging)
-- **Summary Header**: Total actions, completed/failed counts, total execution time
-- **Live Progress Bar**: Animated progress showing current action
-- **Final Screenshot Section**: Large preview of final state
+// Option A: For Hostinger self-hosted (your setup)
+localStorage.setItem('n8n_instance_url', 'https://n8n.srv1230972.hstgr.cloud');
+localStorage.setItem('n8n_workflow_path', 'https://n8n.srv1230972.hstgr.cloud/workflow');
+localStorage.setItem('n8n_hosting_type', 'self-hosted');
+localStorage.setItem('n8n_deployment_method', 'hostinger');
 
-### 2. Update Types for Enhanced Tracking
-**File:** `src/hooks/useBrowserbaseAutomation.ts`
+// Option B: For n8n Cloud
+// localStorage.setItem('n8n_instance_url', 'https://your-instance.app.n8n.cloud');
+// localStorage.setItem('n8n_hosting_type', 'cloud');
 
-Extend `ActionResult` interface to include:
-```typescript
-interface ActionResult {
-  // Existing fields...
-  selectorUsed?: string;      // Which selector actually matched
-  fallbacksAttempted?: number; // How many fallbacks were tried
-  startTime?: string;         // When action started
-  endTime?: string;           // When action ended
-}
+// Refresh the page after setting
+location.reload();
 ```
 
-### 3. Create Action Type Icons and Labels
-**File:** `src/components/AutomationEngine/BrowserbaseExecutionPanel.tsx`
+#### Step 2: Trigger the Automation Engine
+1. From the dashboard, click on any business idea card (e.g., "SyncMaster Pro")
+2. In the business idea details, look for the **"Automate Everything"** button
+3. Click it to open the Automation Engine dialog
 
-Map action types to visual representations:
-- `navigate` → Globe icon, "Navigate to [URL]"
-- `wait` → Clock icon, "Wait for [selector/timeout]"
-- `act` → MousePointer icon, instruction text
-- `screenshot` → Camera icon, "Capture screenshot"
-- `extract` → Download icon, "Extract data"
+#### Step 3: Generate an Exception
+The Automation Engine runs through 6 phases. To trigger the Exception Review panel (which contains the "Run Auto-Fix" button):
+1. The automation will attempt to analyze, generate, and verify workflows
+2. If n8n verification fails (e.g., missing nodes, workflow not found), it creates an exception
+3. The Exception Review panel appears with AI fix recommendations
 
-### 4. Integrate Panel into AutomationEngine Dialog
-**File:** `src/components/AutomationEngine/index.tsx`
+#### Step 4: Run the Auto-Fix
+Once exceptions appear:
+1. Click **"Apply Fixes"** to generate AI fix recommendations
+2. Expand a fix recommendation
+3. Click **"Run Auto-Fix"** (the green CDP button)
+4. The **BrowserbaseExecutionPanel** will display:
+   - Real-time action progress bar
+   - Timeline of each action (navigate, click, type, wait, screenshot)
+   - Status badges (pending → running → completed/failed)
+   - Selector debugging info (which fallback matched)
+   - Final screenshot preview
 
-Add a new collapsible section when Browserbase automation is running or has results:
-- Shows during "Fix" phase execution
-- Displays detailed breakdown of browser actions
-- Persists after completion for review
-
-### 5. Enhance FixGuidancePopover with "View Details" Link
-**File:** `src/components/AutomationEngine/FixGuidancePopover.tsx`
-
-Add a button to open a full-screen dialog with the detailed execution panel when results exist.
-
-## Component Structure
+### Alternative: Direct Hook Testing
+If you want to test the panel without a full automation cycle, we can create a test harness that simulates action execution data:
 
 ```text
 +------------------------------------------+
 |  Browserbase Execution Details           |
 |  ----------------------------------------|
 |  [=============================>     ]   |
-|  12/15 actions completed • 8.3s elapsed  |
+|  28/32 actions completed • 12.3s elapsed |
 +------------------------------------------+
-|                                          |
 |  [✓] Navigate to n8n workflows page      |
-|      https://n8n.srv.../workflow/123     |
-|      Completed in 1.2s                   |
+|      Selector: n/a (URL navigation)      |
+|      Completed in 1.8s                   |
 |  ----------------------------------------|
-|  [✓] Click "Execute Workflow" button     |
-|      Selector: button[data-testid=...]   |
-|      Completed in 0.3s                   |
+|  [✓] Click "Add Workflow" button         |
+|      Selector: n8n:add-workflow (2nd)    |
+|      Completed in 0.4s                   |
 |  ----------------------------------------|
-|  [▸] Wait for execution to complete      |  <- Currently running
-|      Waiting for .execution-success...   |
+|  [▸] Configure HTTP Request node         |
+|      Running for 3.2s...                 |
 |  ----------------------------------------|
-|  [○] Capture final screenshot            |  <- Pending
-|  ----------------------------------------|
-|  [○] Verify workflow status              |  <- Pending
-|                                          |
-+------------------------------------------+
-|  Final Screenshot:                       |
-|  +------------------------------------+  |
-|  |                                    |  |
-|  |     [Screenshot Preview]           |  |
-|  |                                    |  |
-|  +------------------------------------+  |
+|  [○] Save credentials                    |
+|  [○] Capture final screenshot            |
 +------------------------------------------+
 ```
 
-## Files to Create
+### Files Involved (No Changes Needed)
+| File | Role |
+|------|------|
+| `src/hooks/useBrowserbaseAutomation.ts` | Manages automation state and API calls |
+| `src/components/AutomationEngine/BrowserbaseExecutionPanel.tsx` | Displays action timeline |
+| `src/components/AutomationEngine/FixGuidancePopover.tsx` | Contains "Run Auto-Fix" button |
+| `src/components/AutomationEngine/index.tsx` | Hosts the panel in the dialog |
 
-| File | Purpose |
-|------|---------|
-| `src/components/AutomationEngine/BrowserbaseExecutionPanel.tsx` | Main detailed breakdown component |
+### What to Expect During Execution
+1. **Starting** (1-2s): Session creation, context verification
+2. **Running** (5-30s): AI interpreter generates 25-35 CDP actions
+3. **Executing** (30-90s): Actions execute with real-time updates:
+   - Each action shows status badge (pending → running → completed)
+   - Failed actions show error message and selector attempted
+   - Screenshots captured for key steps
+4. **Completed**: Final screenshot displayed, timing summary shown
 
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `src/hooks/useBrowserbaseAutomation.ts` | Add enhanced action tracking fields |
-| `src/components/AutomationEngine/index.tsx` | Integrate BrowserbaseExecutionPanel |
-| `src/components/AutomationEngine/FixGuidancePopover.tsx` | Add "View Full Details" button |
-
-## Technical Details
-
-### BrowserbaseExecutionPanel Props
-```typescript
-interface BrowserbaseExecutionPanelProps {
-  actions: BrowserAction[];
-  executionResults: ActionResult[];
-  currentActionIndex: number;
-  status: AutomationStatus;
-  isRunning: boolean;
-  debugUrl?: string | null;
-  finalScreenshot?: string;
-  totalExecutionTime?: number;
-  onViewScreenshot?: (screenshot: string) => void;
-}
-```
-
-### Action Status Styling
-- **Pending**: Gray circle, muted text
-- **Running**: Blue pulsing dot, primary text, animated border
-- **Completed**: Green checkmark, success text
-- **Failed**: Red X icon, destructive text, error message visible
-- **Skipped**: Gray dash, muted/strikethrough text
-
-### Animation Details
-- Current action has a subtle pulse animation
-- Completed actions slide in with a checkmark animation
-- Progress bar smoothly transitions between actions
-- Failed actions have a subtle shake animation
-
-## Edge Cases Handled
-
-1. **No Actions**: Show "No actions planned" message
-2. **All Failed**: Show prominent error summary at top
-3. **Timeout**: Display which action timed out and the wait duration
-4. **Selector Fallbacks**: Show which fallback selector succeeded
-5. **Large Action Count**: Virtual scrolling for 50+ actions
-6. **Screenshot Loading**: Skeleton loader while images decode
-
-## Testing Considerations
-
-After implementation:
-1. Run a full Browserbase automation and verify each action appears in real-time
-2. Verify failed actions show clear error messages
-3. Confirm screenshots are viewable in the panel
-4. Test with different action counts (5, 20, 50+)
-5. Verify the panel works in both FixGuidancePopover context and AutomationEngine dialog
+### Debugging Tips
+- **View Live Session**: Click "Watch live session" link to see the actual browser in Browserbase
+- **Console Logs**: Check browser console for `CDP:` prefixed messages showing selector fallback attempts
+- **Edge Function Logs**: Use Lovable's backend function logs to see CDP communication
 
