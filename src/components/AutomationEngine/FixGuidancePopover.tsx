@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2 } from "lucide-react";
+import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useFixKnowledgeBase } from "@/hooks/useFixKnowledgeBase";
 
 interface FixGuidancePopoverProps {
   trigger: React.ReactNode;
@@ -14,6 +15,11 @@ interface FixGuidancePopoverProps {
   directorAiPrompt?: string;
   onCopy: () => void;
   copied: boolean;
+  nodeType?: string;
+  issueType?: string;
+  rootCause?: string;
+  solutionSummary?: string;
+  workflowName?: string;
 }
 
 export function FixGuidancePopover({ 
@@ -21,11 +27,18 @@ export function FixGuidancePopover({
   fixDetails, 
   directorAiPrompt, 
   onCopy, 
-  copied 
+  copied,
+  nodeType,
+  issueType,
+  rootCause,
+  solutionSummary,
+  workflowName,
 }: FixGuidancePopoverProps) {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [markedAsFixed, setMarkedAsFixed] = useState(false);
+  const { saveSuccessfulFix, isSaving } = useFixKnowledgeBase();
 
   // Use enhanced prompt if available, otherwise fall back to basic details
   const promptToCopy = directorAiPrompt || fixDetails;
@@ -70,6 +83,26 @@ export function FixGuidancePopover({
   const handleCopyPrompt = () => {
     navigator.clipboard.writeText(promptToCopy);
     onCopy();
+  };
+
+  const handleMarkAsFixed = async () => {
+    if (!nodeType || !issueType) {
+      toast.error("Missing fix context");
+      return;
+    }
+
+    const success = await saveSuccessfulFix({
+      nodeType,
+      issueType,
+      fixPrompt: promptToCopy,
+      rootCause,
+      solutionSummary,
+      workflowName,
+    });
+
+    if (success) {
+      setMarkedAsFixed(true);
+    }
   };
 
   return (
@@ -160,16 +193,37 @@ export function FixGuidancePopover({
             </div>
           </div>
 
-          {!copied && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={handleCopyPrompt}
-            >
-              Copy to Clipboard
-            </Button>
-          )}
+          <div className="flex gap-2">
+            {!copied && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
+                onClick={handleCopyPrompt}
+              >
+                Copy to Clipboard
+              </Button>
+            )}
+
+            {nodeType && issueType && (
+              <Button
+                variant={markedAsFixed ? "default" : "outline"}
+                size="sm"
+                className={markedAsFixed ? "flex-1 bg-emerald-600 hover:bg-emerald-700" : "flex-1"}
+                onClick={handleMarkAsFixed}
+                disabled={isSaving || markedAsFixed}
+              >
+                {isSaving ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                ) : markedAsFixed ? (
+                  <Check className="h-3.5 w-3.5 mr-1" />
+                ) : (
+                  <ThumbsUp className="h-3.5 w-3.5 mr-1" />
+                )}
+                {markedAsFixed ? "Saved!" : "Mark as Fixed"}
+              </Button>
+            )}
+          </div>
         </div>
       </PopoverContent>
     </Popover>
