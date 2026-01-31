@@ -19,6 +19,11 @@ export interface ActionResult {
   extractedData?: unknown;
   error?: string;
   executionTimeMs?: number;
+  // Enhanced tracking fields
+  selectorUsed?: string;
+  fallbacksAttempted?: number;
+  startTime?: string;
+  endTime?: string;
 }
 
 export interface AutomationResult {

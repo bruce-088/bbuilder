@@ -10,9 +10,11 @@ import { ProviderSelector } from "./ProviderSelector";
 import { N8nConnectionStatus } from "./N8nConnectionStatus";
 import { DeploymentPanel } from "./DeploymentPanel";
 import { N8nLiveStatusPanel } from "./N8nLiveStatusPanel";
+import { BrowserbaseExecutionPanel } from "./BrowserbaseExecutionPanel";
 import { AISettingsDialog } from "@/components/AISettingsDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useBrowserbaseAutomation } from "@/hooks/useBrowserbaseAutomation";
 import type { BusinessContext } from "@/lib/directorAiFixPromptGenerator";
 import type { DirectorAiOptions } from "@/lib/directorAiPromptGenerator";
 
@@ -27,6 +29,9 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
   const [selectedProvider, setSelectedProvider] = useState<string>("lovable");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [businessContext, setBusinessContext] = useState<BusinessContext | undefined>();
+  
+  // Browserbase automation state for detailed execution panel
+  const browserbaseAutomation = useBrowserbaseAutomation();
   
   const {
     isRunning,
@@ -177,6 +182,20 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
 
             <LiveLogStream logs={phaseResults} isRunning={isRunning} />
 
+            {/* Browserbase Execution Panel - shows detailed action breakdown */}
+            {(browserbaseAutomation.actions.length > 0 || browserbaseAutomation.executionResults.length > 0) && (
+              <BrowserbaseExecutionPanel
+                actions={browserbaseAutomation.actions}
+                executionResults={browserbaseAutomation.executionResults}
+                currentActionIndex={browserbaseAutomation.currentActionIndex}
+                status={browserbaseAutomation.status}
+                isRunning={browserbaseAutomation.isRunning}
+                debugUrl={browserbaseAutomation.debugUrl}
+                finalScreenshot={browserbaseAutomation.result?.finalScreenshot}
+                totalExecutionTime={browserbaseAutomation.result?.executionTimeMs}
+              />
+            )}
+
             {/* Deployment Panel - show after generate phase */}
             {phaseResults.some(r => r.phase === "generate" && r.status === "success") && (
               <DeploymentPanel 
@@ -200,8 +219,8 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
 
             {isComplete && !hasErrors && !hasWarnings && (
               <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/20 mb-4">
-                  <Rocket className="h-8 w-8 text-green-600 dark:text-green-400" />
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/20 mb-4">
+                  <Rocket className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground">
                   Automation Complete!
