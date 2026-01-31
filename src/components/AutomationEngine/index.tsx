@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Rocket, Loader2, X } from "lucide-react";
@@ -11,7 +11,10 @@ import { N8nConnectionStatus } from "./N8nConnectionStatus";
 import { DeploymentPanel } from "./DeploymentPanel";
 import { N8nLiveStatusPanel } from "./N8nLiveStatusPanel";
 import { AISettingsDialog } from "@/components/AISettingsDialog";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { BusinessContext } from "@/lib/directorAiFixPromptGenerator";
+import type { DirectorAiOptions } from "@/lib/directorAiPromptGenerator";
 
 interface AutomationEngineProps {
   businessIdeaId: string;
@@ -23,6 +26,8 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>("lovable");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [businessContext, setBusinessContext] = useState<BusinessContext | undefined>();
+  
   const {
     isRunning,
     currentPhase,
@@ -33,6 +38,46 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
     cancelAutomation,
     phases,
   } = useAutomationRun();
+
+  // Fetch business idea details for context
+  useEffect(() => {
+    const fetchBusinessContext = async () => {
+      if (!businessIdeaId) return;
+      
+      const { data, error } = await supabase
+        .from("business_ideas")
+        .select("business_name, niche, target_audience, service_offering, value_proposition")
+        .eq("id", businessIdeaId)
+        .single();
+      
+      if (data && !error) {
+        setBusinessContext({
+          businessName: data.business_name,
+          niche: data.niche,
+          targetAudience: data.target_audience,
+          serviceOffering: data.service_offering,
+          valueProposition: data.value_proposition,
+        });
+      }
+    };
+    
+    fetchBusinessContext();
+  }, [businessIdeaId]);
+
+  // Get n8n options from localStorage
+  const n8nOptions = useMemo<DirectorAiOptions>(() => {
+    const hostingType = localStorage.getItem("n8n_hosting_type") as "cloud" | "self-hosted" | undefined;
+    const deploymentMethod = localStorage.getItem("n8n_deployment_method") as "hostinger" | "docker" | "npm" | "other" | undefined;
+    const instanceUrl = localStorage.getItem("n8n_instance_url") || undefined;
+    const workflowPath = localStorage.getItem("n8n_workflow_path") || undefined;
+    
+    return {
+      hostingType: hostingType || undefined,
+      deploymentMethod: deploymentMethod || undefined,
+      n8nInstanceUrl: instanceUrl,
+      n8nWorkflowPath: workflowPath,
+    };
+  }, []);
 
   const handleStart = async () => {
     setIsOpen(true);
@@ -148,6 +193,8 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
                 onApplyAIFixes={handleApplyAIFixes}
                 onExecuteFix={handleExecuteFix}
                 businessIdeaId={businessIdeaId}
+                businessContext={businessContext}
+                n8nOptions={n8nOptions}
               />
             )}
 
