@@ -16,6 +16,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { FixGuidancePopover } from "./FixGuidancePopover";
 import { generateDirectorAiFixPrompt, type BusinessContext, type FixIssue } from "@/lib/directorAiFixPromptGenerator";
 import { type DirectorAiOptions } from "@/lib/directorAiPromptGenerator";
+import { type VerificationData } from "@/lib/verificationPromptGenerator";
 import type { PhaseResult } from "@/hooks/useAutomationRun";
 
 type FilterType = "all" | "errors" | "warnings";
@@ -170,10 +171,29 @@ export function ExceptionReview({
       workflowPatch: fix.workflowPatch,
     };
 
+    // Create verification data from fix context (matches guide format)
+    const verificationData: VerificationData = {
+      checkDescription: fix.solution || `Verify ${fix.phase} phase is correctly configured`,
+      automatedActions: fix.steps,
+      successIndicators: [
+        "Workflow executes without errors",
+        "Expected output data appears",
+        `${fix.phase} phase shows as complete`,
+        "No warning or error indicators on nodes"
+      ],
+      failureIndicators: [
+        "Error indicators on nodes",
+        "Workflow fails to execute",
+        "Missing credentials or configuration",
+        "API returns error response"
+      ]
+    };
+
     return generateDirectorAiFixPrompt({
       issue: fixIssue,
       businessContext,
       n8nOptions,
+      verificationData,
     });
   };
 
