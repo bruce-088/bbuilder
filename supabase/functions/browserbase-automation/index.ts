@@ -85,6 +85,103 @@ interface CreateSessionResponse extends SessionResponse {
   connectUrl: string;
 }
 
+// ============= n8n Selector Fallback Map =============
+
+// Robust selector mappings for n8n UI elements with fallbacks
+const N8N_SELECTORS: Record<string, string[]> = {
+  // Credential save buttons
+  "credential-save": [
+    'button[data-testid="credential-save-button"]',
+    'button[data-testid="save-credential-button"]',
+    'button.n8n-button--primary:has-text("Save")',
+    'button.btn--primary:has-text("Save")',
+    '.credential-modal button[type="submit"]',
+    'button:has-text("Save")',
+    '.modal-content button.primary',
+  ],
+  
+  // Dropdown inputs
+  "dropdown-input": [
+    'div.n8n-input.n8n-dropdown-input',
+    '.n8n-select .n8n-input',
+    'div.n8n-input-container input',
+    '.el-select input',
+    'input.n8n-input',
+    '[role="combobox"]',
+    '.parameter-input input',
+  ],
+  
+  // Dropdown items
+  "dropdown-item": [
+    'div.n8n-dropdown-item.n8n-dropdown-item--with-description',
+    '.n8n-dropdown-item',
+    '.el-select-dropdown__item',
+    '.n8n-option',
+    '[role="option"]',
+    '.dropdown-item',
+    'li.select-option',
+  ],
+  
+  // Node panel
+  "node-panel": [
+    '[data-testid="ndv-container"]',
+    '.ndv-body',
+    '.node-details-view',
+    '.n8n-node-panel',
+  ],
+  
+  // Execute button
+  "execute-button": [
+    'button[data-testid="execute-node-button"]',
+    'button[data-testid="execute"]',
+    '.execute-button',
+    'button:has-text("Execute")',
+    'button:has-text("Test")',
+  ],
+  
+  // Workflow save
+  "workflow-save": [
+    'button[data-testid="workflow-save-button"]',
+    'button[data-testid="save-button"]',
+    '.workflow-save-button',
+    'button:has-text("Save")',
+  ],
+  
+  // Canvas/workflow area
+  "canvas": [
+    '.vue-flow',
+    '.n8n-canvas',
+    '[data-testid="canvas"]',
+    '.workflow-canvas',
+  ],
+  
+  // Credential dropdown
+  "credential-dropdown": [
+    '[data-testid="credential-select"]',
+    '.credential-selector',
+    '.n8n-credential-select',
+    '.parameter-input-list .n8n-select',
+  ],
+  
+  // Input fields
+  "text-input": [
+    'input.n8n-input',
+    '.n8n-input input',
+    'input[type="text"]',
+    '.parameter-input input',
+    'textarea.n8n-input',
+  ],
+  
+  // Close/cancel buttons
+  "close-modal": [
+    'button[data-testid="close-modal"]',
+    '.modal-close',
+    'button.close',
+    '[aria-label="Close"]',
+    'button:has-text("Cancel")',
+  ],
+};
+
 // ============= CDP Client Class =============
 
 class CDPClient {
@@ -317,6 +414,49 @@ class CDPClient {
     throw new Error(`Timeout waiting for selector: ${selector}`);
   }
 
+  // Try multiple selectors with fallbacks - returns first match
+  async waitForAnySelector(selectors: string[], timeout = 10000): Promise<{ nodeId: number; backendNodeId: number; matchedSelector: string }> {
+    const startTime = Date.now();
+    
+    while (Date.now() - startTime < timeout) {
+      for (const selector of selectors) {
+        try {
+          const result = await this.querySelector(selector);
+          if (result) {
+            console.log(`CDP: Found selector "${selector}" (fallback match)`);
+            return { ...result, matchedSelector: selector };
+          }
+        } catch {
+          // Continue to next selector
+        }
+      }
+      await new Promise(r => setTimeout(r, 300));
+    }
+    
+    throw new Error(`Timeout waiting for any of ${selectors.length} selectors: ${selectors.slice(0, 3).join(", ")}...`);
+  }
+
+  // Resolve a selector key to its fallback array, or return the original selector
+  resolveSelectors(selectorOrKey: string): string[] {
+    // Check if this matches an n8n selector key pattern
+    const keyMatch = selectorOrKey.match(/^n8n:([\w-]+)$/);
+    if (keyMatch) {
+      const key = keyMatch[1];
+      return N8N_SELECTORS[key] || [selectorOrKey];
+    }
+    
+    // Check if the selector itself is in our known selectors
+    for (const [key, selectors] of Object.entries(N8N_SELECTORS)) {
+      if (selectors.includes(selectorOrKey)) {
+        console.log(`CDP: Detected n8n selector, using fallbacks for "${key}"`);
+        return selectors;
+      }
+    }
+    
+    // Return as single-item array
+    return [selectorOrKey];
+  }
+
   async getBoxModel(nodeId: number): Promise<{ x: number; y: number; width: number; height: number }> {
     const result = await this.send("DOM.getBoxModel", { nodeId }) as {
       model: { content: number[] };
@@ -340,8 +480,29 @@ class CDPClient {
   async click(selector: string): Promise<void> {
     console.log(`CDP: Clicking "${selector}"`);
     
-    // First try to find the element
-    const node = await this.waitForSelector(selector, 5000);
+    // Resolve to fallback selectors if available
+    const selectors = this.resolveSelectors(selector);
+    
+    // Try each selector with fallbacks
+    let node: { nodeId: number; backendNodeId: number } | null = null;
+    let lastError: Error | null = null;
+    
+    for (const sel of selectors) {
+      try {
+        node = await this.waitForSelector(sel, selectors.length > 1 ? 3000 : 5000);
+        if (node) {
+          console.log(`CDP: Using selector "${sel}"`);
+          break;
+        }
+      } catch (e) {
+        lastError = e as Error;
+        console.log(`CDP: Selector "${sel}" not found, trying next...`);
+      }
+    }
+    
+    if (!node) {
+      throw lastError || new Error(`No matching selector found for: ${selector}`);
+    }
     
     // Get element position
     const box = await this.getBoxModel(node.nodeId);
@@ -350,7 +511,7 @@ class CDPClient {
 
     // Scroll element into view
     await this.send("DOM.scrollIntoViewIfNeeded", { nodeId: node.nodeId });
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 300));
 
     // Dispatch mouse events
     await this.send("Input.dispatchMouseEvent", {
@@ -358,6 +519,8 @@ class CDPClient {
       x,
       y,
     });
+    
+    await new Promise(r => setTimeout(r, 50));
     
     await this.send("Input.dispatchMouseEvent", {
       type: "mousePressed",
@@ -493,29 +656,43 @@ async function interpretAction(
 ): Promise<CDPStep[]> {
   console.log(`AI: Interpreting action: "${instruction.substring(0, 100)}..."`);
 
-  const systemPrompt = `You are a browser automation expert. Your task is to convert natural language instructions into precise CDP (Chrome DevTools Protocol) steps.
-
-Given the current page context and an instruction, generate a JSON array of steps to accomplish the task.
+  const systemPrompt = `You are a browser automation expert specializing in n8n workflow automation. Convert natural language instructions into precise CDP steps.
 
 Available step types:
-- click: Click an element. Provide a CSS selector.
+- click: Click an element. Use CSS selectors or "n8n:key" shortcuts.
 - type: Type text into an input. Provide selector and text.
-- waitForSelector: Wait for an element to appear. Provide selector and optional timeout.
-- press: Press a keyboard key. Provide key name (Enter, Tab, Escape, etc.).
+- waitForSelector: Wait for an element. Provide selector and optional timeout.
+- press: Press a keyboard key (Enter, Tab, Escape, ArrowDown, etc.).
 - scroll: Scroll the page. Provide direction (up/down).
 - evaluate: Run JavaScript. Provide expression.
 
-For n8n UI specifically:
-- Node panels often have class ".ndv-body" or "[data-testid='ndv-container']"
-- Input fields in n8n use class ".n8n-input" or standard input/textarea
-- Buttons often have "[data-testid]" attributes
-- The canvas is ".vue-flow" or ".n8n-canvas"
-- Expression editor uses ".expression-editor" or CodeMirror classes
+**CRITICAL: n8n SELECTOR SHORTCUTS** - Use these for reliable element targeting:
+- "n8n:credential-save" → Save button in credential modals
+- "n8n:dropdown-input" → Dropdown input fields
+- "n8n:dropdown-item" → Items in dropdown menus
+- "n8n:node-panel" → Node details panel
+- "n8n:execute-button" → Execute/test node button
+- "n8n:workflow-save" → Save workflow button
+- "n8n:credential-dropdown" → Credential selection dropdown
+- "n8n:text-input" → Text input fields
+- "n8n:close-modal" → Close/cancel modal buttons
 
-Return ONLY a valid JSON array of steps. Example:
+**n8n UI PATTERNS:**
+- Credential modals: Wait for modal, fill fields, click "n8n:credential-save"
+- Dropdowns: Click "n8n:dropdown-input", wait 500ms, click "n8n:dropdown-item"
+- Node config: Open node panel, use "n8n:text-input" for fields
+- After clicking dropdowns, use ArrowDown + Enter for selection if click fails
+
+**ROBUST APPROACH:**
+1. Always wait for elements before interacting (500-1000ms)
+2. Use n8n: shortcuts when targeting n8n UI elements
+3. For dropdowns, add a small delay between opening and selecting
+4. If a button might not be visible, scroll first
+
+Return ONLY a valid JSON array. Example:
 [
-  { "action": "waitForSelector", "selector": "button[data-testid='execute']", "timeout": 5000 },
-  { "action": "click", "selector": "button[data-testid='execute']" }
+  { "action": "waitForSelector", "selector": "n8n:credential-save", "timeout": 5000 },
+  { "action": "click", "selector": "n8n:credential-save" }
 ]`;
 
   const userPrompt = `Current page: ${pageContext.url}
@@ -608,7 +785,8 @@ async function executeCDPStep(cdp: CDPClient, step: CDPStep): Promise<void> {
             await cdp.evaluate(`
               const elements = document.querySelectorAll('${baseSelector || "*"}');
               for (const el of elements) {
-                if (el.textContent.includes('${text}')) {
+                if (el.textContent && el.textContent.includes('${text}')) {
+                  el.scrollIntoView({ block: 'center' });
                   el.click();
                   break;
                 }
@@ -617,19 +795,63 @@ async function executeCDPStep(cdp: CDPClient, step: CDPStep): Promise<void> {
             return;
           }
         }
+        
+        // Handle :has-text pseudo-selector (similar to :contains)
+        if (step.selector.includes(":has-text(")) {
+          const match = step.selector.match(/:has-text\(["']?(.+?)["']?\)/);
+          if (match) {
+            const text = match[1];
+            const baseSelector = step.selector.replace(/:has-text\(["']?.+?["']?\)/, "");
+            await cdp.evaluate(`
+              const elements = document.querySelectorAll('${baseSelector || "*"}');
+              for (const el of elements) {
+                if (el.textContent && el.textContent.includes('${text}')) {
+                  el.scrollIntoView({ block: 'center' });
+                  el.click();
+                  break;
+                }
+              }
+            `);
+            return;
+          }
+        }
+        
+        // Use the click method which now has built-in fallback support
         await cdp.click(step.selector);
       }
       break;
 
     case "type":
       if (step.selector && step.text) {
-        await cdp.type(step.selector, step.text);
+        // Resolve selectors for type as well
+        const selectors = cdp.resolveSelectors(step.selector);
+        let typed = false;
+        
+        for (const sel of selectors) {
+          try {
+            await cdp.type(sel, step.text);
+            typed = true;
+            break;
+          } catch {
+            console.log(`CDP: Type selector "${sel}" not found, trying next...`);
+          }
+        }
+        
+        if (!typed) {
+          throw new Error(`Could not find input for typing: ${step.selector}`);
+        }
       }
       break;
 
     case "waitForSelector":
       if (step.selector) {
-        await cdp.waitForSelector(step.selector, step.timeout || 10000);
+        // Support n8n: prefix in waitForSelector
+        const selectors = cdp.resolveSelectors(step.selector);
+        if (selectors.length > 1) {
+          await cdp.waitForAnySelector(selectors, step.timeout || 10000);
+        } else {
+          await cdp.waitForSelector(step.selector, step.timeout || 10000);
+        }
       }
       break;
 
