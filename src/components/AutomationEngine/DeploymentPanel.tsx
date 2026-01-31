@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,11 +10,24 @@ import {
   Workflow,
   FileJson,
   CheckCircle2,
-  AlertTriangle
+  AlertTriangle,
+  ChevronDown
 } from "lucide-react";
 import { useN8nMcpConnection } from "@/hooks/useN8nMcpConnection";
 import { useToast } from "@/hooks/use-toast";
 import { PhaseResult } from "@/hooks/useAutomationRun";
+import {
+  formatForN8nImport,
+  formatSingleStage,
+  validateWorkflowForExport,
+  getAvailableStages
+} from "@/lib/n8nWorkflowFormatter";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface DeploymentPanelProps {
   phaseResults: PhaseResult[];
@@ -25,9 +38,8 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
   const { toast } = useToast();
   const {
     isConnected,
-    workflows,
-    getImportUrl,
     findWorkflowByStage,
+    getImportUrl,
   } = useN8nMcpConnection();
 
   const [copied, setCopied] = useState(false);
@@ -37,15 +49,38 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
   const deployResult = phaseResults.find(r => r.phase === "deploy");
   const generatedWorkflows = generateResult?.data?.workflows as Record<string, unknown> | undefined;
 
+  // Validate and get workflow status
+  const workflowStatus = useMemo(() => 
+    validateWorkflowForExport(generatedWorkflows, businessName),
+    [generatedWorkflows, businessName]
+  );
+
+  // Get available stages for individual downloads
+  const availableStages = useMemo(() => 
+    getAvailableStages(generatedWorkflows),
+    [generatedWorkflows]
+  );
+
   const handleCopyJson = async () => {
     if (!generatedWorkflows) return;
 
+    const formattedWorkflow = formatForN8nImport(generatedWorkflows, businessName);
+    
+    if (!formattedWorkflow) {
+      toast({
+        title: "Invalid workflow format",
+        description: "Could not convert to n8n format. Try regenerating the workflow.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      await navigator.clipboard.writeText(JSON.stringify(generatedWorkflows, null, 2));
+      await navigator.clipboard.writeText(JSON.stringify(formattedWorkflow, null, 2));
       setCopied(true);
       toast({
         title: "Copied to clipboard",
-        description: "Workflow JSON ready to paste into n8n",
+        description: `${workflowStatus.nodeCount} nodes ready to paste into n8n`,
       });
       setTimeout(() => setCopied(false), 2000);
     } catch {
@@ -60,13 +95,24 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
   const handleDownload = () => {
     if (!generatedWorkflows) return;
 
-    const blob = new Blob([JSON.stringify(generatedWorkflows, null, 2)], {
+    const formattedWorkflow = formatForN8nImport(generatedWorkflows, businessName);
+    
+    if (!formattedWorkflow) {
+      toast({
+        title: "Invalid workflow format",
+        description: "Could not convert to n8n format. Try regenerating the workflow.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(formattedWorkflow, null, 2)], {
       type: "application/json",
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${businessName.replace(/\s+/g, "_")}_workflows.json`;
+    a.download = `${businessName.replace(/\s+/g, "_")}_workflow.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -74,7 +120,41 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
 
     toast({
       title: "Download started",
-      description: "Import this file into your n8n instance",
+      description: `${workflowStatus.nodeCount} nodes ready for import into n8n`,
+    });
+  };
+
+  const handleDownloadStage = (stageKey: string) => {
+    if (!generatedWorkflows) return;
+
+    const stage = generatedWorkflows[stageKey];
+    const formatted = formatSingleStage(stage, stageKey, businessName);
+    
+    if (!formatted) {
+      toast({
+        title: "Invalid stage format",
+        description: `Could not format ${stageKey} for n8n import.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const blob = new Blob([JSON.stringify(formatted, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    const stageNumber = stageKey.replace(/\D/g, '') || '1';
+    a.download = `${businessName.replace(/\s+/g, "_")}_stage${stageNumber}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Stage download started",
+      description: `Stage ${stageNumber} ready for import into n8n`,
     });
   };
 
@@ -110,15 +190,41 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
                 : "Generated workflows ready for import"}
             </CardDescription>
           </div>
-          {deployResult?.status === "success" && (
-            <Badge variant="default" className="bg-primary/10 text-primary">
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              Ready
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {workflowStatus.valid ? (
+              <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                {workflowStatus.nodeCount} nodes
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+                <AlertTriangle className="h-3 w-3 mr-1" />
+                Invalid
+              </Badge>
+            )}
+            {deployResult?.status === "success" && (
+              <Badge variant="default" className="bg-primary/10 text-primary">
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Ready
+              </Badge>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Validation status */}
+        {!workflowStatus.valid && (
+          <div className="rounded-lg bg-destructive/10 border border-destructive/20 p-3">
+            <div className="flex items-center gap-2 text-sm font-medium text-destructive">
+              <AlertTriangle className="h-4 w-4" />
+              {workflowStatus.message}
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              The generated workflow data couldn't be parsed. Try running the generation phase again.
+            </p>
+          </div>
+        )}
+
         {/* Existing workflow detection */}
         {isConnected && existingCount > 0 && (
           <div className="rounded-lg bg-muted/50 p-3 space-y-2">
@@ -155,7 +261,12 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
 
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2">
-          <Button onClick={handleCopyJson} variant="outline" size="sm">
+          <Button 
+            onClick={handleCopyJson} 
+            variant="outline" 
+            size="sm"
+            disabled={!workflowStatus.valid}
+          >
             {copied ? (
               <>
                 <Check className="h-4 w-4 mr-2" />
@@ -169,10 +280,42 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
             )}
           </Button>
 
-          <Button onClick={handleDownload} variant="outline" size="sm">
+          <Button 
+            onClick={handleDownload} 
+            variant="outline" 
+            size="sm"
+            disabled={!workflowStatus.valid}
+          >
             <Download className="h-4 w-4 mr-2" />
-            Download
+            Download All
           </Button>
+
+          {/* Individual stage downloads */}
+          {availableStages.length > 1 && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" disabled={!workflowStatus.valid}>
+                  <FileJson className="h-4 w-4 mr-2" />
+                  By Stage
+                  <ChevronDown className="h-3 w-3 ml-1" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {availableStages.map((stageKey) => {
+                  const stageNum = stageKey.replace(/\D/g, '') || stageKey;
+                  return (
+                    <DropdownMenuItem
+                      key={stageKey}
+                      onClick={() => handleDownloadStage(stageKey)}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download Stage {stageNum}
+                    </DropdownMenuItem>
+                  );
+                })}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
 
           {getImportUrl() && (
             <Button 
