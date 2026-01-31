@@ -35,6 +35,7 @@ interface UseAutomationRunReturn {
   currentPhase: string | null;
   phaseResults: PhaseResult[];
   startAutomation: (businessIdeaId: string, aiProvider?: string) => Promise<void>;
+  applyAIFixes: (businessIdeaId: string, exceptions: PhaseResult[], aiProvider?: string) => Promise<PhaseResult | null>;
   cancelAutomation: () => void;
   phases: AutomationPhase[];
 }
@@ -162,12 +163,86 @@ export function useAutomationRun(): UseAutomationRunReturn {
     });
   }, [toast]);
 
+  const applyAIFixes = useCallback(
+    async (businessIdeaId: string, exceptions: PhaseResult[], aiProvider: string = "lovable"): Promise<PhaseResult | null> => {
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to apply AI fixes",
+          variant: "destructive",
+        });
+        return null;
+      }
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              action: "apply-fixes",
+              businessIdeaId,
+              aiProvider,
+              exceptions,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Request failed with status ${response.status}`);
+        }
+
+        const result: PhaseResult = await response.json();
+
+        // Add the fix result to phase results
+        setPhaseResults((prev) => [...prev, result]);
+
+        if (result.status === "success") {
+          toast({
+            title: "AI Fixes Applied",
+            description: result.message,
+          });
+        } else if (result.status === "warning") {
+          toast({
+            title: "Partial Fixes Applied",
+            description: result.message,
+          });
+        } else {
+          toast({
+            title: "Fix Failed",
+            description: result.message,
+            variant: "destructive",
+          });
+        }
+
+        return result;
+      } catch (error) {
+        console.error("Apply fixes error:", error);
+        toast({
+          title: "Fix Failed",
+          description: error instanceof Error ? error.message : "Unknown error occurred",
+          variant: "destructive",
+        });
+        return null;
+      }
+    },
+    [user, toast]
+  );
+
   return {
     run,
     isRunning,
     currentPhase,
     phaseResults,
     startAutomation,
+    applyAIFixes,
     cancelAutomation,
     phases: AUTOMATION_PHASES,
   };

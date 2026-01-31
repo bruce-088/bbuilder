@@ -8,12 +8,13 @@ const corsHeaders = {
 };
 
 interface AutomationRequest {
-  action: "full-automation" | "analyze" | "generate" | "deploy" | "verify" | "diagnose" | "validate";
+  action: "full-automation" | "analyze" | "generate" | "deploy" | "verify" | "diagnose" | "validate" | "apply-fixes";
   businessIdeaId: string;
   aiProvider?: "lovable" | "openai" | "claude" | "perplexity" | "gemini";
   runId?: string;
   phase?: string;
   nodeData?: Record<string, unknown>;
+  exceptions?: PhaseResult[];
 }
 
 interface PhaseResult {
@@ -435,6 +436,131 @@ Return JSON with: { fixes: [{ node, issue, solution, updatedConfig }] }`;
   };
 }
 
+async function applyAIFixes(
+  exceptions: PhaseResult[],
+  businessIdea: Record<string, unknown>,
+  provider: string,
+  supabase: SupabaseClient,
+  userId: string
+): Promise<PhaseResult> {
+  if (!exceptions || exceptions.length === 0) {
+    return {
+      phase: "apply-fixes",
+      status: "success",
+      message: "No exceptions to fix",
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  const systemPrompt = `You are an expert automation troubleshooter. Analyze these automation exceptions and provide actionable fixes.
+
+Business Context:
+${JSON.stringify(businessIdea, null, 2)}
+
+Exceptions to fix:
+${exceptions.map((e) => `- Phase: ${e.phase}, Status: ${e.status}, Message: ${e.message}`).join("\n")}
+
+For each exception, provide:
+1. Root cause analysis
+2. Step-by-step fix instructions
+3. Prevention strategies
+
+Be specific and actionable. Return JSON:
+{
+  "fixes": [
+    {
+      "phase": "string",
+      "rootCause": "string",
+      "solution": "string",
+      "steps": ["step1", "step2"],
+      "prevention": "string",
+      "confidence": "high" | "medium" | "low"
+    }
+  ],
+  "summary": "Overall summary of fixes applied",
+  "requiresManualAction": boolean
+}`;
+
+  try {
+    const response = await callAI(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: JSON.stringify({ exceptions, businessIdea }) },
+      ],
+      provider,
+      supabase,
+      userId
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      
+      // Handle rate limits
+      if (response.status === 429) {
+        return {
+          phase: "apply-fixes",
+          status: "warning",
+          message: "AI rate limit reached. Please try again in a moment.",
+          timestamp: new Date().toISOString(),
+        };
+      }
+      
+      // Handle payment required
+      if (response.status === 402) {
+        return {
+          phase: "apply-fixes",
+          status: "error",
+          message: "AI credits exhausted. Please add credits to continue.",
+          timestamp: new Date().toISOString(),
+        };
+      }
+
+      return {
+        phase: "apply-fixes",
+        status: "error",
+        message: `AI analysis failed: ${errorText}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    // Parse response based on provider
+    let content = "";
+    const data = await response.json();
+    
+    if (provider === "claude") {
+      content = data.content?.[0]?.text || "";
+    } else if (provider === "gemini") {
+      content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    } else {
+      content = data.choices?.[0]?.message?.content || "";
+    }
+
+    const fixes = extractJsonFromContent(content);
+    const fixesData = fixes as { fixes?: unknown[]; summary?: string; requiresManualAction?: boolean } | null;
+
+    return {
+      phase: "apply-fixes",
+      status: fixesData?.fixes && fixesData.fixes.length > 0 ? "success" : "warning",
+      message: fixesData?.summary || `Generated ${fixesData?.fixes?.length || 0} fix recommendations`,
+      data: {
+        fixes: fixesData?.fixes || [],
+        requiresManualAction: fixesData?.requiresManualAction ?? true,
+        originalExceptions: exceptions.length,
+        provider,
+      },
+      timestamp: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("Apply fixes error:", error);
+    return {
+      phase: "apply-fixes",
+      status: "error",
+      message: error instanceof Error ? error.message : "Failed to apply AI fixes",
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
 async function validateAutomation(results: PhaseResult[]): Promise<PhaseResult> {
   const hasErrors = results.some((r) => r.status === "error");
   const hasWarnings = results.some((r) => r.status === "warning");
@@ -576,6 +702,15 @@ serve(async (req) => {
           result = await diagnoseAndFix(
             (body.nodeData?.issues as Array<{ node: string; issue: string; severity: string }>) || [],
             (body.nodeData?.workflows as Record<string, unknown>) || {}
+          );
+          break;
+        case "apply-fixes":
+          result = await applyAIFixes(
+            body.exceptions || [],
+            businessIdea as Record<string, unknown>,
+            aiProvider,
+            supabase,
+            user.id
           );
           break;
         default:

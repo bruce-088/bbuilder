@@ -28,6 +28,7 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
     currentPhase,
     phaseResults,
     startAutomation,
+    applyAIFixes,
     cancelAutomation,
     phases,
   } = useAutomationRun();
@@ -53,6 +54,13 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
 
   const handleTestWorkflow = async (workflowId: string) => {
     toast.info(`Test run requested for workflow ${workflowId}. Use the n8n editor to trigger manual executions.`);
+  };
+
+  const handleApplyAIFixes = async () => {
+    const exceptions = phaseResults.filter(
+      (r) => r.status === "error" || r.status === "warning"
+    );
+    await applyAIFixes(businessIdeaId, exceptions, selectedProvider);
   };
 
   return (
@@ -132,6 +140,7 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
                 exceptions={phaseResults.filter(
                   (r) => r.status === "error" || r.status === "warning"
                 )}
+                onApplyAIFixes={handleApplyAIFixes}
               />
             )}
 
