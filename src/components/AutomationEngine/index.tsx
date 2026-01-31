@@ -60,7 +60,7 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
     const exceptions = phaseResults.filter(
       (r) => r.status === "error" || r.status === "warning"
     );
-    await applyAIFixes(businessIdeaId, exceptions, selectedProvider);
+    return await applyAIFixes(businessIdeaId, exceptions, selectedProvider);
   };
 
   return (
