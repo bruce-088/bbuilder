@@ -11,7 +11,8 @@ import {
   FileJson,
   CheckCircle2,
   AlertTriangle,
-  ChevronDown
+  ChevronDown,
+  KeyRound
 } from "lucide-react";
 import { useN8nMcpConnection } from "@/hooks/useN8nMcpConnection";
 import { useToast } from "@/hooks/use-toast";
@@ -28,6 +29,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface DeploymentPanelProps {
   phaseResults: PhaseResult[];
@@ -43,6 +49,7 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
   } = useN8nMcpConnection();
 
   const [copied, setCopied] = useState(false);
+  const [credentialsExpanded, setCredentialsExpanded] = useState(false);
 
   // Extract generated workflows from phase results
   const generateResult = phaseResults.find(r => r.phase === "generate");
@@ -223,6 +230,41 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
               The generated workflow data couldn't be parsed. Try running the generation phase again.
             </p>
           </div>
+        )}
+
+        {/* Credential warnings */}
+        {workflowStatus.credentialWarnings.length > 0 && (
+          <Collapsible open={credentialsExpanded} onOpenChange={setCredentialsExpanded}>
+            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 space-y-2">
+              <CollapsibleTrigger asChild>
+                <button className="flex items-center justify-between w-full text-left">
+                  <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+                    <KeyRound className="h-4 w-4" />
+                    {workflowStatus.credentialWarnings.length} node{workflowStatus.credentialWarnings.length > 1 ? 's' : ''} need credentials
+                  </div>
+                  <ChevronDown className={`h-4 w-4 text-amber-600 dark:text-amber-400 transition-transform ${credentialsExpanded ? 'rotate-180' : ''}`} />
+                </button>
+              </CollapsibleTrigger>
+              <p className="text-xs text-muted-foreground">
+                After importing, configure credentials in n8n for these nodes
+              </p>
+              <CollapsibleContent className="space-y-1.5 pt-2">
+                {workflowStatus.credentialWarnings.map((warning, idx) => (
+                  <div
+                    key={idx}
+                    className="flex items-center justify-between text-xs bg-background/50 rounded px-2 py-1.5"
+                  >
+                    <span className="font-medium truncate max-w-[180px]" title={warning.nodeName}>
+                      {warning.nodeName}
+                    </span>
+                    <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                      {warning.missingCredential}
+                    </Badge>
+                  </div>
+                ))}
+              </CollapsibleContent>
+            </div>
+          </Collapsible>
         )}
 
         {/* Existing workflow detection */}

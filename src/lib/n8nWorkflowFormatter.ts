@@ -27,7 +27,63 @@ interface WorkflowValidationResult {
   hasConnections: boolean;
   stageCount: number;
   message: string;
+  credentialWarnings: CredentialWarning[];
 }
+
+interface CredentialWarning {
+  nodeName: string;
+  nodeType: string;
+  missingCredential: string;
+}
+
+// Node types that typically require credentials
+const NODES_REQUIRING_CREDENTIALS: Record<string, string> = {
+  'n8n-nodes-base.slack': 'Slack API',
+  'n8n-nodes-base.slackTrigger': 'Slack API',
+  'n8n-nodes-base.gmail': 'Gmail OAuth2',
+  'n8n-nodes-base.gmailTrigger': 'Gmail OAuth2',
+  'n8n-nodes-base.googleSheets': 'Google Sheets OAuth2',
+  'n8n-nodes-base.googleSheetsTrigger': 'Google Sheets OAuth2',
+  'n8n-nodes-base.googleDrive': 'Google Drive OAuth2',
+  'n8n-nodes-base.stripe': 'Stripe API',
+  'n8n-nodes-base.stripeTrigger': 'Stripe API',
+  'n8n-nodes-base.hubspot': 'HubSpot API',
+  'n8n-nodes-base.hubspotTrigger': 'HubSpot API',
+  'n8n-nodes-base.airtable': 'Airtable API',
+  'n8n-nodes-base.airtableTrigger': 'Airtable API',
+  'n8n-nodes-base.notion': 'Notion API',
+  'n8n-nodes-base.notionTrigger': 'Notion API',
+  'n8n-nodes-base.openAi': 'OpenAI API',
+  'n8n-nodes-base.anthropic': 'Anthropic API',
+  'n8n-nodes-base.postgres': 'PostgreSQL',
+  'n8n-nodes-base.mysql': 'MySQL',
+  'n8n-nodes-base.mongodb': 'MongoDB',
+  'n8n-nodes-base.redis': 'Redis',
+  'n8n-nodes-base.sendGrid': 'SendGrid API',
+  'n8n-nodes-base.mailchimp': 'Mailchimp API',
+  'n8n-nodes-base.twilio': 'Twilio API',
+  'n8n-nodes-base.telegram': 'Telegram API',
+  'n8n-nodes-base.telegramTrigger': 'Telegram API',
+  'n8n-nodes-base.discord': 'Discord Webhook/Bot',
+  'n8n-nodes-base.discordTrigger': 'Discord Webhook/Bot',
+  'n8n-nodes-base.jira': 'Jira API',
+  'n8n-nodes-base.asana': 'Asana API',
+  'n8n-nodes-base.trello': 'Trello API',
+  'n8n-nodes-base.github': 'GitHub API',
+  'n8n-nodes-base.githubTrigger': 'GitHub API',
+  'n8n-nodes-base.gitlab': 'GitLab API',
+  'n8n-nodes-base.awsS3': 'AWS S3',
+  'n8n-nodes-base.awsSes': 'AWS SES',
+  'n8n-nodes-base.awsLambda': 'AWS Lambda',
+  'n8n-nodes-base.microsoftOutlook': 'Microsoft OAuth2',
+  'n8n-nodes-base.microsoftTeams': 'Microsoft OAuth2',
+  'n8n-nodes-base.zoom': 'Zoom API',
+  'n8n-nodes-base.calendly': 'Calendly API',
+  'n8n-nodes-base.shopify': 'Shopify API',
+  'n8n-nodes-base.wooCommerce': 'WooCommerce API',
+  '@n8n/n8n-nodes-langchain.agent': 'AI Model Credentials',
+  '@n8n/n8n-nodes-langchain.chainLlm': 'AI Model Credentials',
+};
 
 /**
  * Check if an object looks like a valid n8n workflow
@@ -220,6 +276,50 @@ export function formatForN8nImport(
 }
 
 /**
+ * Check nodes for missing credentials
+ */
+function detectMissingCredentials(nodes: N8nNode[]): CredentialWarning[] {
+  const warnings: CredentialWarning[] = [];
+
+  for (const node of nodes) {
+    const requiredCredential = NODES_REQUIRING_CREDENTIALS[node.type];
+    
+    if (requiredCredential) {
+      // Check if credentials are configured
+      const hasCredentials = node.credentials && Object.keys(node.credentials).length > 0;
+      
+      if (!hasCredentials) {
+        warnings.push({
+          nodeName: node.name,
+          nodeType: node.type,
+          missingCredential: requiredCredential
+        });
+      }
+    }
+
+    // Also check HTTP Request nodes with authentication
+    if (node.type === 'n8n-nodes-base.httpRequest') {
+      const params = node.parameters as Record<string, unknown> | undefined;
+      const authType = params?.authentication as string;
+      
+      if (authType && authType !== 'none' && authType !== 'predefinedCredentialType') {
+        const hasCredentials = node.credentials && Object.keys(node.credentials).length > 0;
+        
+        if (!hasCredentials) {
+          warnings.push({
+            nodeName: node.name,
+            nodeType: node.type,
+            missingCredential: `HTTP ${authType} credentials`
+          });
+        }
+      }
+    }
+  }
+
+  return warnings;
+}
+
+/**
  * Validate workflow data and return status information
  */
 export function validateWorkflowForExport(
@@ -232,7 +332,8 @@ export function validateWorkflowForExport(
       nodeCount: 0,
       hasConnections: false,
       stageCount: 0,
-      message: "No workflow data available"
+      message: "No workflow data available",
+      credentialWarnings: []
     };
   }
 
@@ -244,7 +345,8 @@ export function validateWorkflowForExport(
       nodeCount: 0,
       hasConnections: false,
       stageCount: 0,
-      message: "Invalid workflow format - try regenerating"
+      message: "Invalid workflow format - try regenerating",
+      credentialWarnings: []
     };
   }
 
@@ -259,6 +361,9 @@ export function validateWorkflowForExport(
   );
   const stageCount = stages.size || 1;
 
+  // Detect missing credentials
+  const credentialWarnings = detectMissingCredentials(formatted.nodes);
+
   return {
     valid: nodeCount > 0,
     nodeCount,
@@ -266,7 +371,8 @@ export function validateWorkflowForExport(
     stageCount,
     message: nodeCount > 0
       ? `${nodeCount} nodes across ${stageCount} stage${stageCount > 1 ? 's' : ''} ready for import`
-      : "No valid nodes found"
+      : "No valid nodes found",
+    credentialWarnings
   };
 }
 
