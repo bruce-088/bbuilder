@@ -1,350 +1,244 @@
 
-# Plan: Browserbase Edge Function Integration for Automated n8n Fixes
+# Plan: Stagehand SDK Integration via CDP for Edge Functions
 
 ## Overview
 
-Create an edge function that integrates with the Browserbase API to programmatically execute browser automations for n8n workflow fixes. This will allow users to click a single "Run Fix" button instead of manually copying prompts to Director.ai or Claude Computer Use.
+Implement actual browser action execution in the `browserbase-automation` edge function using Chrome DevTools Protocol (CDP) over WebSocket. Since the Stagehand SDK requires Node.js runtime (puppeteer-core/playwright-core), we'll use a **CDP-direct approach** combined with **AI-powered action interpretation** via the Lovable AI Gateway.
 
 ## Architecture
 
 ```text
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         User Interface                                   │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────────────────┐ │
-│  │ Execute Fix    │  │ Run Browserbase│  │ View Live Session          │ │
-│  │ (existing)     │  │ Automation     │  │ (debug URL)                │ │
-│  └───────┬────────┘  └───────┬────────┘  └────────────────────────────┘ │
-└──────────┼───────────────────┼──────────────────────────────────────────┘
-           │                   │
-           ▼                   ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                    Edge Function: browserbase-automation                  │
-│  ┌──────────────┐  ┌───────────────┐  ┌────────────────┐                 │
-│  │ Create       │  │ Execute       │  │ Poll Status    │                 │
-│  │ Session      │──│ Actions via   │──│ & Return       │                 │
-│  │              │  │ Stagehand     │  │ Results        │                 │
-│  └──────────────┘  └───────────────┘  └────────────────┘                 │
-└──────────────────────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌──────────────────────────────────────────────────────────────────────────┐
-│                        Browserbase Cloud                                  │
-│  ┌──────────────┐  ┌───────────────┐  ┌────────────────┐                 │
-│  │ Cloud Browser│  │ Session       │  │ Debug/Live     │                 │
-│  │ Instance     │  │ Management    │  │ View URLs      │                 │
-│  └──────────────┘  └───────────────┘  └────────────────┘                 │
-└──────────────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      Edge Function: browserbase-automation                   │
+│                                                                              │
+│  ┌──────────────┐   ┌───────────────┐   ┌────────────────────────────────┐  │
+│  │ Parse Actions│──>│ AI Interpreter│──>│ CDP Command Generator          │  │
+│  │ from Prompt  │   │ (Gemini Flash)│   │ (navigate, click, type, etc.)  │  │
+│  └──────────────┘   └───────────────┘   └────────────────────────────────┘  │
+│                                                    │                         │
+│                                                    ▼                         │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │                    CDP WebSocket Client                                 │ │
+│  │  - Connect to session.connectUrl                                        │ │
+│  │  - Send CDP commands (Page.navigate, Input.*, DOM.*)                    │ │
+│  │  - Capture screenshots (Page.captureScreenshot)                         │ │
+│  │  - Execute JavaScript (Runtime.evaluate)                                │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                   │
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        Browserbase Cloud Session                             │
+│                        (via connectUrl WebSocket)                            │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ## Implementation Steps
 
-### Phase 1: Edge Function Creation
+### Phase 1: CDP WebSocket Client
 
-**Create `supabase/functions/browserbase-automation/index.ts`**
+Create a CDP client class that connects to Browserbase sessions via WebSocket and executes commands:
 
-This edge function will:
-1. Accept fix prompt and n8n configuration
-2. Create a Browserbase session via REST API
-3. Execute browser actions using the Stagehand-compatible format
-4. Return session ID and debug URLs for monitoring
-5. Poll for completion and return results
+```text
+CDPClient class:
+├── connect(wsUrl) - Establish WebSocket connection
+├── send(method, params) - Send CDP command and await response
+├── navigate(url) - Page.navigate command
+├── click(selector) - Find element + dispatch click events
+├── type(selector, text) - Focus element + simulate typing
+├── screenshot() - Page.captureScreenshot as base64
+├── evaluate(expression) - Runtime.evaluate for JS execution
+├── waitForSelector(selector, timeout) - Poll DOM for element
+└── close() - Disconnect WebSocket
+```
 
-Key endpoints:
-- `POST /v1/sessions` - Create browser session
-- Session connects via `connectUrl` for automation
-- Debug URLs allow users to watch the automation live
+### Phase 2: AI-Powered Action Interpreter
 
-### Phase 2: Hook and State Management
+Use the Lovable AI Gateway to translate natural language instructions into CDP commands:
 
-**Create `src/hooks/useBrowserbaseAutomation.ts`**
+**Input:** `"Click the login button"`
 
-This hook will:
-- Manage automation state (idle, running, completed, failed)
-- Call the edge function with fix context
-- Provide live session URL for debugging
-- Handle polling for automation completion
-- Return structured results
+**AI Output (structured):**
+```json
+{
+  "steps": [
+    { "action": "waitForSelector", "selector": "button:contains('Login'), [data-testid='login'], .login-btn" },
+    { "action": "click", "selector": "button:contains('Login')" }
+  ]
+}
+```
 
-### Phase 3: UI Integration
+The AI will analyze the current page state (via screenshots or DOM extraction) and generate appropriate selectors.
 
-**Modify `src/components/AutomationEngine/FixGuidancePopover.tsx`**
+### Phase 3: Execution Loop
 
-Add a new "Run Browserbase Automation" button that:
-- Triggers the automation flow
-- Shows loading state with live session link
-- Displays success/failure results
-- Falls back to copy-paste flow if automation fails
+Implement an action execution loop that:
+1. Takes the parsed `BrowserAction[]` from `parseFixPromptToActions`
+2. Connects to the session via CDP
+3. For each action:
+   - If `navigate`: Execute `Page.navigate`
+   - If `wait`: Execute `waitForSelector` or timeout
+   - If `act`: Send to AI interpreter, execute resulting CDP steps
+   - If `screenshot`: Capture and store base64 image
+   - If `extract`: Use AI to generate extraction script, run via `Runtime.evaluate`
+4. Return execution results with screenshots and logs
 
-**Modify `src/components/AutomationEngine/ExceptionReview.tsx`**
+### Phase 4: Enhanced Response Format
 
-Add "Auto-Fix with Browserbase" button to fix cards that:
-- Replaces/augments the "Execute Fix" button for compatible fixes
-- Shows real-time automation progress
-- Links to live session for debugging
+Update the edge function to return detailed execution results:
 
-### Phase 4: Secrets Configuration
-
-**Required Secrets:**
-- `BROWSERBASE_API_KEY` - API key from Browserbase dashboard
-- `BROWSERBASE_PROJECT_ID` - Project ID for session creation
-
-Users will need to add these secrets before using the feature.
-
----
+```text
+ExecutionResult:
+├── success: boolean
+├── sessionId: string
+├── actionsExecuted: ActionResult[]
+│   ├── action: BrowserAction
+│   ├── status: "completed" | "failed" | "skipped"
+│   ├── screenshot?: string (base64)
+│   ├── extractedData?: any
+│   └── error?: string
+├── finalScreenshot: string (base64)
+└── executionTimeMs: number
+```
 
 ## Technical Details
 
-### Edge Function: `browserbase-automation/index.ts`
+### CDP Commands to Implement
 
-```typescript
-// Core structure
-interface AutomationRequest {
-  action: "start" | "status" | "stop";
-  fixPrompt: string;
-  n8nInstanceUrl: string;
-  workflowId: string;
-  sessionId?: string; // For status/stop actions
-}
+| Action Type | CDP Commands Used |
+|-------------|-------------------|
+| `navigate` | `Page.navigate`, `Page.loadEventFired` |
+| `click` | `DOM.querySelector`, `DOM.getBoxModel`, `Input.dispatchMouseEvent` |
+| `type` | `DOM.focus`, `Input.insertText` or `Input.dispatchKeyEvent` |
+| `wait` | `Runtime.evaluate` with polling loop |
+| `screenshot` | `Page.captureScreenshot` |
+| `extract` | `Runtime.evaluate` with AI-generated JS |
 
-interface AutomationResponse {
-  success: boolean;
-  sessionId: string;
-  debugUrl: string;     // Live view URL for user monitoring
-  connectUrl: string;   // WebSocket URL for Stagehand
-  status: "running" | "completed" | "failed";
-  result?: {
-    actionsTaken: string[];
-    screenshots: string[];
-    errors: string[];
-  };
-}
-```
+### AI Interpreter Prompt
 
-### Browser Actions Flow
+The AI interpreter will receive:
+- Current page URL
+- Screenshot or DOM snapshot
+- Natural language instruction
 
-The edge function will translate the Director.ai prompt into Stagehand actions:
+And return structured CDP steps with fallback selectors.
 
-```typescript
-// Example action sequence
-const actions = [
-  { type: "navigate", url: n8nWorkflowUrl },
-  { type: "wait", selector: ".n8n-canvas" },
-  { type: "act", instruction: "Press Ctrl+0 to fit all nodes in view" },
-  { type: "act", instruction: "Double-click on the Claude node to open configuration" },
-  { type: "act", instruction: "Click on the Credentials dropdown" },
-  // ... extracted from fix prompt
-];
-```
+### Error Handling
 
-### Hook: `useBrowserbaseAutomation.ts`
+- Connection timeouts (WebSocket fails to connect)
+- CDP command failures (element not found, navigation error)
+- AI interpretation failures (unclear instructions)
+- Session expiration (Browserbase timeout)
 
-```typescript
-interface UseBrowserbaseAutomation {
-  startAutomation: (params: AutomationParams) => Promise<void>;
-  stopAutomation: () => Promise<void>;
-  status: "idle" | "starting" | "running" | "completed" | "failed";
-  debugUrl: string | null;
-  result: AutomationResult | null;
-  error: string | null;
-}
-```
-
----
-
-## Files to Create
-
-| File | Purpose |
-|------|---------|
-| `supabase/functions/browserbase-automation/index.ts` | Edge function for Browserbase API integration |
-| `src/hooks/useBrowserbaseAutomation.ts` | React hook for managing automation state |
+Each failure returns detailed error info for debugging.
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `supabase/config.toml` | Add `[functions.browserbase-automation]` with `verify_jwt = false` |
-| `src/components/AutomationEngine/FixGuidancePopover.tsx` | Add "Run Browserbase" button with live session link |
-| `src/components/AutomationEngine/ExceptionReview.tsx` | Add auto-fix button to fix recommendation cards |
+| `supabase/functions/browserbase-automation/index.ts` | Add CDP client, AI interpreter, execution loop |
 
----
+## Files to Create
 
-## Edge Function Code Structure
+None - all logic contained in the edge function.
 
-```typescript
-// supabase/functions/browserbase-automation/index.ts
+## Implementation Code Structure
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+### CDP Client Class
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, ...",
-};
+```text
+class CDPClient {
+  private ws: WebSocket | null = null;
+  private messageId = 0;
+  private pendingCommands = new Map();
 
-const BROWSERBASE_API_URL = "https://api.browserbase.com";
-
-interface AutomationRequest {
-  action: "start" | "status" | "stop";
-  fixPrompt: string;
-  n8nInstanceUrl: string;
-  workflowId: string;
-  workflowName?: string;
-  sessionId?: string;
+  async connect(wsUrl: string): Promise<void>
+  async send(method: string, params?: object): Promise<any>
+  async navigate(url: string): Promise<void>
+  async waitForNavigation(timeout?: number): Promise<void>
+  async waitForSelector(selector: string, timeout?: number): Promise<string>
+  async click(selector: string): Promise<void>
+  async type(selector: string, text: string): Promise<void>
+  async screenshot(): Promise<string>
+  async evaluate<T>(expression: string): Promise<T>
+  async getPageInfo(): Promise<{ url: string; title: string }>
+  disconnect(): void
 }
-
-async function createSession(projectId: string, apiKey: string) {
-  const response = await fetch(`${BROWSERBASE_API_URL}/v1/sessions`, {
-    method: "POST",
-    headers: {
-      "X-BB-API-Key": apiKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      projectId,
-      browserSettings: {
-        viewport: { width: 1920, height: 1080 },
-      },
-    }),
-  });
-  return response.json();
-}
-
-async function executeAutomation(sessionId: string, connectUrl: string, actions: string[]) {
-  // Use Browserbase connect URL to execute Stagehand actions
-  // This would integrate with Stagehand SDK for natural language actions
-}
-
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  const BROWSERBASE_API_KEY = Deno.env.get("BROWSERBASE_API_KEY");
-  const BROWSERBASE_PROJECT_ID = Deno.env.get("BROWSERBASE_PROJECT_ID");
-
-  if (!BROWSERBASE_API_KEY || !BROWSERBASE_PROJECT_ID) {
-    return new Response(
-      JSON.stringify({ 
-        error: "Browserbase credentials not configured. Add BROWSERBASE_API_KEY and BROWSERBASE_PROJECT_ID secrets." 
-      }),
-      { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-
-  try {
-    const body: AutomationRequest = await req.json();
-    
-    if (body.action === "start") {
-      // 1. Create Browserbase session
-      const session = await createSession(BROWSERBASE_PROJECT_ID, BROWSERBASE_API_KEY);
-      
-      // 2. Return session info for client to monitor
-      return new Response(
-        JSON.stringify({
-          success: true,
-          sessionId: session.id,
-          debugUrl: `https://www.browserbase.com/sessions/${session.id}`,
-          connectUrl: session.connectUrl,
-          status: "running",
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    // ... handle status and stop actions
-    
-  } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
-  }
-});
 ```
 
----
+### AI Action Interpreter
 
-## UI Components Update
+```text
+async function interpretAction(
+  instruction: string,
+  pageContext: { url: string; title: string; screenshot?: string }
+): Promise<CDPStep[]>
 
-### FixGuidancePopover - New Button
-
-```tsx
-{/* Run Browserbase Automation */}
-<button
-  onClick={handleRunBrowserbase}
-  disabled={isRunningAutomation || !hasBrowserbaseCredentials}
-  className="w-full flex items-center gap-3 p-2.5 rounded-lg bg-primary/5 border border-primary/20 hover:bg-primary/10 transition-colors text-left"
->
-  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
-    {isRunningAutomation ? (
-      <Loader2 className="h-4 w-4 text-primary animate-spin" />
-    ) : (
-      <Bot className="h-4 w-4 text-primary" />
-    )}
-  </div>
-  <div className="flex-1 min-w-0">
-    <p className="text-sm font-medium">
-      {isRunningAutomation ? "Running automation..." : "Run Browserbase Automation"}
-    </p>
-    <p className="text-xs text-muted-foreground">
-      AI browser agent executes the fix for you
-    </p>
-  </div>
-  {automationDebugUrl && (
-    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-  )}
-</button>
-
-{/* Live Session Link */}
-{automationDebugUrl && (
-  <a 
-    href={automationDebugUrl} 
-    target="_blank" 
-    className="text-xs text-blue-400 hover:underline flex items-center gap-1"
-  >
-    <Eye className="h-3 w-3" /> Watch live session
-  </a>
-)}
+interface CDPStep {
+  action: "click" | "type" | "waitForSelector" | "evaluate" | "scroll";
+  selector?: string;
+  text?: string;
+  expression?: string;
+  timeout?: number;
+}
 ```
 
----
+### Execute Action Function
 
-## User Flow
+```text
+async function executeAction(
+  cdp: CDPClient,
+  action: BrowserAction,
+  aiInterpreter: (instruction: string, context: any) => Promise<CDPStep[]>
+): Promise<ActionResult>
+```
 
-1. User sees a fix recommendation in Exception Review
-2. User clicks "Run Browserbase Automation" button
-3. Edge function creates a Browserbase session
-4. User gets a "Watch live session" link to monitor in real-time
-5. Browser automation navigates to n8n, opens the node, applies fixes
-6. Automation completes and returns success/failure status
-7. User can verify the fix was applied correctly
+## Hook Updates
 
----
+Update `useBrowserbaseAutomation.ts` to:
+- Add `execute` action trigger after `start`
+- Poll for execution results (not just session status)
+- Display action-by-action progress
+- Show captured screenshots in UI
+
+## UI Enhancements
+
+Update `FixGuidancePopover.tsx` to:
+- Show execution progress (action 1 of N)
+- Display captured screenshots
+- Show success/failure for each step
+- Provide retry option for failed actions
+
+## Execution Flow
+
+1. User clicks "Run Auto-Fix"
+2. `start` action creates session, returns `sessionId` and `actions[]`
+3. Frontend calls `execute` action with `sessionId` and `actions[]`
+4. Edge function:
+   - Connects to session via CDP WebSocket
+   - For each action, interprets and executes
+   - Captures screenshots at key points
+   - Returns detailed results
+5. Frontend displays progress and results
+6. Session auto-closes or user clicks "Stop"
 
 ## Secrets Required
 
-Before using this feature, users must configure:
+Already configured:
+- `BROWSERBASE_API_KEY`
+- `BROWSERBASE_PROJECT_ID`
+- `LOVABLE_API_KEY` (for AI interpreter)
 
-| Secret | Description |
-|--------|-------------|
-| `BROWSERBASE_API_KEY` | API key from https://browserbase.com/settings |
-| `BROWSERBASE_PROJECT_ID` | Project ID from Browserbase dashboard |
+## Limitations
 
-The edge function will return a helpful error message if these are not configured.
-
----
-
-## Limitations and Considerations
-
-1. **Session Duration**: Browserbase sessions have timeouts (configurable up to 6 hours)
-2. **Cost**: Browserbase has usage-based pricing for browser minutes
-3. **n8n Authentication**: User may need to be logged into n8n in the browser context
-4. **Complexity**: Some fixes may require OAuth flows that can't be fully automated
-
----
+1. **WebSocket in Edge Functions**: Deno supports WebSocket but with timeouts; long-running automations may need chunking
+2. **No Visual AI**: CDP doesn't see visual elements like Stagehand; relies on DOM selectors
+3. **Complex n8n UI**: n8n uses Vue.js with dynamic components; may need specialized selectors
+4. **Session Timeout**: Default 5-minute timeout may not be enough for complex fixes
 
 ## Future Enhancements
 
-1. **Context Persistence**: Save browser context to maintain n8n login across sessions
-2. **Screenshot Capture**: Take before/after screenshots for verification
-3. **Rollback Support**: Capture workflow state before changes for undo capability
-4. **Batch Fixes**: Execute multiple fixes in a single session to reduce costs
+1. Add visual element detection using AI vision models with screenshots
+2. Implement action recording for debugging
+3. Add rollback capability using n8n workflow export
+4. Support parallel action execution for speed
