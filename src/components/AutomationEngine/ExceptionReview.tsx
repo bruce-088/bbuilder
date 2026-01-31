@@ -3,20 +3,30 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { AlertTriangle, XCircle, ChevronDown, ExternalLink, Copy, Sparkles, Loader2, CheckCircle2, Lightbulb, Shield, ListChecks } from "lucide-react";
+import { 
+  AlertTriangle, XCircle, ChevronDown, ExternalLink, Copy, Sparkles, 
+  Loader2, CheckCircle2, Lightbulb, Shield, ListChecks, MessageSquare,
+  Play, Zap, Hand
+} from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { FixGuidancePopover } from "./FixGuidancePopover";
 import type { PhaseResult } from "@/hooks/useAutomationRun";
 
 type FilterType = "all" | "errors" | "warnings";
 
-interface AIFix {
+export interface AIFix {
   phase: string;
   rootCause: string;
   solution: string;
   steps: string[];
   prevention: string;
   confidence: "high" | "medium" | "low";
+  automatable: boolean;
+  automationMethod?: "workflow_json" | "api_call" | "none";
+  workflowPatch?: Record<string, unknown>;
+  requiredUserAction?: string;
 }
 
 interface AIFixResult {
@@ -29,15 +39,20 @@ interface AIFixResult {
 interface ExceptionReviewProps {
   exceptions: PhaseResult[];
   onApplyAIFixes?: () => Promise<PhaseResult | null>;
+  onExecuteFix?: (fix: AIFix) => Promise<{ success: boolean; message: string; updatedWorkflowJson?: object; importUrl?: string }>;
+  businessIdeaId?: string;
 }
 
-export function ExceptionReview({ exceptions, onApplyAIFixes }: ExceptionReviewProps) {
+export function ExceptionReview({ exceptions, onApplyAIFixes, onExecuteFix, businessIdeaId }: ExceptionReviewProps) {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>("all");
   const [isApplyingFixes, setIsApplyingFixes] = useState(false);
   const [fixResult, setFixResult] = useState<AIFixResult | null>(null);
-  const [expandedFixes, setExpandedFixes] = useState<Set<number>>(new Set([0])); // First fix expanded by default
+  const [expandedFixes, setExpandedFixes] = useState<Set<number>>(new Set([0]));
+  const [executingFixes, setExecutingFixes] = useState<Set<number>>(new Set());
+  const [copiedFixes, setCopiedFixes] = useState<Set<number>>(new Set());
 
   const togglePhase = (phase: string) => {
     setExpandedPhases((prev) => {
@@ -85,6 +100,69 @@ export function ExceptionReview({ exceptions, onApplyAIFixes }: ExceptionReviewP
     }
   };
 
+  const handleExecuteFix = async (fix: AIFix, index: number) => {
+    if (!onExecuteFix) return;
+
+    setExecutingFixes((prev) => new Set(prev).add(index));
+    try {
+      const result = await onExecuteFix(fix);
+      if (result.success) {
+        toast({
+          title: "Fix Executed Successfully",
+          description: result.message,
+        });
+        if (result.importUrl) {
+          window.open(result.importUrl, "_blank");
+        }
+      } else {
+        toast({
+          title: "Fix Execution Failed",
+          description: result.message,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      toast({
+        title: "Fix Execution Error",
+        description: error instanceof Error ? error.message : "Unknown error",
+        variant: "destructive",
+      });
+    } finally {
+      setExecutingFixes((prev) => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
+    }
+  };
+
+  const getFixDetailsText = (fix: AIFix) => {
+    return `Phase: ${fix.phase}\nRoot Cause: ${fix.rootCause}\nSolution: ${fix.solution}\nSteps:\n${fix.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}\nPrevention: ${fix.prevention}${fix.requiredUserAction ? `\n\nRequired Manual Action: ${fix.requiredUserAction}` : ""}`;
+  };
+
+  const handleCopyFixDetails = (fix: AIFix, index: number) => {
+    const text = getFixDetailsText(fix);
+    navigator.clipboard.writeText(text);
+    setCopiedFixes((prev) => new Set(prev).add(index));
+    setTimeout(() => {
+      setCopiedFixes((prev) => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
+      });
+    }, 3000);
+  };
+
+  const handleChatWithMya = (fix: AIFix) => {
+    const fixDetails = getFixDetailsText(fix);
+    navigate("/chat", {
+      state: {
+        prefillMessage: `I need help with this automation fix:\n\n${fixDetails}`,
+        fixContext: fixDetails,
+      },
+    });
+  };
+
   const toggleFix = (index: number) => {
     setExpandedFixes((prev) => {
       const next = new Set(prev);
@@ -115,6 +193,9 @@ export function ExceptionReview({ exceptions, onApplyAIFixes }: ExceptionReviewP
     if (filter === "warnings") return e.status === "warning";
     return true;
   });
+
+  const automatableFixes = fixResult?.fixes?.filter((f) => f.automatable) || [];
+  const manualFixes = fixResult?.fixes?.filter((f) => !f.automatable) || [];
 
   return (
     <Card className="border-amber-200 dark:border-amber-800/50">
@@ -232,6 +313,23 @@ export function ExceptionReview({ exceptions, onApplyAIFixes }: ExceptionReviewP
                   {fixResult.fixes.length} fix{fixResult.fixes.length !== 1 && "es"}
                 </Badge>
               </CardTitle>
+              {/* Summary of automatable vs manual */}
+              {fixResult.fixes.length > 0 && (
+                <div className="flex items-center gap-3 text-xs text-muted-foreground pt-1">
+                  {automatableFixes.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Zap className="h-3 w-3 text-emerald-400" />
+                      {automatableFixes.length} automatable
+                    </span>
+                  )}
+                  {manualFixes.length > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Hand className="h-3 w-3 text-amber-400" />
+                      {manualFixes.length} manual
+                    </span>
+                  )}
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-2 pt-0">
               {fixResult.fixes.map((fix, index) => (
@@ -243,9 +341,25 @@ export function ExceptionReview({ exceptions, onApplyAIFixes }: ExceptionReviewP
                   <CollapsibleTrigger asChild>
                     <div className="flex items-center justify-between p-3 rounded-lg bg-background/80 hover:bg-background cursor-pointer transition-colors border border-border/50">
                       <div className="flex items-center gap-3">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0" />
+                        {fix.automatable ? (
+                          <Zap className="h-4 w-4 text-emerald-400 shrink-0" />
+                        ) : (
+                          <Hand className="h-4 w-4 text-amber-400 shrink-0" />
+                        )}
                         <div>
-                          <p className="text-sm font-medium capitalize">{fix.phase} Phase Fix</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium capitalize">{fix.phase} Phase Fix</p>
+                            <Badge 
+                              variant="outline" 
+                              className={`text-[10px] px-1.5 py-0 ${
+                                fix.automatable 
+                                  ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30" 
+                                  : "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                              }`}
+                            >
+                              {fix.automatable ? "Automatable" : "Manual"}
+                            </Badge>
+                          </div>
                           <p className="text-xs text-muted-foreground line-clamp-1">
                             {fix.solution}
                           </p>
@@ -261,6 +375,25 @@ export function ExceptionReview({ exceptions, onApplyAIFixes }: ExceptionReviewP
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <div className="mt-2 p-4 rounded-lg bg-background border space-y-4">
+                      {/* Automation Status Banner */}
+                      {fix.automatable ? (
+                        <div className="flex items-center gap-2 p-2 rounded-md bg-emerald-500/10 border border-emerald-500/20">
+                          <Zap className="h-4 w-4 text-emerald-400" />
+                          <span className="text-xs text-emerald-400 font-medium">
+                            Can be Automated
+                            {fix.automationMethod && ` via ${fix.automationMethod.replace("_", " ")}`}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 p-2 rounded-md bg-amber-500/10 border border-amber-500/20">
+                          <Hand className="h-4 w-4 text-amber-400" />
+                          <span className="text-xs text-amber-400 font-medium">
+                            Manual Action Required
+                            {fix.requiredUserAction && `: ${fix.requiredUserAction}`}
+                          </span>
+                        </div>
+                      )}
+
                       {/* Root Cause */}
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 text-xs font-medium text-muted-foreground uppercase tracking-wide">
@@ -294,30 +427,75 @@ export function ExceptionReview({ exceptions, onApplyAIFixes }: ExceptionReviewP
                         <p className="text-sm text-foreground/90">{fix.prevention}</p>
                       </div>
 
-                      {/* Copy Button */}
-                      <div className="pt-2 border-t">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            const text = `Phase: ${fix.phase}\nRoot Cause: ${fix.rootCause}\nSolution: ${fix.solution}\nSteps:\n${fix.steps.map((s, i) => `${i + 1}. ${s}`).join("\n")}\nPrevention: ${fix.prevention}`;
-                            navigator.clipboard.writeText(text);
-                            toast({ title: "Copied", description: "Fix details copied to clipboard." });
-                          }}
-                        >
-                          <Copy className="h-3 w-3 mr-1" />
-                          Copy Fix Details
-                        </Button>
+                      {/* Action Buttons */}
+                      <div className="pt-2 border-t flex flex-wrap items-center gap-2">
+                        {fix.automatable ? (
+                          <>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleExecuteFix(fix, index)}
+                              disabled={executingFixes.has(index) || !onExecuteFix}
+                              className="gap-2"
+                            >
+                              {executingFixes.has(index) ? (
+                                <>
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Executing...
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="h-3 w-3" />
+                                  Execute Fix
+                                </>
+                              )}
+                            </Button>
+                            <FixGuidancePopover
+                              trigger={
+                                <Button variant="outline" size="sm">
+                                  <Copy className="h-3 w-3 mr-1" />
+                                  {copiedFixes.has(index) ? "Copied!" : "Copy Fix Details"}
+                                </Button>
+                              }
+                              fixDetails={getFixDetailsText(fix)}
+                              onCopy={() => handleCopyFixDetails(fix, index)}
+                              copied={copiedFixes.has(index)}
+                            />
+                          </>
+                        ) : (
+                          <>
+                            <FixGuidancePopover
+                              trigger={
+                                <Button variant="outline" size="sm">
+                                  <Copy className="h-3 w-3 mr-1" />
+                                  {copiedFixes.has(index) ? "Copied!" : "Copy Fix Details"}
+                                </Button>
+                              }
+                              fixDetails={getFixDetailsText(fix)}
+                              onCopy={() => handleCopyFixDetails(fix, index)}
+                              copied={copiedFixes.has(index)}
+                            />
+                            <Button
+                              variant="secondary"
+                              size="sm"
+                              onClick={() => handleChatWithMya(fix)}
+                              className="gap-2"
+                            >
+                              <MessageSquare className="h-3 w-3" />
+                              Open in Mya Chat
+                            </Button>
+                          </>
+                        )}
                       </div>
                     </div>
                   </CollapsibleContent>
                 </Collapsible>
               ))}
 
-              {fixResult.requiresManualAction && (
+              {fixResult.requiresManualAction && manualFixes.length > 0 && (
                 <p className="text-xs text-amber-400 flex items-center gap-1 pt-2">
                   <AlertTriangle className="h-3 w-3" />
-                  These fixes require manual action to implement
+                  {manualFixes.length} fix{manualFixes.length !== 1 && "es"} require manual action
                 </p>
               )}
             </CardContent>

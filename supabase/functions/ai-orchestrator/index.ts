@@ -7,14 +7,28 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface AIFix {
+  phase: string;
+  rootCause: string;
+  solution: string;
+  steps: string[];
+  prevention: string;
+  confidence: "high" | "medium" | "low";
+  automatable: boolean;
+  automationMethod?: "workflow_json" | "api_call" | "none";
+  workflowPatch?: Record<string, unknown>;
+  requiredUserAction?: string;
+}
+
 interface AutomationRequest {
-  action: "full-automation" | "analyze" | "generate" | "deploy" | "verify" | "diagnose" | "validate" | "apply-fixes";
+  action: "full-automation" | "analyze" | "generate" | "deploy" | "verify" | "diagnose" | "validate" | "apply-fixes" | "execute-fix";
   businessIdeaId: string;
   aiProvider?: "lovable" | "openai" | "claude" | "perplexity" | "gemini";
   runId?: string;
   phase?: string;
   nodeData?: Record<string, unknown>;
   exceptions?: PhaseResult[];
+  fix?: AIFix;
 }
 
 interface PhaseResult {
@@ -460,10 +474,29 @@ ${JSON.stringify(businessIdea, null, 2)}
 Exceptions to fix:
 ${exceptions.map((e) => `- Phase: ${e.phase}, Status: ${e.status}, Message: ${e.message}`).join("\n")}
 
+For each exception, determine if it can be automated or requires manual user action:
+
+AUTOMATABLE fixes (set automatable: true):
+- Updating node parameters via n8n API
+- Generating corrected workflow JSON for re-import
+- Creating credentials configuration templates
+- Fixing webhook URLs or API endpoints
+- Correcting data mapping/transformations
+
+MANUAL fixes (set automatable: false):
+- OAuth authentication flows (user must click "Authorize")
+- API key retrieval from external services
+- Billing/payment issues
+- Third-party dashboard configurations
+- User account setup on external platforms
+
 For each exception, provide:
 1. Root cause analysis
 2. Step-by-step fix instructions
 3. Prevention strategies
+4. Whether it can be automated
+5. If automatable, the method (workflow_json or api_call)
+6. If manual, what specific user action is required
 
 Be specific and actionable. Return JSON:
 {
@@ -474,7 +507,11 @@ Be specific and actionable. Return JSON:
       "solution": "string",
       "steps": ["step1", "step2"],
       "prevention": "string",
-      "confidence": "high" | "medium" | "low"
+      "confidence": "high" | "medium" | "low",
+      "automatable": boolean,
+      "automationMethod": "workflow_json" | "api_call" | "none",
+      "workflowPatch": { /* optional: corrected node config if automatable */ },
+      "requiredUserAction": "string (required if automatable is false)"
     }
   ],
   "summary": "Overall summary of fixes applied",
@@ -556,6 +593,135 @@ Be specific and actionable. Return JSON:
       phase: "apply-fixes",
       status: "error",
       message: error instanceof Error ? error.message : "Failed to apply AI fixes",
+      timestamp: new Date().toISOString(),
+    };
+  }
+}
+
+async function executeAIFix(
+  fix: AIFix,
+  businessIdea: Record<string, unknown>,
+  provider: string,
+  supabase: SupabaseClient,
+  userId: string
+): Promise<PhaseResult> {
+  if (!fix.automatable) {
+    return {
+      phase: "execute-fix",
+      status: "error",
+      message: "This fix requires manual action and cannot be automated.",
+      data: { requiredUserAction: fix.requiredUserAction },
+      timestamp: new Date().toISOString(),
+    };
+  }
+
+  const systemPrompt = `You are an n8n workflow expert. Generate a corrected workflow JSON patch based on this fix.
+
+Business Context:
+${JSON.stringify(businessIdea, null, 2)}
+
+Fix to execute:
+- Phase: ${fix.phase}
+- Root Cause: ${fix.rootCause}
+- Solution: ${fix.solution}
+- Steps: ${fix.steps.join(", ")}
+- Automation Method: ${fix.automationMethod}
+${fix.workflowPatch ? `- Existing Patch: ${JSON.stringify(fix.workflowPatch)}` : ""}
+
+Generate:
+1. A complete, valid n8n workflow JSON that implements this fix
+2. The workflow should be immediately importable into n8n
+3. Use only valid n8n node types
+
+Return JSON:
+{
+  "success": boolean,
+  "workflowJson": { /* complete n8n workflow */ },
+  "importInstructions": "string with steps to import",
+  "message": "string describing what was fixed"
+}`;
+
+  try {
+    const response = await callAI(
+      [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: JSON.stringify({ fix, businessIdea }) },
+      ],
+      provider,
+      supabase,
+      userId
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      return {
+        phase: "execute-fix",
+        status: "error",
+        message: `Failed to generate fix: ${errorText}`,
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    let content = "";
+    const data = await response.json();
+    
+    if (provider === "claude") {
+      content = data.content?.[0]?.text || "";
+    } else if (provider === "gemini") {
+      content = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    } else {
+      content = data.choices?.[0]?.message?.content || "";
+    }
+
+    const result = extractJsonFromContent(content) as {
+      success?: boolean;
+      workflowJson?: object;
+      importInstructions?: string;
+      message?: string;
+    } | null;
+
+    if (result?.success && result.workflowJson) {
+      // Save the updated workflow to the database
+      const { error: snapshotError } = await supabase
+        .from("n8n_workflow_snapshots")
+        .insert({
+          user_id: userId,
+          workflow_id: `fix-${fix.phase}-${Date.now()}`,
+          workflow_name: `Fixed: ${fix.phase} - ${fix.solution.slice(0, 50)}`,
+          nodes: result.workflowJson,
+          source: "ai-fix",
+        });
+
+      if (snapshotError) {
+        console.error("Failed to save workflow snapshot:", snapshotError);
+      }
+
+      return {
+        phase: "execute-fix",
+        status: "success",
+        message: result.message || "Fix executed successfully",
+        data: {
+          updatedWorkflowJson: result.workflowJson,
+          importInstructions: result.importInstructions,
+          snapshotSaved: !snapshotError,
+        },
+        timestamp: new Date().toISOString(),
+      };
+    }
+
+    return {
+      phase: "execute-fix",
+      status: "warning",
+      message: "Fix generated but may need manual verification",
+      data: { rawContent: content },
+      timestamp: new Date().toISOString(),
+    };
+  } catch (error) {
+    console.error("Execute fix error:", error);
+    return {
+      phase: "execute-fix",
+      status: "error",
+      message: error instanceof Error ? error.message : "Failed to execute fix",
       timestamp: new Date().toISOString(),
     };
   }
@@ -712,6 +878,24 @@ serve(async (req) => {
             supabase,
             user.id
           );
+          break;
+        case "execute-fix":
+          if (!body.fix) {
+            result = {
+              phase: "execute-fix",
+              status: "error",
+              message: "No fix provided to execute",
+              timestamp: new Date().toISOString(),
+            };
+          } else {
+            result = await executeAIFix(
+              body.fix,
+              businessIdea as Record<string, unknown>,
+              aiProvider,
+              supabase,
+              user.id
+            );
+          }
           break;
         default:
           result = {
