@@ -2,7 +2,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type AutomationStatus = "idle" | "starting" | "running" | "completed" | "failed" | "stopped";
+export type AutomationStatus = "idle" | "starting" | "running" | "executing" | "completed" | "failed" | "stopped";
 
 export interface BrowserAction {
   type: "navigate" | "wait" | "act" | "screenshot" | "extract";
@@ -10,6 +10,15 @@ export interface BrowserAction {
   selector?: string;
   instruction?: string;
   timeout?: number;
+}
+
+export interface ActionResult {
+  action: BrowserAction;
+  status: "completed" | "failed" | "skipped";
+  screenshot?: string;
+  extractedData?: unknown;
+  error?: string;
+  executionTimeMs?: number;
 }
 
 export interface AutomationResult {
@@ -22,6 +31,9 @@ export interface AutomationResult {
   startedAt?: string;
   completedAt?: string;
   authPersisted?: boolean;
+  executionResults?: ActionResult[];
+  finalScreenshot?: string;
+  executionTimeMs?: number;
 }
 
 export interface AutomationParams {
@@ -45,6 +57,16 @@ interface StartResponse {
   authPersisted?: boolean;
 }
 
+interface ExecuteResponse {
+  success: boolean;
+  sessionId?: string;
+  status?: string;
+  actionsExecuted?: ActionResult[];
+  finalScreenshot?: string;
+  executionTimeMs?: number;
+  error?: string;
+}
+
 interface StatusResponse {
   success: boolean;
   sessionId?: string;
@@ -66,7 +88,6 @@ interface ContextResponse {
 
 // Helper to get context key for localStorage
 function getContextStorageKey(n8nUrl: string): string {
-  // Normalize URL to create a consistent key
   const normalized = n8nUrl.replace(/^https?:\/\//, '').replace(/\/$/, '');
   return `browserbase_context_${normalized}`;
 }
@@ -75,12 +96,15 @@ export function useBrowserbaseAutomation() {
   const [status, setStatus] = useState<AutomationStatus>("idle");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [debugUrl, setDebugUrl] = useState<string | null>(null);
+  const [connectUrl, setConnectUrl] = useState<string | null>(null);
   const [result, setResult] = useState<AutomationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [actions, setActions] = useState<BrowserAction[]>([]);
   const [credentialsConfigured, setCredentialsConfigured] = useState<boolean | null>(null);
   const [contextId, setContextId] = useState<string | null>(null);
   const [authPersisted, setAuthPersisted] = useState<boolean>(false);
+  const [currentActionIndex, setCurrentActionIndex] = useState<number>(0);
+  const [executionResults, setExecutionResults] = useState<ActionResult[]>([]);
   
   const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -143,19 +167,16 @@ export function useBrowserbaseAutomation() {
     const storageKey = getContextStorageKey(n8nUrl);
     const storedContextId = localStorage.getItem(storageKey);
 
-    // Check if we have a stored context and verify it's still valid
     if (storedContextId) {
       const isValid = await verifyContext(storedContextId);
       if (isValid) {
         console.log(`Using existing context for ${n8nUrl}: ${storedContextId}`);
         return storedContextId;
       } else {
-        // Context expired or deleted, remove from storage
         localStorage.removeItem(storageKey);
       }
     }
 
-    // Create a new context
     const newContextId = await createContext();
     if (newContextId) {
       localStorage.setItem(storageKey, newContextId);
@@ -190,8 +211,40 @@ export function useBrowserbaseAutomation() {
     }
   }, []);
 
+  // Execute actions on the session
+  const executeActions = useCallback(async (
+    sid: string, 
+    wsUrl: string, 
+    actionsToExecute: BrowserAction[]
+  ): Promise<ExecuteResponse | null> => {
+    try {
+      console.log(`Executing ${actionsToExecute.length} actions on session ${sid}`);
+      
+      const { data, error: fnError } = await supabase.functions.invoke<ExecuteResponse>(
+        "browserbase-automation",
+        {
+          body: {
+            action: "execute",
+            sessionId: sid,
+            connectUrl: wsUrl,
+            actions: actionsToExecute,
+          },
+        }
+      );
+
+      if (fnError) {
+        console.error("Execute error:", fnError);
+        return null;
+      }
+
+      return data;
+    } catch (err) {
+      console.error("Execute failed:", err);
+      return null;
+    }
+  }, []);
+
   const startPolling = useCallback((sid: string) => {
-    // Clear any existing polling
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
     }
@@ -229,7 +282,7 @@ export function useBrowserbaseAutomation() {
           }
         }
       }
-    }, 5000); // Poll every 5 seconds
+    }, 5000);
   }, [checkStatus]);
 
   const startAutomation = useCallback(async (params: AutomationParams): Promise<void> => {
@@ -238,10 +291,13 @@ export function useBrowserbaseAutomation() {
     setResult(null);
     setSessionId(null);
     setDebugUrl(null);
+    setConnectUrl(null);
     setAuthPersisted(false);
+    setCurrentActionIndex(0);
+    setExecutionResults([]);
 
     try {
-      // Get or create a persistent context for this n8n instance
+      // Get or create a persistent context
       const ctxId = await getOrCreateContext(params.n8nInstanceUrl);
       setContextId(ctxId);
 
@@ -254,7 +310,7 @@ export function useBrowserbaseAutomation() {
             n8nInstanceUrl: params.n8nInstanceUrl,
             workflowId: params.workflowId,
             workflowName: params.workflowName,
-            contextId: ctxId, // Include context for auth persistence
+            contextId: ctxId,
           },
         }
       );
@@ -274,6 +330,7 @@ export function useBrowserbaseAutomation() {
       setCredentialsConfigured(true);
       setSessionId(data.sessionId!);
       setDebugUrl(data.debugUrl!);
+      setConnectUrl(data.connectUrl!);
       setActions(data.actions || []);
       setStatus("running");
       setAuthPersisted(!!data.authPersisted);
@@ -293,20 +350,58 @@ export function useBrowserbaseAutomation() {
         authPersisted: !!data.authPersisted,
       });
 
-      // Start polling for status
-      startPolling(data.sessionId!);
+      toast.success(data.authPersisted 
+        ? "Session started with saved auth! Executing actions..."
+        : "Session started! Executing actions...");
 
-      const authMessage = data.authPersisted 
-        ? "Automation started with persistent auth! Click 'Watch Live' to see it."
-        : "Automation started! Click 'Watch Live' to see it. Log in once to persist auth.";
-      toast.success(authMessage);
+      // Immediately trigger execution
+      if (data.connectUrl && data.actions && data.actions.length > 0) {
+        setStatus("executing");
+        
+        const executeResult = await executeActions(
+          data.sessionId!,
+          data.connectUrl,
+          data.actions
+        );
+
+        if (executeResult) {
+          setExecutionResults(executeResult.actionsExecuted || []);
+          
+          const completedCount = executeResult.actionsExecuted?.filter(r => r.status === "completed").length || 0;
+          const failedCount = executeResult.actionsExecuted?.filter(r => r.status === "failed").length || 0;
+
+          setResult((prev) => ({
+            ...prev!,
+            status: executeResult.success ? "completed" : "failed",
+            actionsCompleted: completedCount,
+            executionResults: executeResult.actionsExecuted,
+            finalScreenshot: executeResult.finalScreenshot,
+            executionTimeMs: executeResult.executionTimeMs,
+            completedAt: new Date().toISOString(),
+          }));
+
+          if (executeResult.success) {
+            setStatus("completed");
+            toast.success(`Automation completed! ${completedCount} actions executed.`);
+          } else {
+            setStatus("failed");
+            toast.error(`Automation finished with ${failedCount} failed actions.`);
+          }
+        } else {
+          // Fallback to polling if execute fails
+          startPolling(data.sessionId!);
+        }
+      } else {
+        // Fallback to polling
+        startPolling(data.sessionId!);
+      }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Unknown error occurred";
       setError(errorMessage);
       setStatus("failed");
       toast.error(errorMessage);
     }
-  }, [startPolling, getOrCreateContext]);
+  }, [startPolling, getOrCreateContext, executeActions]);
 
   const stopAutomation = useCallback(async (): Promise<void> => {
     if (!sessionId) {
@@ -315,7 +410,6 @@ export function useBrowserbaseAutomation() {
     }
 
     try {
-      // Stop polling first
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
         pollingRef.current = null;
@@ -354,14 +448,16 @@ export function useBrowserbaseAutomation() {
     setStatus("idle");
     setSessionId(null);
     setDebugUrl(null);
+    setConnectUrl(null);
     setResult(null);
     setError(null);
     setActions([]);
     setContextId(null);
     setAuthPersisted(false);
+    setCurrentActionIndex(0);
+    setExecutionResults([]);
   }, []);
 
-  // Clear the stored context for a specific n8n instance (useful if user wants to re-login)
   const clearStoredContext = useCallback((n8nUrl: string) => {
     const storageKey = getContextStorageKey(n8nUrl);
     localStorage.removeItem(storageKey);
@@ -375,16 +471,20 @@ export function useBrowserbaseAutomation() {
     status,
     sessionId,
     debugUrl,
+    connectUrl,
     result,
     error,
     actions,
     credentialsConfigured,
     contextId,
     authPersisted,
+    currentActionIndex,
+    executionResults,
     
     // Computed
-    isRunning: status === "running" || status === "starting",
+    isRunning: status === "running" || status === "starting" || status === "executing",
     isIdle: status === "idle",
+    isExecuting: status === "executing",
     
     // Actions
     startAutomation,
