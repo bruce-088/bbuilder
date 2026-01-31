@@ -1,171 +1,166 @@
 
 
-# Plan: Add Direct API Key Entry for Perplexity
+## Plan: Automate Manual AI Fixes & Clarify Copy Fix Details Usage
 
-## Overview
+### Overview
 
-Update Perplexity to use direct API key entry, matching the OpenAI and Claude workflow. This provides a consistent experience across all three AI providers.
+This plan enhances the Exception Review system to allow AI to not just recommend fixes, but also **execute automatable fixes** and clearly guide users on where to use the copied fix details.
 
 ---
 
-## Changes Required
+### Part 1: Categorize Fixes into Automatable vs Manual
 
-### 1. Database: Allow 'perplexity' in user_api_keys
+Currently, all fixes are marked as `requiresManualAction: true`. We'll enhance the AI response to distinguish between:
 
-The current `user_api_keys` table has a constraint that only allows 'openai' and 'claude' providers. We need to add 'perplexity' to the allowed values.
+**Automatable Fixes** (can be executed by AI):
+- Updating node parameters via n8n API
+- Generating corrected workflow JSON for re-import
+- Creating credentials configuration templates
+- Triggering re-validation after changes
 
-**Migration:**
-```sql
-ALTER TABLE user_api_keys 
-DROP CONSTRAINT user_api_keys_provider_check;
+**Manual Fixes** (require user intervention):
+- OAuth authentication flows (user must click "Authorize")
+- API key retrieval from external services
+- Billing/payment issues
+- Third-party dashboard configurations
 
-ALTER TABLE user_api_keys 
-ADD CONSTRAINT user_api_keys_provider_check 
-CHECK (provider IN ('openai', 'claude', 'perplexity'));
+### Part 2: Add "Execute Fix" Button for Automatable Items
+
+**New UI Elements in `ExceptionReview.tsx`:**
+```text
+┌─────────────────────────────────────────────────────────┐
+│ 💡 AI Fix Recommendations                    2 fixes   │
+├─────────────────────────────────────────────────────────┤
+│ ▼ Verify Phase Fix - Configure HubSpot credentials     │
+│   ├── 🔴 Manual Action Required                        │
+│   │   ┌─────────────────────────────────────────────┐  │
+│   │   │ [Copy Fix Details] [Open in Mya Chat]       │  │
+│   │   └─────────────────────────────────────────────┘  │
+│   │                                                    │
+│ ▼ Generate Phase Fix - Update webhook URL              │
+│   ├── 🟢 Can be Automated                              │
+│   │   ┌─────────────────────────────────────────────┐  │
+│   │   │ [Execute Fix] [Copy Fix Details]            │  │
+│   │   └─────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────┘
 ```
 
----
+### Part 3: Implement Fix Execution Flow
 
-### 2. Update AISettingsDialog.tsx
+**New Action in `ai-orchestrator`:**
+- Add `execute-fix` action that can:
+  1. Generate corrected n8n workflow JSON
+  2. Save updated workflow snapshot
+  3. Provide direct import instructions
 
-Replace the connector-based Perplexity tab with a direct API key input field:
-
-**Current (connector-based):**
-- Shows "Connect Perplexity" button
-- Triggers callback to connector system
-
-**New (direct entry):**
-- Shows API key input field (masked)
-- "Save & Connect" button
-- "Remove" button when configured
-- Link to get Perplexity API key
-
----
-
-### 3. Update useAIProviders.ts
-
-Extend the `saveApiKey` and `removeApiKey` functions to handle 'perplexity':
-
-- Update type definitions to include `"perplexity"` 
-- Add Perplexity handling in save/remove logic
-- Update the `testApiKey` function to validate Perplexity keys
-
----
-
-### 4. Update validate-api-key Edge Function
-
-Add Perplexity API key validation:
-
+**New Hook Method in `useAutomationRun`:**
 ```typescript
-if (provider === "perplexity") {
-  const response = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "sonar",
-      messages: [{ role: "user", content: "test" }],
-      max_tokens: 1
-    })
-  });
-  
-  if (!response.ok) {
-    return { valid: false, error: "Invalid Perplexity API key" };
-  }
-  return { valid: true };
-}
+executeAIFix: (businessIdeaId: string, fix: AIFix) => Promise<{
+  success: boolean;
+  message: string;
+  updatedWorkflowJson?: object;
+  importUrl?: string;
+}>
 ```
 
----
+### Part 4: Add "Use This Prompt" Guidance Panel
 
-### 5. Update ai-orchestrator Edge Function
+When users click **"Copy Fix Details"**, show a tooltip/popover explaining where to paste:
 
-Modify `callPerplexity` to fetch the user's API key from the database instead of using an environment variable:
-
-```typescript
-async function callPerplexity(messages: Message[], userId: string) {
-  // Fetch user's Perplexity API key from database
-  const { data: keyData } = await supabaseAdmin
-    .from("user_api_keys")
-    .select("encrypted_key")
-    .eq("user_id", userId)
-    .eq("provider", "perplexity")
-    .single();
-
-  if (!keyData) {
-    throw new Error("Perplexity API key not configured");
-  }
-
-  const response = await fetch("https://api.perplexity.ai/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${keyData.encrypted_key}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: "sonar",
-      messages
-    })
-  });
-  
-  return response;
-}
+```text
+┌─────────────────────────────────────────────────────────┐
+│ 📋 Fix Details Copied!                                  │
+│                                                         │
+│ Paste this prompt in:                                   │
+│                                                         │
+│ • 💬 Mya Chat - Get step-by-step walkthrough           │
+│   [Open Chat with Fix Context →]                        │
+│                                                         │
+│ • 🤖 Director.ai / Claude Computer Use                  │
+│   For automated browser-based fixes                     │
+│                                                         │
+│ • 📝 n8n Workflow Editor                                │
+│   Reference while manually configuring nodes            │
+└─────────────────────────────────────────────────────────┘
 ```
 
+### Part 5: "Chat with Mya" Quick Action
+
+Add a button that opens the Chat page with the fix context pre-loaded:
+
+**Implementation:**
+- Add "Chat with Mya" button next to "Copy Fix Details"
+- Use React Router's `navigate()` with state to pass fix context
+- Mya will receive the fix details and provide interactive guidance
+
 ---
 
-### 6. Cleanup: Remove Connector Callback
+### Technical Changes
 
-Remove the `onPerplexityConnect` prop and placeholder handler since Perplexity now works like other providers.
-
----
-
-## Files to Modify
+**Files to Modify:**
 
 | File | Changes |
 |------|---------|
-| Database migration | Add 'perplexity' to provider constraint |
-| `src/components/AISettingsDialog.tsx` | Add API key input for Perplexity tab |
-| `src/hooks/useAIProviders.ts` | Extend to handle 'perplexity' provider |
-| `supabase/functions/validate-api-key/index.ts` | Add Perplexity key validation |
-| `supabase/functions/ai-orchestrator/index.ts` | Fetch Perplexity key from DB |
-| `src/components/AutomationEngine/index.tsx` | Remove placeholder handler |
+| `src/components/AutomationEngine/ExceptionReview.tsx` | Add fix categorization UI, execute button, guidance popover, chat navigation |
+| `src/hooks/useAutomationRun.ts` | Add `executeAIFix` method |
+| `supabase/functions/ai-orchestrator/index.ts` | Add `execute-fix` action, enhance `apply-fixes` to categorize automatable vs manual |
+
+**Files to Create:**
+
+| File | Purpose |
+|------|---------|
+| `src/components/AutomationEngine/FixGuidancePopover.tsx` | Popover explaining where to use copied fix details |
 
 ---
 
-## User Experience After Fix
+### Enhanced AI Prompt for Fix Categorization
 
-All three providers will work identically:
+Update the `apply-fixes` prompt to include:
 
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│  AI Provider Settings                                     [X]  │
-├─────────────────────────────────────────────────────────────────┤
-│  [OpenAI]  [Claude]  [Perplexity]                              │
-│                                                                 │
-│  Perplexity                                                    │
-│  Real-time web search and research                             │
-│                                                                 │
-│  API Key: [pplx-••••••••••••••••]         [👁] [Save & Connect]│
-│                                                                 │
-│  💡 Get your API key from perplexity.ai/settings/api           │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  Best for:                                               │   │
-│  │  • Market research with citations                        │   │
-│  │  • Competitor analysis                                   │   │
-│  │  • Current trends and news                               │   │
-│  └─────────────────────────────────────────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
+```json
+{
+  "fixes": [
+    {
+      "phase": "string",
+      "rootCause": "string",
+      "solution": "string",
+      "steps": ["step1", "step2"],
+      "prevention": "string",
+      "confidence": "high" | "medium" | "low",
+      "automatable": boolean,
+      "automationMethod": "workflow_json" | "api_call" | "none",
+      "workflowPatch": { /* optional corrected node config */ },
+      "requiredUserAction": "string (if not automatable)"
+    }
+  ]
+}
 ```
 
 ---
 
-## Security
+### User Flow After Implementation
 
-- Perplexity API keys stored in `user_api_keys` table with RLS protection
-- Keys only accessible by the owning user
-- Validation before storage ensures keys are valid
+1. User runs automation → sees exceptions
+2. User clicks "Apply Fixes" → AI analyzes and categorizes
+3. For **automatable fixes**: User clicks "Execute Fix" → AI applies changes
+4. For **manual fixes**: User clicks "Copy Fix Details" → sees guidance popover
+5. User can click "Chat with Mya" to get interactive help with the fix context
+
+---
+
+### Answer to Your Questions
+
+**Q: Can manual action fixes be automated with AI?**
+A: Yes! Many fixes CAN be automated by:
+- Generating corrected workflow JSON
+- Providing import-ready configurations
+- Auto-updating snapshots via the data proxy
+
+The key is categorizing which fixes need OAuth/human auth vs which are just configuration updates.
+
+**Q: Where to put the copied fix details prompt?**
+A: The prompt works best in:
+1. **Mya Chat** (built-in) - For interactive, step-by-step guidance
+2. **Director.ai / Claude Computer Use** - For browser automation
+3. **n8n Editor** - As reference while manually editing
 
