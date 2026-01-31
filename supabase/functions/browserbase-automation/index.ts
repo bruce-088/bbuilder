@@ -97,6 +97,7 @@ class CDPClient {
   }> = new Map();
   private connected = false;
   private eventHandlers: Map<string, ((params: unknown) => void)[]> = new Map();
+  private targetSessionId: string | null = null;
 
   async connect(wsUrl: string, timeout = 30000): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -168,7 +169,15 @@ class CDPClient {
     }
 
     const id = ++this.messageId;
-    const message = JSON.stringify({ id, method, params });
+    
+    // Include sessionId for target-level commands (not Target.* or Browser.*)
+    const needsSession = !method.startsWith("Target.") && !method.startsWith("Browser.");
+    const message = JSON.stringify({ 
+      id, 
+      method, 
+      params,
+      ...(needsSession && this.targetSessionId && { sessionId: this.targetSessionId }),
+    });
 
     return new Promise((resolve, reject) => {
       const timeoutHandle = setTimeout(() => {
@@ -184,6 +193,36 @@ class CDPClient {
       
       this.ws!.send(message);
     });
+  }
+
+  async attachToPage(): Promise<void> {
+    console.log("CDP: Attaching to page target...");
+    
+    // Get all available targets
+    const { targetInfos } = await this.send("Target.getTargets") as { 
+      targetInfos: Array<{ targetId: string; type: string; url: string }> 
+    };
+    
+    console.log(`CDP: Found ${targetInfos.length} targets:`, targetInfos.map(t => `${t.type}: ${t.url}`));
+    
+    // Find a page target (prefer non-empty URLs)
+    const pageTarget = targetInfos.find(t => t.type === "page" && t.url && !t.url.startsWith("about:")) 
+      || targetInfos.find(t => t.type === "page");
+    
+    if (!pageTarget) {
+      throw new Error("No page target found in browser session");
+    }
+    
+    console.log(`CDP: Attaching to page target: ${pageTarget.targetId} (${pageTarget.url})`);
+    
+    // Attach to the page target with flatten: true for simpler messaging
+    const { sessionId } = await this.send("Target.attachToTarget", {
+      targetId: pageTarget.targetId,
+      flatten: true,
+    }) as { sessionId: string };
+    
+    this.targetSessionId = sessionId;
+    console.log(`CDP: Attached to page target with sessionId: ${sessionId}`);
   }
 
   on(event: string, handler: (params: unknown) => void): void {
@@ -713,6 +752,10 @@ async function executeAutomation(
   try {
     // Connect to the browser session
     await cdp.connect(connectUrl);
+    
+    // Attach to a page target before enabling domains
+    await cdp.attachToPage();
+    
     await cdp.enableDomains();
 
     // Execute each action
