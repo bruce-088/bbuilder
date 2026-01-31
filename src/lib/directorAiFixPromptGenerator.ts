@@ -50,6 +50,97 @@ function getN8nUrlInfo(options?: DirectorAiOptions): { instanceUrl: string; work
   return { instanceUrl, workflowUrl, hostingType };
 }
 
+/**
+ * Extract node names from fix steps using pattern matching
+ */
+function extractNodeNamesFromSteps(steps: string[]): string[] {
+  const nodePatterns = [
+    /(?:the\s+)?["']?([A-Z][a-zA-Z0-9\s]+)["']?\s+node/gi,
+    /(?:Update|Configure|Fix|Open)\s+["']?([A-Z][a-zA-Z0-9\s]+)["']?/gi,
+  ];
+  
+  const nodeNames = new Set<string>();
+  const excludeWords = ['the', 'this', 'that', 'any', 'each', 'all', 'your'];
+  
+  steps.forEach(step => {
+    nodePatterns.forEach(pattern => {
+      // Reset regex state
+      pattern.lastIndex = 0;
+      let match;
+      while ((match = pattern.exec(step)) !== null) {
+        const name = match[1].trim();
+        if (name.length > 2 && !excludeWords.includes(name.toLowerCase())) {
+          nodeNames.add(name);
+        }
+      }
+    });
+  });
+  
+  return Array.from(nodeNames);
+}
+
+/**
+ * Enhance a fix step with explicit UI action instructions
+ */
+function enhanceStepWithUIActions(step: string): string {
+  // If step mentions a node, add explicit click instructions
+  const nodeMatch = step.match(/["']?([A-Z][a-zA-Z0-9\s]+)["']?\s+node/i);
+  if (nodeMatch) {
+    const nodeName = nodeMatch[1];
+    return `**Double-click** on the "${nodeName}" node to open its configuration panel. ${step}`;
+  }
+  
+  // If step mentions credentials, add navigation context
+  if (step.toLowerCase().includes('credential')) {
+    return `${step}. Look for the "Credential" dropdown field in the node's configuration panel.`;
+  }
+  
+  // If step mentions API key, add field location context
+  if (step.toLowerCase().includes('api key') || step.toLowerCase().includes('apikey')) {
+    return `${step}. The API key field is typically in the "Authentication" or "Credentials" section of the node panel.`;
+  }
+  
+  return step;
+}
+
+/**
+ * Generate explicit n8n canvas navigation instructions for browser automation
+ */
+function generateCanvasNavigationInstructions(nodeNames: string[]): string {
+  if (nodeNames.length === 0) {
+    return '';
+  }
+
+  return `
+## n8n Canvas Navigation Guide
+
+### How to Find Nodes on the Canvas
+1. **Zoom Out First**: Press \`Ctrl/Cmd + -\` or use scroll wheel while holding Ctrl to zoom out and see all nodes
+2. **Use Node Search**: Press \`Ctrl/Cmd + K\` to open the command palette, type the node name to jump to it
+3. **Pan the Canvas**: Click and drag on empty canvas space to pan around
+4. **Fit All Nodes**: Press \`Ctrl/Cmd + 0\` to fit all nodes in view
+
+### How to Open a Node's Configuration Panel
+1. **Single Click** on any node to select it (node gets highlighted with blue border)
+2. **Double Click** on the node to open its configuration panel (slides in from the right)
+3. Alternatively: Right-click the node and select "Open" from the context menu
+
+### Visual Node Identification
+${nodeNames.map(name => `- **${name}**: Look for a rectangular node with "${name}" label at the top`).join('\n')}
+
+### Nodes That Need Fixing
+${nodeNames.map((name, i) => `${i + 1}. Locate the **"${name}"** node on the canvas
+   - Double-click to open its configuration panel
+   - The panel will slide in from the right side of the screen`).join('\n')}
+
+### Troubleshooting Canvas Navigation
+- If nodes appear too small: Zoom in with \`Ctrl/Cmd + +\`
+- If canvas is panning unexpectedly: Click on empty space to deselect any nodes
+- If node panel won't open: Try clicking elsewhere first, then double-click the target node
+
+`;
+}
+
 function generateDefaultVerificationData(issue: FixIssue): VerificationData {
   const phase = issue.phase.toLowerCase();
   
@@ -132,6 +223,10 @@ ${contextJson}
 
 `;
 
+  // Extract node names and add canvas navigation section
+  const nodeNamesToFix = extractNodeNamesFromSteps(issue.steps);
+  prompt += generateCanvasNavigationInstructions(nodeNamesToFix);
+
   // Issue details
   prompt += `## Issue Details
 **Phase:** ${issue.phase}
@@ -152,18 +247,21 @@ ${issue.rootCause}${issue.solution ? `\n\n**Solution:** ${issue.solution}` : ""}
 
 `;
 
-  // Fix actions from verification data
+  // Fix actions from verification data with enhanced UI instructions
   prompt += `## Fix Actions
 Execute the following browser actions to resolve this issue:
 
 `;
   
-  // Add navigation step first
+  // Add navigation and setup steps first
   prompt += `1. Navigate to ${urlInfo.workflowUrl}\n`;
+  prompt += `2. Wait for the workflow canvas to fully load (nodes should be visible)\n`;
+  prompt += `3. Press \`Ctrl/Cmd + 0\` to fit all nodes in view\n`;
   
-  // Add remaining actions from verification data
+  // Add remaining actions from verification data with UI enhancements
   verificationData.automatedActions.forEach((action, i) => {
-    prompt += `${i + 2}. ${action}\n`;
+    const enhancedAction = enhanceStepWithUIActions(action);
+    prompt += `${i + 4}. ${enhancedAction}\n`;
   });
 
   prompt += `
