@@ -345,6 +345,36 @@ export type Database = {
           },
         ]
       }
+      n8n_credentials: {
+        Row: {
+          created_at: string | null
+          encrypted_email: string
+          encrypted_password: string
+          id: string
+          instance_url: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          encrypted_email: string
+          encrypted_password: string
+          id?: string
+          instance_url: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          encrypted_email?: string
+          encrypted_password?: string
+          id?: string
+          instance_url?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       n8n_workflow_snapshots: {
         Row: {
           captured_at: string | null

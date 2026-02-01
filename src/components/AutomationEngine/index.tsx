@@ -1,8 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Rocket, Loader2, X } from "lucide-react";
 import { useAutomationRun } from "@/hooks/useAutomationRun";
+import { SimpleProgressBar } from "./SimpleProgressBar";
 import { AutomationProgress } from "./AutomationProgress";
 import { LiveLogStream } from "./LiveLogStream";
 import { ExceptionReview } from "./ExceptionReview";
@@ -29,6 +31,7 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
   const [selectedProvider, setSelectedProvider] = useState<string>("lovable");
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [businessContext, setBusinessContext] = useState<BusinessContext | undefined>();
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
   
   // Browserbase automation state for detailed execution panel
   const browserbaseAutomation = useBrowserbaseAutomation();
@@ -103,6 +106,13 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
   const hasWarnings = phaseResults.some((r) => r.status === "warning");
   const isComplete = !isRunning && phaseResults.length > 0;
 
+  // Auto-expand details when there are errors or warnings
+  useEffect(() => {
+    if (hasErrors || hasWarnings) {
+      setIsDetailsExpanded(true);
+    }
+  }, [hasErrors, hasWarnings]);
+
   const handleTestWorkflow = async (workflowId: string) => {
     toast.info(`Test run requested for workflow ${workflowId}. Use the n8n editor to trigger manual executions.`);
   };
@@ -162,41 +172,56 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
             </Button>
           </DialogHeader>
 
-          <div className="flex-1 overflow-auto space-y-6 py-4">
-            {/* n8n Connection Status */}
-            <N8nConnectionStatus />
-
-            <AutomationProgress
+          <div className="flex-1 overflow-auto space-y-4 py-4">
+            {/* Simple Progress Bar - Always visible */}
+            <SimpleProgressBar
               phases={phases}
               currentPhase={currentPhase}
               phaseResults={phaseResults}
               isRunning={isRunning}
-              activeProvider={selectedProvider}
+              isExpanded={isDetailsExpanded}
+              onToggleExpand={() => setIsDetailsExpanded(!isDetailsExpanded)}
             />
 
-            {/* Live Status Panel - shows real-time workflow health */}
-            <N8nLiveStatusPanel
-              pollingInterval={isRunning ? 5000 : 30000}
-              onTestWorkflow={handleTestWorkflow}
-            />
+            {/* Collapsible detailed sections */}
+            {isDetailsExpanded && (
+              <div className="space-y-4">
+                {/* n8n Connection Status */}
+                <N8nConnectionStatus />
 
-            <LiveLogStream logs={phaseResults} isRunning={isRunning} />
+                <AutomationProgress
+                  phases={phases}
+                  currentPhase={currentPhase}
+                  phaseResults={phaseResults}
+                  isRunning={isRunning}
+                  activeProvider={selectedProvider}
+                />
 
-            {/* Browserbase Execution Panel - shows detailed action breakdown */}
-            {(browserbaseAutomation.actions.length > 0 || browserbaseAutomation.executionResults.length > 0) && (
-              <BrowserbaseExecutionPanel
-                actions={browserbaseAutomation.actions}
-                executionResults={browserbaseAutomation.executionResults}
-                currentActionIndex={browserbaseAutomation.currentActionIndex}
-                status={browserbaseAutomation.status}
-                isRunning={browserbaseAutomation.isRunning}
-                debugUrl={browserbaseAutomation.debugUrl}
-                finalScreenshot={browserbaseAutomation.result?.finalScreenshot}
-                totalExecutionTime={browserbaseAutomation.result?.executionTimeMs}
-              />
+                {/* Live Status Panel - shows real-time workflow health */}
+                <N8nLiveStatusPanel
+                  pollingInterval={isRunning ? 5000 : 30000}
+                  onTestWorkflow={handleTestWorkflow}
+                />
+
+                <LiveLogStream logs={phaseResults} isRunning={isRunning} />
+
+                {/* Browserbase Execution Panel - shows detailed action breakdown */}
+                {(browserbaseAutomation.actions.length > 0 || browserbaseAutomation.executionResults.length > 0) && (
+                  <BrowserbaseExecutionPanel
+                    actions={browserbaseAutomation.actions}
+                    executionResults={browserbaseAutomation.executionResults}
+                    currentActionIndex={browserbaseAutomation.currentActionIndex}
+                    status={browserbaseAutomation.status}
+                    isRunning={browserbaseAutomation.isRunning}
+                    debugUrl={browserbaseAutomation.debugUrl}
+                    finalScreenshot={browserbaseAutomation.result?.finalScreenshot}
+                    totalExecutionTime={browserbaseAutomation.result?.executionTimeMs}
+                  />
+                )}
+              </div>
             )}
 
-            {/* Deployment Panel - show after generate phase */}
+            {/* Deployment Panel - show after generate phase (always visible when applicable) */}
             {phaseResults.some(r => r.phase === "generate" && r.status === "success") && (
               <DeploymentPanel 
                 phaseResults={phaseResults} 
@@ -204,6 +229,7 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
               />
             )}
 
+            {/* Exception Review - always visible when there are issues */}
             {isComplete && (hasErrors || hasWarnings) && (
               <ExceptionReview
                 exceptions={phaseResults.filter(
@@ -217,10 +243,11 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
               />
             )}
 
+            {/* Success state */}
             {isComplete && !hasErrors && !hasWarnings && (
               <div className="text-center py-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-100 dark:bg-emerald-900/20 mb-4">
-                  <Rocket className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-success/10 mb-4">
+                  <Rocket className="h-8 w-8 text-success" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground">
                   Automation Complete!
