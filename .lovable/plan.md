@@ -22,17 +22,19 @@ Based on my analysis of the current codebase, here's what's been implemented and
 
 ## Remaining High-Impact Investments
 
-### Priority 1: Smart Credential Pre-fill (2 days)
-**Current gap**: Users see a warning about missing credentials AFTER export, but must configure them manually in n8n.
+### Priority 1: Smart Credential Pre-fill (2 days) ✅ IMPLEMENTED
+**Status**: Database migration complete, UI modal created, integrated into DeploymentPanel.
 
-**Investment**: 
-1. Detect required credentials during the "generate" phase
-2. Show a modal prompting users to enter API keys (Apollo, Slack, Google Sheets, etc.)
-3. Store in `user_api_keys` table (already exists for AI providers)
-4. Inject actual credential IDs into the generated workflow JSON
+**What was built**:
+1. Extended `user_api_keys` table with `service_type` and `n8n_credential_id` columns
+2. Created `CredentialPreFillModal.tsx` component for entering service credentials
+3. Created `useN8nServiceCredentials.ts` hook for managing credentials
+4. Modified `DeploymentPanel.tsx` to show modal before download/copy when credentials are needed
+5. Maps n8n node types to recognizable service names (Slack, Gmail, Stripe, etc.)
+6. Stores credentials securely in existing `user_api_keys` table
 
+**User Flow**:
 ```text
-User Flow:
 ┌────────────────────────────────────────────────────────────┐
 │  Credentials Required                                       │
 │  ───────────────────────────────────────────────────────── │
@@ -45,12 +47,6 @@ User Flow:
 │                              [Skip for Now] [Save & Export] │
 └────────────────────────────────────────────────────────────┘
 ```
-
-**Technical changes**:
-- New component: `CredentialPreFillModal.tsx`
-- Extend `user_api_keys` table to support n8n service credentials (not just AI providers)
-- Modify `DeploymentPanel.tsx` to show modal before download
-- Update `n8nWorkflowFormatter.ts` to inject credential placeholders
 
 ---
 
