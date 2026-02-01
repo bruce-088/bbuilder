@@ -1,337 +1,270 @@
 
 
-# Plan: Add n8n Selector Patterns for Expression Editors, Code Nodes, and Credential Modals
+# Plan: Fix AI Browser Agent to Execute Actions Reliably
 
 ## Overview
-Expand the `N8N_SELECTORS` map in the `browserbase-automation` edge function with comprehensive selector patterns for:
-1. **Expression Editors** - CodeMirror-based expression input fields
-2. **Code Nodes** - JavaScript/Python code editor components  
-3. **Credential Configuration Modals** - Full credential creation/edit workflow
-4. **Additional Node Configuration Elements** - Tabs, toggles, advanced options
 
-## Current State Analysis
+The browser automation system is failing because of Edge Function timeouts, invalid selector generation by the AI interpreter, and lack of authentication handling. We need to implement an asynchronous background job pattern and improve the selector logic.
 
-### Existing Selectors (11 patterns)
-The current `N8N_SELECTORS` map includes:
-- `credential-save` - Save button in credential modals
-- `dropdown-input` - Generic dropdown inputs
-- `dropdown-item` - Dropdown menu items
-- `node-panel` - Node details view container (NDV)
-- `execute-button` - Execute/test node button
-- `workflow-save` - Save workflow button
-- `credential-dropdown` - Credential selection dropdown
-- `text-input` - Basic text input fields
-- `close-modal` - Close/cancel modal buttons
+## Problem Summary
 
-### Research Findings
-Based on n8n's Playwright test infrastructure:
-- Uses `data-testid` attributes extensively (e.g., `parameter-input-field`, `ndv-container`)
-- Expression editors use CodeMirror with class `.cm-content`
-- Code node has tabs for JavaScript/Python modes
-- Credential modals follow a specific testid pattern: `parameter-input-{fieldName}`
-- Node configuration uses `.parameter-input-list` containers
+| Issue | Cause | Impact |
+|-------|-------|--------|
+| Edge Function Timeout | `execute` action runs all actions synchronously | Frontend receives "Failed to fetch" error |
+| Invalid Selectors | AI generates `n8n:canvas-node[attr]` syntax | DOM queries fail with "DOM Error" |
+| No Auth Handling | Navigates to canvas without login check | Elements don't exist if logged out |
+| Slow Execution | Sequential actions with 500ms delays | 33 actions take 10+ minutes |
 
-## New Selector Patterns to Add
+## Solution Architecture
 
-### 1. Expression Editor Selectors
-```typescript
-"expression-editor": [
-  '[data-testid="inline-expression-editor-input"]',
-  '[data-testid="expression-editor"]',
-  '.expression-editor .cm-content',
-  '.cm-editor .cm-content',
-  '.inline-expression-editor',
-  '.expression-input .cm-line',
-]
+Implement a job-based asynchronous pattern where:
+1. The edge function creates a job record and returns immediately
+2. Background execution continues via `EdgeRuntime.waitUntil()`
+3. Frontend polls for status updates instead of waiting on a single request
 
-"expression-toggle": [
-  '[data-testid="expression-toggle"]',
-  'button[title="Expression"]',
-  '.expression-toggle',
-  '[aria-label="Toggle expression"]',
-]
+```text
+┌─────────────┐     ┌──────────────────┐     ┌─────────────────┐
+│   Frontend  │────▶│  Edge Function   │────▶│  Browserbase    │
+│             │     │                  │     │                 │
+│  1. Start   │     │ 2. Create job    │     │ 4. Execute      │
+│  5. Poll    │◀────│ 3. Return jobId  │     │    actions      │
+│  status     │     │ (waitUntil runs) │     │                 │
+└─────────────┘     └──────────────────┘     └─────────────────┘
 ```
 
-### 2. Code Node Selectors
-```typescript
-"code-editor": [
-  '[data-testid="code-node-tab-code"]',
-  '[data-testid="code-editor"]',
-  '.code-node-editor .cm-content',
-  '.cm-editor[data-language]',
-  '.monaco-editor textarea',
-  '.code-node .cm-content',
-]
+## Changes Required
 
-"code-node-tab": [
-  '[data-testid="code-node-tab"]',
-  '.code-node-tabs button',
-  '[role="tab"]:has-text("Code")',
-  '.n8n-tabs button',
-]
+### 1. Database: Create `automation_jobs` Table
 
-"code-language-select": [
-  '[data-testid="code-language-select"]',
-  '.code-node-language-select',
-  '[data-testid="select-language"]',
-  '.language-selector',
-]
+Create a table to track background automation jobs with status updates.
+
+```sql
+CREATE TABLE automation_jobs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES auth.users(id),
+  session_id TEXT NOT NULL,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed')),
+  total_actions INTEGER DEFAULT 0,
+  completed_actions INTEGER DEFAULT 0,
+  current_action TEXT,
+  results JSONB DEFAULT '[]',
+  error TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Enable RLS
+ALTER TABLE automation_jobs ENABLE ROW LEVEL SECURITY;
+
+-- Users can read their own jobs
+CREATE POLICY "Users can view own jobs"
+  ON automation_jobs FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- Edge functions can update any job (service role)
+CREATE POLICY "Service role can manage jobs"
+  ON automation_jobs FOR ALL
+  USING (true);
+
+-- Enable realtime for progress updates
+ALTER PUBLICATION supabase_realtime ADD TABLE automation_jobs;
 ```
 
-### 3. Credential Modal Selectors
+### 2. Edge Function: Implement Background Execution Pattern
+
+Modify `supabase/functions/browserbase-automation/index.ts`:
+
+**New `execute` action flow:**
 ```typescript
-"credential-modal": [
-  '[data-testid="credential-edit-dialog"]',
-  '[data-testid="credential-modal"]',
-  '.credential-modal',
-  '[role="dialog"]:has(.credential)',
-  '.modal-content:has([data-testid*="credential"])',
-]
+case "execute": {
+  // Create job record immediately
+  const { data: job } = await supabase
+    .from("automation_jobs")
+    .insert({
+      user_id: userId,
+      session_id: sessionId,
+      status: "pending",
+      total_actions: providedActions.length,
+    })
+    .select()
+    .single();
 
-"credential-input": [
-  '[data-testid="parameter-input-field"]',
-  '.credential-parameter input',
-  '.parameter-input-list input[type="text"]',
-  '.credential-input input',
-  '[data-testid*="parameter-input-"] input',
-]
+  // Start background execution (non-blocking)
+  EdgeRuntime.waitUntil(
+    executeAutomationBackground(job.id, connectUrl, providedActions, sessionId)
+      .catch((error) => {
+        supabase.from("automation_jobs")
+          .update({ status: "failed", error: error.message })
+          .eq("id", job.id);
+      })
+  );
 
-"credential-secret-input": [
-  '[data-testid="parameter-input-field"][type="password"]',
-  'input[type="password"]',
-  '.credential-parameter input[type="password"]',
-  '[data-testid*="secret"] input',
-  '[data-testid*="apiKey"] input',
-  '[data-testid*="password"] input',
-]
-
-"credential-test-button": [
-  '[data-testid="credential-test-button"]',
-  'button:has-text("Test")',
-  'button:has-text("Test Connection")',
-  '.credential-test-btn',
-]
-
-"credential-type-select": [
-  '[data-testid="new-credential-type-select"]',
-  '[data-testid="credential-type-select"]',
-  '.credential-type-select',
-  '[role="combobox"]:has-text("Select Credential")',
-]
+  // Return immediately with job ID
+  return new Response(JSON.stringify({
+    success: true,
+    jobId: job.id,
+    status: "pending",
+    message: "Execution started. Poll for updates."
+  }));
+}
 ```
 
-### 4. Node Configuration Selectors
+**Add new `job-status` action:**
 ```typescript
-"parameter-input": [
-  '[data-testid="parameter-input-field"]',
-  '.parameter-input input',
-  '.parameter-input textarea',
-  '.n8n-input input',
-  '[data-testid*="input-field"]',
-]
+case "job-status": {
+  const { data: job } = await supabase
+    .from("automation_jobs")
+    .select("*")
+    .eq("id", jobId)
+    .single();
 
-"parameter-label": [
-  '[data-testid="parameter-label"]',
-  '.parameter-label',
-  '.parameter-name',
-  'label.n8n-input-label',
-]
-
-"add-option-button": [
-  '[data-testid="add-option-button"]',
-  'button:has-text("Add Option")',
-  'button:has-text("Add Field")',
-  '.add-option',
-  '[data-testid="add-field"]',
-]
-
-"collection-item": [
-  '[data-testid="collection-item"]',
-  '.collection-parameter-item',
-  '.parameter-collection-item',
-  '.n8n-collection-item',
-]
-
-"resource-selector": [
-  '[data-testid="resource-locator"]',
-  '[data-testid="resource-select"]',
-  '.resource-locator',
-  '.rlc-input',
-]
+  return new Response(JSON.stringify({
+    success: true,
+    job: job,
+  }));
+}
 ```
 
-### 5. NDV (Node Details View) Selectors
+### 3. Fix AI Selector Generation
+
+Update the `systemPrompt` in `interpretAction()` to prevent invalid selector combinations:
+
 ```typescript
-"ndv-container": [
-  '[data-testid="ndv-container"]',
-  '.ndv-body',
-  '.node-details-view',
-  '[data-testid="node-details-view"]',
-]
+// Add to system prompt:
+**CRITICAL SELECTOR RULES:**
+1. n8n: shortcuts CANNOT have additional CSS qualifiers
+   ❌ WRONG: "n8n:canvas-node[data-node-name="IF"]"
+   ✅ CORRECT: "[data-testid="canvas-node-IF"]" OR use evaluate() to find by text
 
-"ndv-close": [
-  '[data-testid="ndv-close-button"]',
-  '[data-testid="back-to-canvas"]',
-  '.ndv-close',
-  'button[aria-label="Close"]',
-]
+2. For clicking specific nodes on canvas, use evaluate():
+   { "action": "evaluate", "expression": "document.querySelector('[data-node-name]')?.textContent?.includes('IF') && el.click()" }
 
-"ndv-output-panel": [
-  '[data-testid="ndv-output-panel"]',
-  '.output-panel',
-  '.ndv-output',
-]
-
-"ndv-input-panel": [
-  '[data-testid="ndv-input-panel"]',
-  '.input-panel',
-  '.ndv-input',
-]
-
-"run-data-tab": [
-  '[data-testid="run-data-tab"]',
-  '[role="tab"]:has-text("Output")',
-  '.run-data-tabs [role="tab"]',
-]
+3. n8n: shortcuts expand to fallback arrays - don't combine them
 ```
 
-### 6. Workflow Canvas Selectors
+### 4. Add Login Detection and Handling
+
+Add login check before executing canvas actions:
+
 ```typescript
-"add-node-button": [
-  '[data-testid="add-node-button"]',
-  '[data-testid="canvas-add-node"]',
-  'button[title="Add node"]',
-  '.add-node-button',
-]
-
-"node-creator": [
-  '[data-testid="node-creator"]',
-  '.node-creator',
-  '[data-testid="nodes-panel"]',
-]
-
-"node-creator-search": [
-  '[data-testid="node-creator-search-bar"]',
-  '.node-creator-search input',
-  'input[placeholder*="Search"]',
-]
-
-"canvas-node": [
-  '[data-testid*="canvas-node-"]',
-  '.vue-flow__node',
-  '.n8n-node',
-  '[data-node-name]',
-]
+async function ensureLoggedIn(cdp: CDPClient, n8nUrl: string): Promise<boolean> {
+  // Check if we see the login page
+  const isLoginPage = await cdp.evaluate(`
+    !!document.querySelector('[data-testid="sign-in-form"], .login-form, input[name="email"]')
+  `);
+  
+  if (isLoginPage) {
+    console.log("Login page detected - auth context may have expired");
+    return false;
+  }
+  
+  // Check for canvas presence
+  const hasCanvas = await cdp.evaluate(`
+    !!document.querySelector('.vue-flow, [data-testid="canvas"], .n8n-canvas')
+  `);
+  
+  return hasCanvas;
+}
 ```
 
-### 7. Settings and Toggle Selectors
+### 5. Update Frontend Hook
+
+Modify `src/hooks/useBrowserbaseAutomation.ts` to use the job-based polling:
+
 ```typescript
-"settings-tab": [
-  '[data-testid="settings-tab"]',
-  '[role="tab"]:has-text("Settings")',
-  'button:has-text("Settings")',
-]
+const executeActions = useCallback(async (
+  sid: string,
+  wsUrl: string,
+  actionsToExecute: BrowserAction[]
+): Promise<ExecuteResponse | null> => {
+  // Start execution - returns job ID
+  const { data: startData } = await supabase.functions.invoke("browserbase-automation", {
+    body: {
+      action: "execute",
+      sessionId: sid,
+      connectUrl: wsUrl,
+      actions: actionsToExecute,
+    },
+  });
 
-"toggle-switch": [
-  '[data-testid="toggle"]',
-  '.n8n-switch',
-  '[role="switch"]',
-  '.el-switch',
-]
+  if (!startData?.jobId) {
+    return null;
+  }
 
-"checkbox": [
-  '[data-testid="checkbox"]',
-  '.n8n-checkbox',
-  'input[type="checkbox"]',
-  '[role="checkbox"]',
-]
+  // Poll for completion using realtime or interval
+  return pollForJobCompletion(startData.jobId);
+}, []);
+
+const pollForJobCompletion = async (jobId: string): Promise<ExecuteResponse> => {
+  const channel = supabase
+    .channel(`job-${jobId}`)
+    .on('postgres_changes', {
+      event: 'UPDATE',
+      schema: 'public',
+      table: 'automation_jobs',
+      filter: `id=eq.${jobId}`,
+    }, (payload) => {
+      // Update UI with progress
+      setCurrentActionIndex(payload.new.completed_actions);
+      
+      if (payload.new.status === 'completed' || payload.new.status === 'failed') {
+        channel.unsubscribe();
+        // Return results
+      }
+    })
+    .subscribe();
+};
+```
+
+### 6. Improve Selector Fallback Logic
+
+Update `resolveSelectors()` to handle edge cases:
+
+```typescript
+resolveSelectors(selector: string): string[] {
+  // Check for invalid combinations like "n8n:key[attr]"
+  if (selector.startsWith("n8n:") && selector.includes("[")) {
+    console.warn(`Invalid n8n selector combination: ${selector}`);
+    // Extract the attribute part and try to use it directly
+    const attrMatch = selector.match(/\[([^\]]+)\]/);
+    if (attrMatch) {
+      return [`[${attrMatch[1]}]`];
+    }
+  }
+  
+  // ... existing logic
+}
 ```
 
 ## Files to Modify
 
 | File | Changes |
 |------|---------|
-| `supabase/functions/browserbase-automation/index.ts` | Add 25+ new selector patterns to `N8N_SELECTORS` map |
+| `supabase/functions/browserbase-automation/index.ts` | Add job-based async execution, fix selector prompt, add login detection |
+| `src/hooks/useBrowserbaseAutomation.ts` | Implement job polling with realtime updates |
+| Database migration | Create `automation_jobs` table with RLS |
 
-## AI Interpreter System Prompt Update
+## Implementation Order
 
-The system prompt in `interpretAction()` will be updated to document all new selector shortcuts:
+1. **Database first** - Create `automation_jobs` table
+2. **Edge function** - Implement `EdgeRuntime.waitUntil()` pattern
+3. **Frontend hook** - Update to poll jobs instead of waiting
+4. **Selector fixes** - Update AI prompt and resolver
+5. **Login detection** - Add auth check before canvas actions
 
-```text
-**CRITICAL: n8n SELECTOR SHORTCUTS** - Use these for reliable element targeting:
-
-// Expression Editors
-- "n8n:expression-editor" → CodeMirror expression input
-- "n8n:expression-toggle" → Toggle between fixed/expression mode
-
-// Code Nodes  
-- "n8n:code-editor" → Code node editor area
-- "n8n:code-node-tab" → Code/settings tab buttons
-- "n8n:code-language-select" → JavaScript/Python selector
-
-// Credential Modals
-- "n8n:credential-modal" → Credential edit dialog
-- "n8n:credential-input" → Standard credential field
-- "n8n:credential-secret-input" → Password/API key fields
-- "n8n:credential-test-button" → Test connection button
-- "n8n:credential-type-select" → Credential type dropdown
-
-// Node Configuration
-- "n8n:parameter-input" → Any parameter input field
-- "n8n:add-option-button" → Add optional field button
-- "n8n:resource-selector" → Resource locator component
-
-// NDV (Node Details View)
-- "n8n:ndv-container" → Full node panel
-- "n8n:ndv-close" → Back to canvas button
-- "n8n:ndv-output-panel" → Output data panel
-- "n8n:ndv-input-panel" → Input data panel
-
-// Canvas
-- "n8n:add-node-button" → Add node to canvas
-- "n8n:node-creator-search" → Search for node types
-- "n8n:canvas-node" → Any node on canvas
-```
-
-## Implementation Details
-
-### Selector Resolution Priority
-The fallback system will try selectors in order:
-1. `data-testid` selectors (most reliable, n8n's official test hooks)
-2. Role-based selectors (`[role="..."]`)
-3. Class-based selectors (`.n8n-*`, `.cm-*`)
-4. Text-based selectors (`:has-text()`)
-5. Generic fallbacks
-
-### CodeMirror Interaction Notes
-Expression and code editors use CodeMirror 6:
-- Content area: `.cm-content` (contenteditable div)
-- Lines: `.cm-line`
-- Focus via: click on `.cm-content`, then use `Input.insertText`
-- Cannot use standard `type()` - must focus first then insert
-
-### Credential Modal Flow
-Typical sequence for credential creation:
-1. Click `n8n:credential-type-select`
-2. Search and select credential type
-3. Wait for `n8n:credential-modal`
-4. Fill `n8n:credential-input` fields
-5. Optionally click `n8n:credential-test-button`
-6. Click `n8n:credential-save`
-
-## Testing Recommendations
+## Testing Checklist
 
 After implementation:
-1. Test expression editor interaction in HTTP Request node
-2. Test code node tab switching and JavaScript entry
-3. Test full credential creation flow for Slack/Google Sheets
-4. Verify NDV navigation (open node, modify, close)
-5. Test resource locator components in Google Sheets node
+- [ ] Trigger "Run Auto-Fix" and verify job is created immediately
+- [ ] Confirm frontend shows real-time progress updates
+- [ ] Verify actions complete even if browser tab is closed
+- [ ] Test with expired auth context to confirm login detection works
+- [ ] Check that canvas node clicks work with new selector logic
 
-## Expected Impact
+## Expected Outcome
 
-- **Reliability**: 3x more selector fallbacks for critical UI elements
-- **Coverage**: Support for 90%+ of common n8n automation scenarios
-- **Debugging**: Better selector tracking in execution logs
-- **AI Accuracy**: Clearer shortcuts for the AI interpreter to use
+- Automation runs reliably without Edge Function timeouts
+- Real-time progress visible in UI via Supabase Realtime
+- Selector failures reduced by 80%+ with proper syntax
+- Auth failures detected and reported to user
 
