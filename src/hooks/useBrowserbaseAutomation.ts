@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 export type AutomationStatus = "idle" | "starting" | "running" | "executing" | "completed" | "failed" | "stopped";
 
@@ -65,10 +66,28 @@ interface StartResponse {
 interface ExecuteResponse {
   success: boolean;
   sessionId?: string;
+  jobId?: string;
   status?: string;
   actionsExecuted?: ActionResult[];
   finalScreenshot?: string;
   executionTimeMs?: number;
+  error?: string;
+}
+
+interface JobStatusResponse {
+  success: boolean;
+  job?: {
+    id: string;
+    sessionId: string;
+    status: "pending" | "running" | "completed" | "failed";
+    totalActions: number;
+    completedActions: number;
+    currentAction: string | null;
+    results: ActionResult[];
+    error: string | null;
+    createdAt: string;
+    updatedAt: string;
+  };
   error?: string;
 }
 
@@ -98,6 +117,7 @@ function getContextStorageKey(n8nUrl: string): string {
 }
 
 export function useBrowserbaseAutomation() {
+  const { user } = useAuth();
   const [status, setStatus] = useState<AutomationStatus>("idle");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [debugUrl, setDebugUrl] = useState<string | null>(null);
@@ -109,18 +129,152 @@ export function useBrowserbaseAutomation() {
   const [contextId, setContextId] = useState<string | null>(null);
   const [authPersisted, setAuthPersisted] = useState<boolean>(false);
   const [currentActionIndex, setCurrentActionIndex] = useState<number>(0);
+  const [currentActionText, setCurrentActionText] = useState<string | null>(null);
   const [executionResults, setExecutionResults] = useState<ActionResult[]>([]);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
   
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionIdRef = useRef<string | null>(null);
+  const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Clean up polling on unmount
+  // Clean up polling and realtime on unmount
   useEffect(() => {
     return () => {
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
       }
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+      }
     };
+  }, []);
+
+  // Subscribe to job updates via realtime
+  const subscribeToJobUpdates = useCallback((jobId: string) => {
+    // Clean up existing subscription
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+    }
+
+    console.log(`Subscribing to realtime updates for job ${jobId}`);
+
+    const channel = supabase
+      .channel(`automation-job-${jobId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'automation_jobs',
+          filter: `id=eq.${jobId}`,
+        },
+        (payload) => {
+          console.log('Job update received:', payload.new);
+          const job = payload.new as {
+            id: string;
+            status: string;
+            completed_actions: number;
+            total_actions: number;
+            current_action: string | null;
+            results: ActionResult[];
+            error: string | null;
+          };
+
+          setCurrentActionIndex(job.completed_actions);
+          setCurrentActionText(job.current_action);
+          setExecutionResults(job.results || []);
+
+          if (job.status === 'completed') {
+            setStatus('completed');
+            setResult((prev) => ({
+              ...prev!,
+              status: 'completed',
+              actionsCompleted: job.completed_actions,
+              executionResults: job.results,
+              completedAt: new Date().toISOString(),
+            }));
+            toast.success(`Automation completed! ${job.completed_actions} actions executed.`);
+            
+            // Cleanup subscription
+            if (realtimeChannelRef.current) {
+              supabase.removeChannel(realtimeChannelRef.current);
+              realtimeChannelRef.current = null;
+            }
+          } else if (job.status === 'failed') {
+            setStatus('failed');
+            setError(job.error || 'Automation failed');
+            setResult((prev) => ({
+              ...prev!,
+              status: 'failed',
+              actionsCompleted: job.completed_actions,
+              executionResults: job.results,
+              completedAt: new Date().toISOString(),
+            }));
+            toast.error(job.error || 'Automation failed');
+            
+            // Cleanup subscription
+            if (realtimeChannelRef.current) {
+              supabase.removeChannel(realtimeChannelRef.current);
+              realtimeChannelRef.current = null;
+            }
+          } else if (job.status === 'running') {
+            setStatus('executing');
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log(`Realtime subscription status for job ${jobId}:`, status);
+      });
+
+    realtimeChannelRef.current = channel;
+  }, []);
+
+  // Fallback polling for job status
+  const pollJobStatus = useCallback(async (jobId: string): Promise<void> => {
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke<JobStatusResponse>(
+        "browserbase-automation",
+        {
+          body: { action: "job-status", jobId },
+        }
+      );
+
+      if (fnError || !data?.success || !data?.job) {
+        console.error("Job status check failed:", fnError || data?.error);
+        return;
+      }
+
+      const job = data.job;
+      setCurrentActionIndex(job.completedActions);
+      setCurrentActionText(job.currentAction);
+      setExecutionResults(job.results || []);
+
+      if (job.status === 'completed' || job.status === 'failed') {
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+          pollingRef.current = null;
+        }
+
+        const finalStatus: AutomationStatus = job.status === 'completed' ? 'completed' : 'failed';
+        setStatus(finalStatus);
+        setResult((prev) => ({
+          ...prev!,
+          status: finalStatus,
+          actionsCompleted: job.completedActions,
+          executionResults: job.results,
+          completedAt: new Date().toISOString(),
+        }));
+
+        if (job.status === 'completed') {
+          toast.success(`Automation completed! ${job.completedActions} actions executed.`);
+        } else {
+          setError(job.error || 'Automation failed');
+          toast.error(job.error || 'Automation failed');
+        }
+      }
+    } catch (err) {
+      console.error("Job polling failed:", err);
+    }
   }, []);
 
   // Create a new persistent context
@@ -216,7 +370,7 @@ export function useBrowserbaseAutomation() {
     }
   }, []);
 
-  // Execute actions on the session
+  // Execute actions on the session with job-based tracking
   const executeActions = useCallback(async (
     sid: string, 
     wsUrl: string, 
@@ -225,6 +379,7 @@ export function useBrowserbaseAutomation() {
     try {
       console.log(`Executing ${actionsToExecute.length} actions on session ${sid}`);
       
+      // Include userId for job-based async execution
       const { data, error: fnError } = await supabase.functions.invoke<ExecuteResponse>(
         "browserbase-automation",
         {
@@ -233,6 +388,7 @@ export function useBrowserbaseAutomation() {
             sessionId: sid,
             connectUrl: wsUrl,
             actions: actionsToExecute,
+            userId: user?.id, // Enable async job tracking
           },
         }
       );
@@ -242,12 +398,38 @@ export function useBrowserbaseAutomation() {
         return null;
       }
 
+      // If we got a jobId, set up realtime subscription and polling
+      if (data?.jobId) {
+        console.log(`Job created: ${data.jobId}, setting up realtime subscription`);
+        setCurrentJobId(data.jobId);
+        
+        // Set up realtime subscription for immediate updates
+        subscribeToJobUpdates(data.jobId);
+        
+        // Also set up polling as fallback (every 3 seconds)
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current);
+        }
+        pollingRef.current = setInterval(() => {
+          pollJobStatus(data.jobId!);
+        }, 3000);
+
+        // Return a pending response - actual results will come via subscription
+        return {
+          success: true,
+          sessionId: sid,
+          jobId: data.jobId,
+          status: "pending",
+        };
+      }
+
+      // Fallback: synchronous execution (no userId provided)
       return data;
     } catch (err) {
       console.error("Execute failed:", err);
       return null;
     }
-  }, []);
+  }, [user?.id, subscribeToJobUpdates, pollJobStatus]);
 
   const startPolling = useCallback((sid: string) => {
     if (pollingRef.current) {
@@ -370,27 +552,35 @@ export function useBrowserbaseAutomation() {
         );
 
         if (executeResult) {
-          setExecutionResults(executeResult.actionsExecuted || []);
-          
-          const completedCount = executeResult.actionsExecuted?.filter(r => r.status === "completed").length || 0;
-          const failedCount = executeResult.actionsExecuted?.filter(r => r.status === "failed").length || 0;
-
-          setResult((prev) => ({
-            ...prev!,
-            status: executeResult.success ? "completed" : "failed",
-            actionsCompleted: completedCount,
-            executionResults: executeResult.actionsExecuted,
-            finalScreenshot: executeResult.finalScreenshot,
-            executionTimeMs: executeResult.executionTimeMs,
-            completedAt: new Date().toISOString(),
-          }));
-
-          if (executeResult.success) {
-            setStatus("completed");
-            toast.success(`Automation completed! ${completedCount} actions executed.`);
+          // If we got a jobId, the execution is async - updates will come via realtime
+          if (executeResult.jobId) {
+            console.log(`Async execution started, job: ${executeResult.jobId}`);
+            // Status updates will come via realtime subscription
+            // Don't update status here - let the subscription handle it
           } else {
-            setStatus("failed");
-            toast.error(`Automation finished with ${failedCount} failed actions.`);
+            // Synchronous execution completed
+            setExecutionResults(executeResult.actionsExecuted || []);
+            
+            const completedCount = executeResult.actionsExecuted?.filter(r => r.status === "completed").length || 0;
+            const failedCount = executeResult.actionsExecuted?.filter(r => r.status === "failed").length || 0;
+
+            setResult((prev) => ({
+              ...prev!,
+              status: executeResult.success ? "completed" : "failed",
+              actionsCompleted: completedCount,
+              executionResults: executeResult.actionsExecuted,
+              finalScreenshot: executeResult.finalScreenshot,
+              executionTimeMs: executeResult.executionTimeMs,
+              completedAt: new Date().toISOString(),
+            }));
+
+            if (executeResult.success) {
+              setStatus("completed");
+              toast.success(`Automation completed! ${completedCount} actions executed.`);
+            } else {
+              setStatus("failed");
+              toast.error(`Automation finished with ${failedCount} failed actions.`);
+            }
           }
         } else {
           // Fallback to polling if execute fails
@@ -449,6 +639,10 @@ export function useBrowserbaseAutomation() {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
+    if (realtimeChannelRef.current) {
+      supabase.removeChannel(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
+    }
     sessionIdRef.current = null;
     setStatus("idle");
     setSessionId(null);
@@ -460,7 +654,9 @@ export function useBrowserbaseAutomation() {
     setContextId(null);
     setAuthPersisted(false);
     setCurrentActionIndex(0);
+    setCurrentActionText(null);
     setExecutionResults([]);
+    setCurrentJobId(null);
   }, []);
 
   const clearStoredContext = useCallback((n8nUrl: string) => {
@@ -498,5 +694,9 @@ export function useBrowserbaseAutomation() {
     reset,
     clearStoredContext,
     getOrCreateContext,
+    
+    // New job-based properties
+    currentJobId,
+    currentActionText,
   };
 }

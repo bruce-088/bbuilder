@@ -49,6 +49,48 @@ export type Database = {
           },
         ]
       }
+      automation_jobs: {
+        Row: {
+          completed_actions: number | null
+          created_at: string
+          current_action: string | null
+          error: string | null
+          id: string
+          results: Json | null
+          session_id: string
+          status: string
+          total_actions: number | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_actions?: number | null
+          created_at?: string
+          current_action?: string | null
+          error?: string | null
+          id?: string
+          results?: Json | null
+          session_id: string
+          status?: string
+          total_actions?: number | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_actions?: number | null
+          created_at?: string
+          current_action?: string | null
+          error?: string | null
+          id?: string
+          results?: Json | null
+          session_id?: string
+          status?: string
+          total_actions?: number | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       automation_runs: {
         Row: {
           ai_provider: string | null
