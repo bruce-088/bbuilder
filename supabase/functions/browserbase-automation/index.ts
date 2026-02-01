@@ -1884,7 +1884,10 @@ serve(async (req) => {
               console.log(`Login status:`, loginStatus);
 
               if (loginStatus.isLoginPage && !loginStatus.isLoggedIn) {
-                throw new Error("Login page detected - authentication context may have expired. Please log in to n8n manually or reset auth context.");
+                // Special error format for auth expiry - will be parsed by frontend
+                const authError = new Error("AUTH_EXPIRED: Login page detected - authentication context may have expired.");
+                (authError as Error & { code: string }).code = "AUTH_EXPIRED";
+                throw authError;
               }
 
               // Execute each action with progress updates
@@ -1956,12 +1959,19 @@ serve(async (req) => {
               cdp.disconnect();
             }
           } catch (e) {
-            console.error(`Job ${job.id} failed:`, e);
+            const errorMessage = e instanceof Error ? e.message : "Unknown error";
+            const isAuthExpired = errorMessage.startsWith("AUTH_EXPIRED:") || 
+                                  (e instanceof Error && (e as Error & { code?: string }).code === "AUTH_EXPIRED");
+            
+            console.error(`Job ${job.id} failed:`, e, { isAuthExpired });
+            
             await supabase
               .from("automation_jobs")
               .update({
-                status: "failed",
-                error: e instanceof Error ? e.message : "Unknown error",
+                status: isAuthExpired ? "auth_expired" : "failed",
+                error: isAuthExpired 
+                  ? "Your n8n session has expired. Please clear your saved login and re-authenticate."
+                  : errorMessage,
                 current_action: null,
               })
               .eq("id", job.id);

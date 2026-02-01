@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 
-export type AutomationStatus = "idle" | "starting" | "running" | "executing" | "completed" | "failed" | "stopped";
+export type AutomationStatus = "idle" | "starting" | "running" | "executing" | "completed" | "failed" | "stopped" | "auth_expired";
 
 export interface BrowserAction {
   type: "navigate" | "wait" | "act" | "screenshot" | "extract";
@@ -79,7 +79,7 @@ interface JobStatusResponse {
   job?: {
     id: string;
     sessionId: string;
-    status: "pending" | "running" | "completed" | "failed";
+    status: "pending" | "running" | "completed" | "failed" | "auth_expired";
     totalActions: number;
     completedActions: number;
     currentAction: string | null;
@@ -132,6 +132,8 @@ export function useBrowserbaseAutomation() {
   const [currentActionText, setCurrentActionText] = useState<string | null>(null);
   const [executionResults, setExecutionResults] = useState<ActionResult[]>([]);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [authExpired, setAuthExpired] = useState<boolean>(false);
+  const [lastAutomationParams, setLastAutomationParams] = useState<AutomationParams | null>(null);
   
   const pollingRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionIdRef = useRef<string | null>(null);
@@ -186,6 +188,7 @@ export function useBrowserbaseAutomation() {
 
           if (job.status === 'completed') {
             setStatus('completed');
+            setAuthExpired(false);
             setResult((prev) => ({
               ...prev!,
               status: 'completed',
@@ -194,6 +197,32 @@ export function useBrowserbaseAutomation() {
               completedAt: new Date().toISOString(),
             }));
             toast.success(`Automation completed! ${job.completed_actions} actions executed.`);
+            
+            // Cleanup subscription
+            if (realtimeChannelRef.current) {
+              supabase.removeChannel(realtimeChannelRef.current);
+              realtimeChannelRef.current = null;
+            }
+          } else if (job.status === 'auth_expired') {
+            setStatus('auth_expired');
+            setAuthExpired(true);
+            setError('Your n8n session has expired. Please clear your saved login and re-authenticate.');
+            setResult((prev) => ({
+              ...prev!,
+              status: 'auth_expired',
+              actionsCompleted: job.completed_actions,
+              executionResults: job.results,
+              completedAt: new Date().toISOString(),
+            }));
+            toast.error('Session expired! Please re-authenticate to n8n.', {
+              duration: 6000,
+              action: {
+                label: 'Clear & Retry',
+                onClick: () => {
+                  // Will be handled by UI
+                },
+              },
+            });
             
             // Cleanup subscription
             if (realtimeChannelRef.current) {
@@ -249,27 +278,41 @@ export function useBrowserbaseAutomation() {
       setCurrentActionText(job.currentAction);
       setExecutionResults(job.results || []);
 
-      if (job.status === 'completed' || job.status === 'failed') {
+      if (job.status === 'completed' || job.status === 'failed' || job.status === 'auth_expired') {
         if (pollingRef.current) {
           clearInterval(pollingRef.current);
           pollingRef.current = null;
         }
 
-        const finalStatus: AutomationStatus = job.status === 'completed' ? 'completed' : 'failed';
-        setStatus(finalStatus);
-        setResult((prev) => ({
-          ...prev!,
-          status: finalStatus,
-          actionsCompleted: job.completedActions,
-          executionResults: job.results,
-          completedAt: new Date().toISOString(),
-        }));
-
-        if (job.status === 'completed') {
-          toast.success(`Automation completed! ${job.completedActions} actions executed.`);
+        if (job.status === 'auth_expired') {
+          setStatus('auth_expired');
+          setAuthExpired(true);
+          setError('Your n8n session has expired. Please clear your saved login and re-authenticate.');
+          setResult((prev) => ({
+            ...prev!,
+            status: 'auth_expired',
+            actionsCompleted: job.completedActions,
+            executionResults: job.results,
+            completedAt: new Date().toISOString(),
+          }));
+          toast.error('Session expired! Please re-authenticate to n8n.');
         } else {
-          setError(job.error || 'Automation failed');
-          toast.error(job.error || 'Automation failed');
+          const finalStatus: AutomationStatus = job.status === 'completed' ? 'completed' : 'failed';
+          setStatus(finalStatus);
+          setResult((prev) => ({
+            ...prev!,
+            status: finalStatus,
+            actionsCompleted: job.completedActions,
+            executionResults: job.results,
+            completedAt: new Date().toISOString(),
+          }));
+
+          if (job.status === 'completed') {
+            toast.success(`Automation completed! ${job.completedActions} actions executed.`);
+          } else {
+            setError(job.error || 'Automation failed');
+            toast.error(job.error || 'Automation failed');
+          }
         }
       }
     } catch (err) {
@@ -482,6 +525,8 @@ export function useBrowserbaseAutomation() {
     setAuthPersisted(false);
     setCurrentActionIndex(0);
     setExecutionResults([]);
+    setAuthExpired(false);
+    setLastAutomationParams(params);
 
     try {
       // Get or create a persistent context
@@ -657,6 +702,7 @@ export function useBrowserbaseAutomation() {
     setCurrentActionText(null);
     setExecutionResults([]);
     setCurrentJobId(null);
+    setAuthExpired(false);
   }, []);
 
   const clearStoredContext = useCallback((n8nUrl: string) => {
@@ -664,8 +710,30 @@ export function useBrowserbaseAutomation() {
     localStorage.removeItem(storageKey);
     setContextId(null);
     setAuthPersisted(false);
+    setAuthExpired(false);
     toast.info("Auth context cleared. You'll need to log in again on next run.");
   }, []);
+
+  // Retry automation after clearing auth
+  const retryAfterAuthClear = useCallback(async (n8nUrl: string) => {
+    // Clear the stored context first
+    const storageKey = getContextStorageKey(n8nUrl);
+    localStorage.removeItem(storageKey);
+    setContextId(null);
+    setAuthPersisted(false);
+    setAuthExpired(false);
+    
+    toast.info("Auth context cleared. Starting fresh session...");
+    
+    // If we have the last params, retry with them
+    if (lastAutomationParams) {
+      // Small delay to ensure state is cleared
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await startAutomation(lastAutomationParams);
+    } else {
+      toast.error("Cannot retry - no previous automation params stored.");
+    }
+  }, [lastAutomationParams, startAutomation]);
 
   return {
     // State
@@ -681,11 +749,13 @@ export function useBrowserbaseAutomation() {
     authPersisted,
     currentActionIndex,
     executionResults,
+    authExpired,
     
     // Computed
     isRunning: status === "running" || status === "starting" || status === "executing",
     isIdle: status === "idle",
     isExecuting: status === "executing",
+    isAuthExpired: status === "auth_expired",
     
     // Actions
     startAutomation,
@@ -694,6 +764,7 @@ export function useBrowserbaseAutomation() {
     reset,
     clearStoredContext,
     getOrCreateContext,
+    retryAfterAuthClear,
     
     // New job-based properties
     currentJobId,

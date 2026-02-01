@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp, Copy, Eye, Zap, KeyRound, X, CheckCircle2, XCircle, ImageIcon, List } from "lucide-react";
+import { MessageSquare, Bot, FileCode, ExternalLink, Check, Sparkles, Loader2, ThumbsUp, Copy, Eye, Zap, KeyRound, X, CheckCircle2, XCircle, ImageIcon, List, AlertTriangle, RefreshCw, LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/contexts/AuthContext";
@@ -327,8 +327,44 @@ export function FixGuidancePopover({
                   </a>
                 )}
 
+                {/* Auth Expired Banner */}
+                {browserbase.isAuthExpired && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3 space-y-2">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-amber-400">Session Expired</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          Your n8n login session has expired. Clear the saved auth and try again - you'll need to log in to n8n during the automation.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => browserbase.retryAfterAuthClear(effectiveN8nUrl)}
+                        className="flex-1 text-xs border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1.5" />
+                        Clear & Retry
+                      </Button>
+                      <a
+                        href={effectiveN8nUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-amber-500/30 text-amber-400 hover:bg-amber-500/10 transition-colors"
+                      >
+                        <LogIn className="h-3 w-3" />
+                        Login to n8n
+                        <ExternalLink className="h-2.5 w-2.5" />
+                      </a>
+                    </div>
+                  </div>
+                )}
+
                 {/* Status indicator */}
-                {browserbase.status !== "idle" && (
+                {browserbase.status !== "idle" && !browserbase.isAuthExpired && (
                   <div className={`text-xs px-2 py-1.5 rounded flex items-center justify-between ${
                     browserbase.status === "completed" 
                       ? "bg-emerald-500/10 text-emerald-400" 
@@ -349,7 +385,7 @@ export function FixGuidancePopover({
                 )}
 
                 {/* Reset button when completed/failed */}
-                {(browserbase.status === "completed" || browserbase.status === "failed") && (
+                {(browserbase.status === "completed" || browserbase.status === "failed") && !browserbase.isAuthExpired && (
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
