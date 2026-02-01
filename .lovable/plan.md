@@ -1,198 +1,213 @@
 
 
-# Investing More in the Automation Engine
+# Automation Engine: Updated Investment Roadmap
 
-## Executive Summary
-
-The Automation Engine is your core differentiator - it's the "magic" that takes a user from "I have a business idea" to "I have a fully automated sales machine." Based on my analysis, here are the highest-impact investment opportunities, organized by effort and impact.
+Based on my analysis of the current codebase, here's what's been implemented and the best remaining opportunities to invest in the Automation Engine.
 
 ---
 
-## Current Architecture Overview
+## Already Implemented
 
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                        AUTOMATION ENGINE                                     │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│  ┌────────────┐   ┌────────────┐   ┌────────────┐   ┌────────────┐          │
-│  │   Analyze  │──▶│  Generate  │──▶│   Deploy   │──▶│   Verify   │          │
-│  │ (ICP/Svcs) │   │ (Workflow) │   │ (JSON/MCP) │   │ (Configs)  │          │
-│  └────────────┘   └────────────┘   └────────────┘   └────────────┘          │
-│                                                              │               │
-│                                                              ▼               │
-│                                          ┌────────────┐   ┌────────────┐    │
-│                                          │  Validate  │◀──│    Fix     │    │
-│                                          │ (E2E Test) │   │ (AI Diag)  │    │
-│                                          └────────────┘   └────────────┘    │
-│                                                                              │
-│  Supporting Systems:                                                         │
-│  ├── Browserbase CDP automation (n8n UI control)                            │
-│  ├── N8n Live Status Panel (realtime webhook/node health)                   │
-│  ├── Exception Review (AI fix categorization)                               │
-│  ├── Deployment Panel (JSON export with credential validation)              │
-│  └── Fix Knowledge Base (historical remediation patterns)                   │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+| Feature | Status | Location |
+|---------|--------|----------|
+| Progressive Disclosure | Done | `SimpleProgressBar.tsx` - collapsed by default, auto-expands on errors |
+| One-Click Retry | Done | `useAutomationRun.ts` - `retryFromPhase()` preserves prior results |
+| Browserbase Execution Panel | Done | Detailed action timeline with screenshots, selectors, timing |
+| Live Session Viewer (partial) | Done | "Watch Live" link to external Browserbase debug URL |
+| N8n Live Status Panel | Done | Real-time workflow health, webhook checks, Supabase Realtime |
+| Exception Review + AI Fixes | Done | Categorized fixes (Automatable vs Manual), Knowledge Base enhanced |
+| Deployment Panel | Done | JSON export, credential warnings, by-stage downloads |
 
 ---
 
-## Investment Opportunities
+## Remaining High-Impact Investments
 
-### Tier 1: Quick Wins (1-2 days each)
+### Priority 1: Smart Credential Pre-fill (2 days)
+**Current gap**: Users see a warning about missing credentials AFTER export, but must configure them manually in n8n.
 
-#### 1. Smart Credential Pre-fill
-**Current state**: Users must manually configure each n8n credential after import.
-**Investment**: Auto-detect required credentials during workflow generation and prompt users to enter API keys upfront. Store in `user_api_keys` table, then inject placeholders with actual values in the generated JSON.
-
-| Benefit | Impact |
-|---------|--------|
-| Reduced manual steps | High |
-| Faster time-to-first-run | High |
-| Less user confusion | Medium |
+**Investment**: 
+1. Detect required credentials during the "generate" phase
+2. Show a modal prompting users to enter API keys (Apollo, Slack, Google Sheets, etc.)
+3. Store in `user_api_keys` table (already exists for AI providers)
+4. Inject actual credential IDs into the generated workflow JSON
 
 ```text
-Before: Generate → Export → Import → Configure 5 creds → Test
-After:  Generate → Enter 5 keys → Export → Import → Test
+User Flow:
+┌────────────────────────────────────────────────────────────┐
+│  Credentials Required                                       │
+│  ───────────────────────────────────────────────────────── │
+│  This workflow needs 3 services:                            │
+│                                                             │
+│  [x] Slack Bot Token: xoxb-*****                ✓ Saved    │
+│  [ ] Apollo API Key:  [________________]        Enter now   │
+│  [ ] Google Sheets:   [Connect OAuth →]         Manual      │
+│                                                             │
+│                              [Skip for Now] [Save & Export] │
+└────────────────────────────────────────────────────────────┘
 ```
 
-#### 2. Workflow Template Library
-**Current state**: AI generates workflows from scratch each time.
-**Investment**: Create a curated library of tested n8n workflow templates for common patterns (Apollo prospecting, Slack notifications, Google Sheets CRM). AI selects and customizes templates instead of generating from zero.
-
-| Benefit | Impact |
-|---------|--------|
-| More reliable output | High |
-| Faster generation | Medium |
-| Proven patterns | High |
-
-#### 3. One-Click Re-run for Failed Phases
-**Current state**: If a phase fails, users must restart the entire automation.
-**Investment**: Add a "Retry from here" button on each failed phase that preserves results from previous phases.
+**Technical changes**:
+- New component: `CredentialPreFillModal.tsx`
+- Extend `user_api_keys` table to support n8n service credentials (not just AI providers)
+- Modify `DeploymentPanel.tsx` to show modal before download
+- Update `n8nWorkflowFormatter.ts` to inject credential placeholders
 
 ---
 
-### Tier 2: Medium Investments (3-5 days each)
+### Priority 2: Workflow Template Library (3-4 days)
+**Current gap**: AI generates workflows from scratch each time, leading to inconsistent quality.
 
-#### 4. Live Session Viewer
-**Current state**: Browserbase runs in the background; users only see results.
-**Investment**: Embed the Browserbase debug URL in an iframe to show real-time browser actions. Add a "Watch" button that opens the live session.
-
-```text
-┌─────────────────────────────────────────┐
-│  🔴 Live Session: Configuring Slack...  │
-│  ┌───────────────────────────────────┐  │
-│  │  [n8n workflow editor iframe]    │  │
-│  │  (Browserbase debug session)     │  │
-│  │                                   │  │
-│  └───────────────────────────────────┘  │
-│  Action 3/7: Clicking credential save   │
-└─────────────────────────────────────────┘
-```
-
-| Benefit | Impact |
-|---------|--------|
-| User confidence | High |
-| Debugging visibility | High |
-| "Wow" factor | Medium |
-
-#### 5. Auto-Login with Stored Credentials (Already Planned)
-The plan we just approved - implement `performN8nLogin()` in the edge function and credential management UI. This unblocks fully autonomous operation.
-
-#### 6. Webhook Testing Integration
-**Current state**: N8nLiveStatusPanel checks webhook health but doesn't trigger test runs.
-**Investment**: Add a "Test Trigger" button that sends a sample payload to webhook URLs and displays the response. Show green/red indicators based on execution success.
-
-#### 7. Progressive Disclosure of Technical Details
-**Current state**: The Automation Engine shows everything at once (logs, execution panel, live status).
-**Investment**: Collapse panels by default. Show a simple progress bar for happy path. Expand details only when there are errors or when user clicks "Show Details."
+**Investment**:
+1. Create a database table `n8n_workflow_templates` with curated, tested JSON
+2. Store 6-8 common patterns (Apollo prospecting, Slack notifications, Google Sheets CRM, Email outreach)
+3. During "generate" phase, AI selects and customizes templates instead of inventing
+4. Allow users to save successful workflows as personal templates
 
 ```text
-Simple view:
-┌─────────────────────────────────────────┐
-│  ██████████████████░░░░░  75%           │
-│  Deploying workflows...                 │
-│                           [Show Details]│
-└─────────────────────────────────────────┘
-
-Expanded view (on error or click):
-┌─────────────────────────────────────────┐
-│  Phase 3: Deploy       ⚠️ Warning        │
-│  ─────────────────────────────────────  │
-│  Missing Slack credentials...           │
-│  [Fix Details] [Retry]                  │
-└─────────────────────────────────────────┘
+Template Selection Flow:
+┌────────────────────────────────────────────────────────────┐
+│  Recommended Templates                                      │
+│  ───────────────────────────────────────────────────────── │
+│                                                             │
+│  [★] GhostWriter Lead Engine         12 nodes    Proven    │
+│      Apollo → Score → Google Sheets → Slack                │
+│                                                             │
+│  [ ] Email Outreach Sequence         8 nodes     Popular   │
+│      Trigger → Draft → Send → Track                        │
+│                                                             │
+│  [ ] Custom Generation               AI-built    Flexible  │
+│      Let AI design a unique workflow                       │
+│                                                             │
+│                                       [Use Selected →]      │
+└────────────────────────────────────────────────────────────┘
 ```
+
+**Technical changes**:
+- New database table: `n8n_workflow_templates`
+- New component: `TemplateSelector.tsx`
+- Modify `ai-orchestrator` generate action to use templates when available
+- Add "Save as Template" button to successful workflow completions
 
 ---
 
-### Tier 3: Major Investments (1-2 weeks each)
+### Priority 3: Embedded Live Session Viewer (2-3 days)
+**Current gap**: The "Watch Live" link opens an external tab. Users lose context.
 
-#### 8. MCP Direct Deployment
-**Current state**: Workflows are exported as JSON for manual import.
-**Investment**: Use the n8n MCP connector to directly create/update workflows in the user's n8n instance via `execute_workflow`. No download/import step needed.
-
-```text
-Before: Generate → Download JSON → Open n8n → Import → Configure
-After:  Generate → "Deploy Now" → Done
-```
-
-This is transformative but requires:
-- User has n8n MCP connected
-- Workflow create/update endpoints via MCP
-- Conflict resolution for existing workflows
-
-#### 9. Rollback & Version Control
-**Current state**: Each automation run is independent.
-**Investment**: Track workflow versions in `n8n_workflow_snapshots`. Add "Rollback to previous" and "Compare versions" features. Show diff when re-running automation.
-
-#### 10. Multi-Workflow Orchestration
-**Current state**: Each stage is a separate workflow.
-**Investment**: Add a "master orchestrator" that chains workflows together. Show cross-workflow dependencies. Enable end-to-end testing across all 6 stages.
-
-#### 11. Guided Fix Mode
-**Current state**: AI suggests fixes; users must execute manually or via Browserbase.
-**Investment**: Create an interactive "Fix Wizard" that walks users through each issue step-by-step with inline screenshots and form fields.
+**Investment**:
+1. Embed Browserbase debug URL in an iframe directly in the `BrowserbaseExecutionPanel`
+2. Add fullscreen toggle for focused viewing
+3. Show current action overlay on the iframe (e.g., "Action 3/7: Clicking Save")
 
 ```text
-┌─────────────────────────────────────────┐
-│  Fix 1 of 3: Slack Credential           │
-│  ─────────────────────────────────────  │
-│  [Screenshot of n8n credential modal]   │
-│                                         │
-│  Paste your Slack Bot Token:            │
-│  ┌─────────────────────────────────────┐│
-│  │ xoxb-...                            ││
-│  └─────────────────────────────────────┘│
-│                                         │
-│  [Skip] [Apply & Continue]              │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  🔴 Live Session                               [Fullscreen] │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │                                                       │  │
+│  │      [n8n Editor - Browserbase Debug Stream]         │  │
+│  │                                                       │  │
+│  │                                                       │  │
+│  └───────────────────────────────────────────────────────┘  │
+│  Action 3/7: Configuring Slack credentials...               │
+│  ███████████░░░░░░░░░░░░░░░ 43%                             │
+└─────────────────────────────────────────────────────────────┘
 ```
+
+**Technical changes**:
+- Modify `BrowserbaseExecutionPanel.tsx` to add iframe mode
+- Add `LiveSessionViewer.tsx` component with fullscreen dialog
+- Ensure Browserbase debug URLs allow iframe embedding (X-Frame-Options)
 
 ---
 
-## Recommended Priority Order
+### Priority 4: Webhook Test Triggers (1-2 days)
+**Current gap**: `N8nLiveStatusPanel` shows webhook health but doesn't let users trigger test runs.
 
-Based on your goal of landing first customers in 14 days:
+**Investment**:
+1. Add "Test" button next to each detected webhook
+2. Send a sample payload via `n8n-webhook-health` edge function
+3. Display response status and body in a popover
+4. Green/red badge based on 200 OK vs error
 
-| Priority | Investment | Time | Why |
-|----------|------------|------|-----|
-| 1 | Auto-Login (planned) | 2 days | Unblocks full automation |
-| 2 | Progressive Disclosure | 1 day | Less overwhelming UX |
-| 3 | One-Click Retry | 1 day | Reduces friction on failures |
-| 4 | Credential Pre-fill | 2 days | Major time saver for users |
-| 5 | Live Session Viewer | 3 days | High "wow" factor for demos |
-| 6 | Workflow Templates | 4 days | More reliable output |
-| 7 | MCP Direct Deploy | 1 week | Ultimate automation |
+**Technical changes**:
+- Extend `n8n-webhook-health` edge function to support POST with sample payloads
+- Add `WebhookTestButton` component
+- Update `N8nLiveStatusPanel.tsx` to include test buttons
+
+---
+
+### Priority 5: MCP Direct Deployment (1 week)
+**Current gap**: Workflows are exported as JSON for manual import.
+
+**Investment**:
+1. Detect if user has n8n MCP connected (via `mcp_01kg0zqwjceb9t7q486ydv2m02`)
+2. Add "Deploy Directly" button that creates/updates workflows via MCP
+3. Handle version conflicts (existing workflow with same name)
+4. Show deployment confirmation with workflow link
+
+**Technical changes**:
+- Integrate with `execute_workflow` MCP tool for n8n create/update operations
+- Add conflict resolution UI (overwrite vs create new)
+- Modify `DeploymentPanel.tsx` to show direct deploy option when MCP available
+
+---
+
+## Recommended Implementation Order
+
+| Order | Feature | Effort | Impact | Why First |
+|-------|---------|--------|--------|-----------|
+| 1 | Credential Pre-fill | 2 days | High | Biggest friction reducer |
+| 2 | Webhook Test Triggers | 1-2 days | Medium | Quick win, high visibility |
+| 3 | Embedded Live Session | 2-3 days | High | "Wow" factor for demos |
+| 4 | Workflow Templates | 3-4 days | High | More reliable output |
+| 5 | MCP Direct Deploy | 1 week | Very High | Ultimate automation goal |
+
+---
+
+## Database Changes Required
+
+### For Credential Pre-fill
+```sql
+-- Extend user_api_keys to support n8n service credentials
+ALTER TABLE user_api_keys 
+  ADD COLUMN service_type TEXT DEFAULT 'ai_provider',
+  ADD COLUMN n8n_credential_id TEXT;
+
+-- Add constraint for service types
+-- service_type: 'ai_provider' | 'n8n_service' | 'webhook'
+```
+
+### For Workflow Templates
+```sql
+CREATE TABLE n8n_workflow_templates (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  name TEXT NOT NULL,
+  description TEXT,
+  category TEXT NOT NULL, -- 'prospecting', 'outreach', 'crm', 'notifications'
+  node_count INTEGER NOT NULL,
+  workflow_json JSONB NOT NULL,
+  required_credentials TEXT[] NOT NULL, -- ['slack', 'apollo', 'googleSheets']
+  is_curated BOOLEAN DEFAULT false, -- true for system templates
+  created_by UUID REFERENCES auth.users(id),
+  usage_count INTEGER DEFAULT 0,
+  success_rate NUMERIC(5,2), -- percentage of successful runs
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Index for fast category lookups
+CREATE INDEX idx_templates_category ON n8n_workflow_templates(category);
+CREATE INDEX idx_templates_curated ON n8n_workflow_templates(is_curated) WHERE is_curated = true;
+```
 
 ---
 
 ## Next Steps
 
-Choose which investment to pursue and I'll create a detailed implementation plan with:
-- Database changes (if any)
-- Edge function modifications
-- UI component updates
-- Testing checklist
+Choose which investment to start with. I recommend beginning with **Credential Pre-fill** as it:
+1. Directly reduces the #1 friction point (manual credential configuration)
+2. Builds on existing `user_api_keys` infrastructure
+3. Has clear UI/UX patterns to follow
+4. Can be completed in 2 days
+
+Would you like me to implement Credential Pre-fill first, or would you prefer to start with a different investment?
 
