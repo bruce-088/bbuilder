@@ -41,6 +41,7 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
     currentPhase,
     phaseResults,
     startAutomation,
+    retryFromPhase,
     applyAIFixes,
     executeAIFix,
     cancelAutomation,
@@ -128,6 +129,10 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
     return await executeAIFix(businessIdeaId, fix, selectedProvider);
   };
 
+  const handleRetryFromPhase = async (phaseId: string) => {
+    await retryFromPhase(businessIdeaId, phaseId, selectedProvider);
+  };
+
   return (
     <>
       <div className="flex items-center gap-2">
@@ -195,6 +200,7 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
                   phaseResults={phaseResults}
                   isRunning={isRunning}
                   activeProvider={selectedProvider}
+                  onRetryFromPhase={handleRetryFromPhase}
                 />
 
                 {/* Live Status Panel - shows real-time workflow health */}

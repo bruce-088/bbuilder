@@ -55,6 +55,7 @@ interface UseAutomationRunReturn {
   currentPhase: string | null;
   phaseResults: PhaseResult[];
   startAutomation: (businessIdeaId: string, aiProvider?: string) => Promise<void>;
+  retryFromPhase: (businessIdeaId: string, phaseId: string, aiProvider?: string) => Promise<void>;
   applyAIFixes: (businessIdeaId: string, exceptions: PhaseResult[], aiProvider?: string) => Promise<PhaseResult | null>;
   executeAIFix: (businessIdeaId: string, fix: AIFix, aiProvider?: string) => Promise<ExecuteFixResult>;
   cancelAutomation: () => void;
@@ -173,6 +174,112 @@ export function useAutomationRun(): UseAutomationRunReturn {
       }
     },
     [user, toast, currentPhase]
+  );
+
+  const retryFromPhase = useCallback(
+    async (businessIdeaId: string, phaseId: string, aiProvider: string = "lovable") => {
+      if (!user) {
+        toast({
+          title: "Authentication required",
+          description: "Please sign in to retry automation",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Find the phase index to preserve results before it
+      const phaseIndex = AUTOMATION_PHASES.findIndex(p => p.id === phaseId);
+      if (phaseIndex === -1) {
+        toast({
+          title: "Invalid phase",
+          description: "Could not find the phase to retry from",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Preserve results from phases before the retry point
+      const preservedResults = phaseResults.filter(r => {
+        const resultPhaseIndex = AUTOMATION_PHASES.findIndex(p => p.id === r.phase);
+        return resultPhaseIndex < phaseIndex;
+      });
+
+      setIsRunning(true);
+      setPhaseResults(preservedResults);
+      setCurrentPhase(phaseId);
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/ai-orchestrator`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+            },
+            body: JSON.stringify({
+              action: "retry-from-phase",
+              businessIdeaId,
+              aiProvider,
+              startPhase: phaseId,
+              preservedResults,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || `Request failed with status ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        // Merge preserved results with new results
+        const allResults = [...preservedResults, ...(data.results || [])];
+        setPhaseResults(allResults);
+        setCurrentPhase(null);
+
+        const hasErrors = allResults.some((r: PhaseResult) => r.status === "error");
+        const hasWarnings = allResults.some((r: PhaseResult) => r.status === "warning");
+
+        toast({
+          title: hasErrors
+            ? "Retry completed with errors"
+            : hasWarnings
+            ? "Retry completed with warnings"
+            : "Retry successful!",
+          description: hasErrors
+            ? "Some phases still failed. Please review the results."
+            : hasWarnings
+            ? "Some phases need attention. Please review the warnings."
+            : `Phases from ${AUTOMATION_PHASES[phaseIndex].name} completed successfully.`,
+          variant: hasErrors ? "destructive" : "default",
+        });
+      } catch (error) {
+        console.error("Retry error:", error);
+        toast({
+          title: "Retry failed",
+          description: error instanceof Error ? error.message : "Unknown error occurred",
+          variant: "destructive",
+        });
+
+        setPhaseResults((prev) => [
+          ...prev,
+          {
+            phase: phaseId,
+            status: "error",
+            message: error instanceof Error ? error.message : "Unknown error",
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      } finally {
+        setIsRunning(false);
+        setCurrentPhase(null);
+      }
+    },
+    [user, toast, phaseResults]
   );
 
   const cancelAutomation = useCallback(() => {
@@ -316,6 +423,7 @@ export function useAutomationRun(): UseAutomationRunReturn {
     currentPhase,
     phaseResults,
     startAutomation,
+    retryFromPhase,
     applyAIFixes,
     executeAIFix,
     cancelAutomation,
