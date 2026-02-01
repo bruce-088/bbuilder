@@ -1,4 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.90.1";
+
+// Declare EdgeRuntime global for Supabase Edge Functions
+declare const EdgeRuntime: {
+  waitUntil(promise: Promise<unknown>): void;
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -8,10 +14,15 @@ const corsHeaders = {
 const BROWSERBASE_API_URL = "https://api.browserbase.com";
 const LOVABLE_AI_GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
+// Initialize Supabase client for job tracking
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
 // ============= Types =============
 
 interface AutomationRequest {
-  action: "start" | "status" | "stop" | "execute" | "create-context" | "get-context" | "check-credentials";
+  action: "start" | "status" | "stop" | "execute" | "create-context" | "get-context" | "check-credentials" | "job-status";
   fixPrompt?: string;
   n8nInstanceUrl?: string;
   workflowId?: string;
@@ -20,6 +31,22 @@ interface AutomationRequest {
   contextId?: string;
   actions?: BrowserAction[];
   connectUrl?: string;
+  jobId?: string;
+  userId?: string;
+}
+
+interface AutomationJob {
+  id: string;
+  user_id: string;
+  session_id: string;
+  status: "pending" | "running" | "completed" | "failed";
+  total_actions: number;
+  completed_actions: number;
+  current_action: string | null;
+  results: ActionResult[];
+  error: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface BrowserAction {
@@ -708,6 +735,24 @@ class CDPClient {
 
   // Resolve a selector key to its fallback array, or return the original selector
   resolveSelectors(selectorOrKey: string): string[] {
+    // CRITICAL: Check for invalid n8n: selector combinations
+    // The AI sometimes generates "n8n:canvas-node[data-node-name="IF"]" which is invalid
+    if (selectorOrKey.startsWith("n8n:") && selectorOrKey.includes("[")) {
+      console.warn(`CDP: Invalid n8n selector combination detected: ${selectorOrKey}`);
+      // Extract the attribute part and try to use it directly
+      const attrMatch = selectorOrKey.match(/\[([^\]]+)\]/);
+      if (attrMatch) {
+        console.log(`CDP: Extracting attribute selector: [${attrMatch[1]}]`);
+        return [`[${attrMatch[1]}]`];
+      }
+      // If no attribute found, extract just the n8n key and use its fallbacks
+      const keyPart = selectorOrKey.match(/^n8n:([\w-]+)/);
+      if (keyPart && N8N_SELECTORS[keyPart[1]]) {
+        console.log(`CDP: Falling back to n8n:${keyPart[1]} selectors`);
+        return N8N_SELECTORS[keyPart[1]];
+      }
+    }
+    
     // Check if this matches an n8n selector key pattern
     const keyMatch = selectorOrKey.match(/^n8n:([\w-]+)$/);
     if (keyMatch) {
@@ -917,6 +962,46 @@ class CDPClient {
   }
 }
 
+// ============= Login Detection =============
+
+async function checkLoginStatus(cdp: CDPClient): Promise<{ isLoggedIn: boolean; isLoginPage: boolean; hasCanvas: boolean }> {
+  try {
+    // Check for login page indicators
+    const isLoginPage = await cdp.evaluate<boolean>(`
+      !!(document.querySelector('[data-testid="sign-in-form"]') || 
+         document.querySelector('.login-form') || 
+         document.querySelector('input[name="email"][type="email"]') ||
+         document.querySelector('form[action*="login"]') ||
+         document.querySelector('[data-testid="login-button"]'))
+    `);
+    
+    // Check for n8n canvas presence (indicates logged in)
+    const hasCanvas = await cdp.evaluate<boolean>(`
+      !!(document.querySelector('.vue-flow') || 
+         document.querySelector('[data-testid="canvas"]') || 
+         document.querySelector('.n8n-canvas') ||
+         document.querySelector('.workflow-canvas') ||
+         document.querySelector('[data-testid*="canvas-node"]'))
+    `);
+    
+    // Additional check for n8n header/navigation (indicates app is loaded)
+    const hasAppChrome = await cdp.evaluate<boolean>(`
+      !!(document.querySelector('[data-testid="main-sidebar"]') ||
+         document.querySelector('.n8n-menu') ||
+         document.querySelector('[data-testid="workflow-name"]'))
+    `);
+    
+    return {
+      isLoggedIn: hasCanvas || hasAppChrome,
+      isLoginPage,
+      hasCanvas,
+    };
+  } catch (e) {
+    console.error("CDP: Login check failed", e);
+    return { isLoggedIn: false, isLoginPage: false, hasCanvas: false };
+  }
+}
+
 // ============= AI Action Interpreter =============
 
 async function interpretAction(
@@ -999,6 +1084,18 @@ Available step types:
 - Node config: Open "n8n:node-panel", use parameter selectors for fields
 - After clicking dropdowns, use ArrowDown + Enter for selection if click fails
 
+**CRITICAL SELECTOR RULES:**
+1. n8n: shortcuts CANNOT have additional CSS qualifiers
+   ❌ WRONG: "n8n:canvas-node[data-node-name="IF"]"
+   ❌ WRONG: "n8n:credential-modal .input"
+   ✅ CORRECT: "n8n:canvas-node" OR "[data-testid="canvas-node-IF"]"
+   ✅ CORRECT: Use separate steps for container then input
+
+2. For clicking specific nodes on canvas by name, use evaluate():
+   { "action": "evaluate", "expression": "document.querySelectorAll('[data-node-name]').forEach(el => { if(el.textContent.includes('IF')) el.click(); })" }
+
+3. n8n: shortcuts expand to fallback arrays - never combine them with CSS qualifiers!
+
 **CODEMIRROR HANDLING:**
 - CodeMirror editors (.cm-content) require special handling
 - First click to focus, then use Input.insertText for typing
@@ -1010,6 +1107,7 @@ Available step types:
 3. For dropdowns, add a small delay between opening and selecting
 4. If a button might not be visible, scroll first
 5. For CodeMirror editors, click first then insert text
+6. NEVER combine n8n: shortcuts with additional CSS qualifiers
 
 Return ONLY a valid JSON array. Example:
 [
@@ -1024,7 +1122,7 @@ Page title: ${pageContext.title}
 
 Instruction: ${instruction}
 
-Generate the CDP steps to accomplish this. Return ONLY the JSON array.`;
+Generate the CDP steps to accomplish this. Return ONLY a valid JSON array - no markdown, no explanation.`;
 
   try {
     const response = await fetch(LOVABLE_AI_GATEWAY, {
@@ -1705,24 +1803,226 @@ serve(async (req) => {
           );
         }
 
-        console.log(`Executing ${providedActions.length} actions on session ${sessionId}`);
+        // Get user ID from request or use a placeholder for job tracking
+        const requestUserId = body.userId;
+        
+        if (!requestUserId) {
+          // Fallback to synchronous execution if no userId provided (backwards compatibility)
+          console.log(`Executing ${providedActions.length} actions synchronously (no userId for job tracking)`);
 
-        const executionResult = await executeAutomation(
-          connectUrl,
-          providedActions,
-          sessionId,
-          LOVABLE_API_KEY
+          const executionResult = await executeAutomation(
+            connectUrl,
+            providedActions,
+            sessionId,
+            LOVABLE_API_KEY
+          );
+
+          return new Response(
+            JSON.stringify({
+              success: executionResult.success,
+              sessionId,
+              status: executionResult.success ? "completed" : "failed",
+              actionsExecuted: executionResult.actionsExecuted,
+              finalScreenshot: executionResult.finalScreenshot,
+              executionTimeMs: executionResult.executionTimeMs,
+              error: executionResult.error,
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        // Create job record for async execution
+        console.log(`Creating job for ${providedActions.length} actions on session ${sessionId}`);
+        
+        const { data: job, error: jobError } = await supabase
+          .from("automation_jobs")
+          .insert({
+            user_id: requestUserId,
+            session_id: sessionId,
+            status: "pending",
+            total_actions: providedActions.length,
+            completed_actions: 0,
+            current_action: null,
+            results: [],
+          })
+          .select()
+          .single();
+
+        if (jobError || !job) {
+          console.error("Failed to create job:", jobError);
+          return new Response(
+            JSON.stringify({
+              success: false,
+              error: `Failed to create automation job: ${jobError?.message || "Unknown error"}`,
+            }),
+            { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        console.log(`Created job ${job.id}, starting background execution`);
+
+        // Background execution function
+        const executeInBackground = async () => {
+          try {
+            // Update job to running
+            await supabase
+              .from("automation_jobs")
+              .update({ status: "running" })
+              .eq("id", job.id);
+
+            const cdp = new CDPClient();
+            const results: ActionResult[] = [];
+            let finalScreenshot: string | undefined;
+
+            try {
+              await cdp.connect(connectUrl);
+              await cdp.attachToPage();
+              await cdp.enableDomains();
+
+              // Check login status before proceeding
+              const loginStatus = await checkLoginStatus(cdp);
+              console.log(`Login status:`, loginStatus);
+
+              if (loginStatus.isLoginPage && !loginStatus.isLoggedIn) {
+                throw new Error("Login page detected - authentication context may have expired. Please log in to n8n manually or reset auth context.");
+              }
+
+              // Execute each action with progress updates
+              for (let i = 0; i < providedActions.length; i++) {
+                const action = providedActions[i];
+                
+                // Update current action
+                await supabase
+                  .from("automation_jobs")
+                  .update({
+                    current_action: `${action.type}: ${action.instruction?.substring(0, 50) || action.url || action.selector || ""}...`,
+                    completed_actions: i,
+                  })
+                  .eq("id", job.id);
+
+                console.log(`Job ${job.id}: Executing action ${i + 1}/${providedActions.length}: ${action.type}`);
+                
+                const result = await executeAction(cdp, action, LOVABLE_API_KEY!);
+                results.push(result);
+
+                // Update results in database
+                await supabase
+                  .from("automation_jobs")
+                  .update({
+                    results: results,
+                    completed_actions: i + 1,
+                  })
+                  .eq("id", job.id);
+
+                // Take intermediate screenshot after important actions
+                if (action.type === "navigate" || action.type === "act") {
+                  try {
+                    const screenshot = await cdp.screenshot();
+                    if (!result.screenshot) {
+                      result.screenshot = screenshot;
+                    }
+                  } catch {
+                    // Screenshot failed, continue
+                  }
+                }
+
+                // Stop if navigation failed critically
+                if (result.status === "failed" && action.type === "navigate") {
+                  throw new Error("Critical navigation failure");
+                }
+              }
+
+              // Take final screenshot
+              try {
+                finalScreenshot = await cdp.screenshot();
+              } catch {
+                // Final screenshot failed
+              }
+
+              // Mark job as completed
+              const success = results.every(r => r.status !== "failed");
+              await supabase
+                .from("automation_jobs")
+                .update({
+                  status: success ? "completed" : "failed",
+                  results: results,
+                  completed_actions: providedActions.length,
+                  current_action: null,
+                })
+                .eq("id", job.id);
+
+              console.log(`Job ${job.id} completed with status: ${success ? "completed" : "failed"}`);
+            } finally {
+              cdp.disconnect();
+            }
+          } catch (e) {
+            console.error(`Job ${job.id} failed:`, e);
+            await supabase
+              .from("automation_jobs")
+              .update({
+                status: "failed",
+                error: e instanceof Error ? e.message : "Unknown error",
+                current_action: null,
+              })
+              .eq("id", job.id);
+          }
+        };
+
+        // Start background execution using EdgeRuntime.waitUntil
+        // This keeps the function running after we return the response
+        EdgeRuntime.waitUntil(executeInBackground());
+
+        // Return immediately with job ID
+        return new Response(
+          JSON.stringify({
+            success: true,
+            jobId: job.id,
+            sessionId,
+            status: "pending",
+            message: `Execution started. ${providedActions.length} actions queued. Poll job-status for updates.`,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
+      }
+
+      case "job-status": {
+        const { jobId } = body;
+        
+        if (!jobId) {
+          return new Response(
+            JSON.stringify({ success: false, error: "jobId is required" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+
+        const { data: job, error: jobError } = await supabase
+          .from("automation_jobs")
+          .select("*")
+          .eq("id", jobId)
+          .single();
+
+        if (jobError || !job) {
+          return new Response(
+            JSON.stringify({ success: false, error: "Job not found" }),
+            { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
 
         return new Response(
           JSON.stringify({
-            success: executionResult.success,
-            sessionId,
-            status: executionResult.success ? "completed" : "failed",
-            actionsExecuted: executionResult.actionsExecuted,
-            finalScreenshot: executionResult.finalScreenshot,
-            executionTimeMs: executionResult.executionTimeMs,
-            error: executionResult.error,
+            success: true,
+            job: {
+              id: job.id,
+              sessionId: job.session_id,
+              status: job.status,
+              totalActions: job.total_actions,
+              completedActions: job.completed_actions,
+              currentAction: job.current_action,
+              results: job.results,
+              error: job.error,
+              createdAt: job.created_at,
+              updatedAt: job.updated_at,
+            },
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -1743,7 +2043,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             success: false,
-            error: `Unknown action: ${action}. Valid actions are: start, status, stop, execute, create-context, get-context, check-credentials`,
+            error: `Unknown action: ${action}. Valid actions are: start, status, stop, execute, create-context, get-context, check-credentials, job-status`,
           }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
