@@ -30,7 +30,7 @@ interface WorkflowValidationResult {
   credentialWarnings: CredentialWarning[];
 }
 
-interface CredentialWarning {
+export interface CredentialWarning {
   nodeName: string;
   nodeType: string;
   missingCredential: string;

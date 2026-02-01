@@ -487,7 +487,9 @@ export type Database = {
           created_at: string
           encrypted_key: string
           id: string
+          n8n_credential_id: string | null
           provider: string
+          service_type: string | null
           updated_at: string
           user_id: string
         }
@@ -495,7 +497,9 @@ export type Database = {
           created_at?: string
           encrypted_key: string
           id?: string
+          n8n_credential_id?: string | null
           provider: string
+          service_type?: string | null
           updated_at?: string
           user_id: string
         }
@@ -503,7 +507,9 @@ export type Database = {
           created_at?: string
           encrypted_key?: string
           id?: string
+          n8n_credential_id?: string | null
           provider?: string
+          service_type?: string | null
           updated_at?: string
           user_id?: string
         }

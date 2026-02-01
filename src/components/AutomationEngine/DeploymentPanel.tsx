@@ -34,6 +34,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import { CredentialPreFillModal } from "./CredentialPreFillModal";
 
 interface DeploymentPanelProps {
   phaseResults: PhaseResult[];
@@ -50,6 +51,8 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
 
   const [copied, setCopied] = useState(false);
   const [credentialsExpanded, setCredentialsExpanded] = useState(false);
+  const [showCredentialModal, setShowCredentialModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"download" | "copy" | null>(null);
 
   // Extract generated workflows from phase results
   const generateResult = phaseResults.find(r => r.phase === "generate");
@@ -68,7 +71,30 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
     [generatedWorkflows]
   );
 
-  const handleCopyJson = async () => {
+  // Check if we should show credential modal before export
+  const hasCredentialWarnings = workflowStatus.credentialWarnings.length > 0;
+
+  const handleExportWithCredentialCheck = (action: "download" | "copy") => {
+    if (hasCredentialWarnings) {
+      setPendingAction(action);
+      setShowCredentialModal(true);
+    } else if (action === "download") {
+      executeDownload();
+    } else {
+      executeCopy();
+    }
+  };
+
+  const handleCredentialModalComplete = () => {
+    if (pendingAction === "download") {
+      executeDownload();
+    } else if (pendingAction === "copy") {
+      executeCopy();
+    }
+    setPendingAction(null);
+  };
+
+  const executeCopy = async () => {
     if (!generatedWorkflows) return;
 
     const formattedWorkflow = formatForN8nImport(generatedWorkflows, businessName);
@@ -99,7 +125,7 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
     }
   };
 
-  const handleDownload = () => {
+  const executeDownload = () => {
     if (!generatedWorkflows) return;
 
     const formattedWorkflow = formatForN8nImport(generatedWorkflows, businessName);
@@ -304,7 +330,7 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2">
           <Button 
-            onClick={handleCopyJson} 
+            onClick={() => handleExportWithCredentialCheck("copy")} 
             variant="outline" 
             size="sm"
             disabled={!workflowStatus.valid}
@@ -323,7 +349,7 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
           </Button>
 
           <Button 
-            onClick={handleDownload} 
+            onClick={() => handleExportWithCredentialCheck("download")} 
             variant="outline" 
             size="sm"
             disabled={!workflowStatus.valid}
@@ -392,6 +418,14 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
             </div>
           </div>
         </div>
+
+        {/* Credential Pre-fill Modal */}
+        <CredentialPreFillModal
+          open={showCredentialModal}
+          onOpenChange={setShowCredentialModal}
+          credentialWarnings={workflowStatus.credentialWarnings}
+          onComplete={handleCredentialModalComplete}
+        />
       </CardContent>
     </Card>
   );
