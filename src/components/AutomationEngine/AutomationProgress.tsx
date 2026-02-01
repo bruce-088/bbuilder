@@ -1,6 +1,7 @@
-import { CheckCircle2, Circle, Loader2, AlertTriangle, XCircle, Sparkles, Bot, Brain, Search, Gem } from "lucide-react";
+import { CheckCircle2, Circle, Loader2, AlertTriangle, XCircle, Sparkles, Bot, Brain, Search, Gem, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { PhaseResult, AutomationPhase } from "@/hooks/useAutomationRun";
 
 interface AutomationProgressProps {
@@ -9,6 +10,7 @@ interface AutomationProgressProps {
   phaseResults: PhaseResult[];
   isRunning: boolean;
   activeProvider?: string;
+  onRetryFromPhase?: (phaseId: string) => void;
 }
 
 const providerConfig: Record<string, { name: string; icon: React.ElementType; color: string }> = {
@@ -25,6 +27,7 @@ export function AutomationProgress({
   phaseResults,
   isRunning,
   activeProvider = "lovable",
+  onRetryFromPhase,
 }: AutomationProgressProps) {
   const getPhaseStatus = (phaseId: string) => {
     const result = phaseResults.find((r) => r.phase === phaseId);
@@ -117,11 +120,25 @@ export function AutomationProgress({
                     >
                       {phase.name}
                     </h4>
-                    {result && (
-                      <span className="text-xs text-muted-foreground">
-                        {new Date(result.timestamp).toLocaleTimeString()}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {/* Retry button for failed/warning phases */}
+                      {!isRunning && (status === "error" || status === "warning") && onRetryFromPhase && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 px-2 text-xs"
+                          onClick={() => onRetryFromPhase(phase.id)}
+                        >
+                          <RotateCcw className="h-3 w-3 mr-1" />
+                          Retry
+                        </Button>
+                      )}
+                      {result && (
+                        <span className="text-xs text-muted-foreground">
+                          {new Date(result.timestamp).toLocaleTimeString()}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {result?.message || phase.description}
