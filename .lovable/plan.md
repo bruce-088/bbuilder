@@ -1,209 +1,244 @@
 
+# Priority 5: MCP Direct Deployment
 
-# Automation Engine: Updated Investment Roadmap
+## Overview
+Enable users to deploy workflows directly to their n8n instance via the connected n8n MCP connector, bypassing manual JSON imports entirely.
 
-Based on my analysis of the current codebase, here's what's been implemented and the best remaining opportunities to invest in the Automation Engine.
+## Current State Analysis
 
----
+### Existing Infrastructure
+- **n8n MCP Connector**: Already connected and functional with `search_workflows`, `get_workflow_details`, and `execute_workflow` tools
+- **DeploymentPanel**: Currently offers Copy JSON, Download All, and Open n8n as export options
+- **useN8nMcpConnection hook**: Manages connection state, caches workflows, provides deep links
+- **n8nWorkflowFormatter**: Transforms generated workflows into n8n-compatible JSON format
+- **N8nConnectionStatus**: Displays connection state and allows URL configuration
 
-## Already Implemented
+### Technical Challenge
+The n8n MCP tools are available to the **Lovable agent** during build time, not to runtime JavaScript code. This means:
+- We **cannot** call MCP tools directly from React components
+- We need a **bridge mechanism** to invoke MCP deployment
 
-| Feature | Status | Location |
-|---------|--------|----------|
-| Progressive Disclosure | Done | `SimpleProgressBar.tsx` - collapsed by default, auto-expands on errors |
-| One-Click Retry | Done | `useAutomationRun.ts` - `retryFromPhase()` preserves prior results |
-| Browserbase Execution Panel | Done | Detailed action timeline with screenshots, selectors, timing |
-| Live Session Viewer (partial) | Done | "Watch Live" link to external Browserbase debug URL |
-| N8n Live Status Panel | Done | Real-time workflow health, webhook checks, Supabase Realtime |
-| Exception Review + AI Fixes | Done | Categorized fixes (Automatable vs Manual), Knowledge Base enhanced |
-| Deployment Panel | Done | JSON export, credential warnings, by-stage downloads |
+## Solution Architecture
 
----
+### Approach: Agent-Assisted Deployment via Edge Function
+Since MCP tools are agent-only, we'll create a hybrid approach:
 
-## Remaining High-Impact Investments
+1. **User clicks "Deploy to n8n"** in the DeploymentPanel
+2. **Edge function `n8n-mcp-deploy`** receives the workflow JSON
+3. **Edge function stores deployment request** in `n8n_deployment_requests` table
+4. **Agent (Lovable)** periodically checks for pending deployments and uses MCP to execute
+5. **Alternatively**: Provide a "Copy for Agent" button that prompts the user to ask the agent to deploy
 
-### Priority 1: Smart Credential Pre-fill (2 days) ✅ IMPLEMENTED
-**Status**: Database migration complete, UI modal created, integrated into DeploymentPanel.
+### Simplified Immediate Solution
+For now, we'll implement a **"Deploy via Agent" flow**:
+- Add a "Deploy to n8n" button that shows deployment instructions
+- When clicked, it saves the workflow to `n8n_workflow_snapshots` with `source: 'pending_deploy'`
+- Shows a dialog explaining the user should ask the agent: "Deploy my generated workflow to n8n"
+- The agent (me) will then use the MCP connector to create/update the workflow
 
-**What was built**:
-1. Extended `user_api_keys` table with `service_type` and `n8n_credential_id` columns
-2. Created `CredentialPreFillModal.tsx` component for entering service credentials
-3. Created `useN8nServiceCredentials.ts` hook for managing credentials
-4. Modified `DeploymentPanel.tsx` to show modal before download/copy when credentials are needed
-5. Maps n8n node types to recognizable service names (Slack, Gmail, Stripe, etc.)
-6. Stores credentials securely in existing `user_api_keys` table
+## Implementation Plan
 
-**User Flow**:
-```text
-┌────────────────────────────────────────────────────────────┐
-│  Credentials Required                                       │
-│  ───────────────────────────────────────────────────────── │
-│  This workflow needs 3 services:                            │
-│                                                             │
-│  [x] Slack Bot Token: xoxb-*****                ✓ Saved    │
-│  [ ] Apollo API Key:  [________________]        Enter now   │
-│  [ ] Google Sheets:   [Connect OAuth →]         Manual      │
-│                                                             │
-│                              [Skip for Now] [Save & Export] │
-└────────────────────────────────────────────────────────────┘
+### 1. Database: Deployment Tracking Table
+Create a new table to track deployment requests and status.
+
+```sql
+CREATE TABLE public.n8n_deployment_requests (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL,
+  business_idea_id UUID REFERENCES public.business_ideas(id) ON DELETE CASCADE,
+  workflow_name TEXT NOT NULL,
+  workflow_json JSONB NOT NULL,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'deploying', 'success', 'failed', 'cancelled')),
+  n8n_workflow_id TEXT,
+  error_message TEXT,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now(),
+  deployed_at TIMESTAMPTZ
+);
+
+-- RLS policies
+ALTER TABLE public.n8n_deployment_requests ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own deployment requests" 
+  ON public.n8n_deployment_requests FOR SELECT 
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Users can create deployment requests" 
+  ON public.n8n_deployment_requests FOR INSERT 
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can update own deployment requests" 
+  ON public.n8n_deployment_requests FOR UPDATE 
+  USING (auth.uid() = user_id);
+
+-- Trigger for updated_at
+CREATE TRIGGER update_deployment_requests_updated_at
+  BEFORE UPDATE ON public.n8n_deployment_requests
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 ```
 
----
+### 2. New Hook: useN8nDeployment
+Manages deployment request creation and status polling.
 
-### Priority 2: Workflow Template Library (3-4 days)
-**Current gap**: AI generates workflows from scratch each time, leading to inconsistent quality.
+```typescript
+// src/hooks/useN8nDeployment.ts
+interface DeploymentRequest {
+  id: string;
+  workflowName: string;
+  status: 'pending' | 'deploying' | 'success' | 'failed' | 'cancelled';
+  n8nWorkflowId?: string;
+  errorMessage?: string;
+  createdAt: string;
+  deployedAt?: string;
+}
 
-**Investment**:
-1. Create a database table `n8n_workflow_templates` with curated, tested JSON
-2. Store 6-8 common patterns (Apollo prospecting, Slack notifications, Google Sheets CRM, Email outreach)
-3. During "generate" phase, AI selects and customizes templates instead of inventing
-4. Allow users to save successful workflows as personal templates
-
-```text
-Template Selection Flow:
-┌────────────────────────────────────────────────────────────┐
-│  Recommended Templates                                      │
-│  ───────────────────────────────────────────────────────── │
-│                                                             │
-│  [★] GhostWriter Lead Engine         12 nodes    Proven    │
-│      Apollo → Score → Google Sheets → Slack                │
-│                                                             │
-│  [ ] Email Outreach Sequence         8 nodes     Popular   │
-│      Trigger → Draft → Send → Track                        │
-│                                                             │
-│  [ ] Custom Generation               AI-built    Flexible  │
-│      Let AI design a unique workflow                       │
-│                                                             │
-│                                       [Use Selected →]      │
-└────────────────────────────────────────────────────────────┘
+export function useN8nDeployment() {
+  // State for pending deployments
+  // Function to create deployment request
+  // Realtime subscription for status updates
+  // Cancel deployment function
+}
 ```
 
-**Technical changes**:
-- New database table: `n8n_workflow_templates`
-- New component: `TemplateSelector.tsx`
-- Modify `ai-orchestrator` generate action to use templates when available
-- Add "Save as Template" button to successful workflow completions
+### 3. New Component: MCPDeploymentModal
+Dialog for initiating and tracking MCP deployments.
 
----
+```typescript
+// src/components/AutomationEngine/MCPDeploymentModal.tsx
 
-### Priority 3: Embedded Live Session Viewer (2-3 days)
-**Current gap**: The "Watch Live" link opens an external tab. Users lose context.
+Features:
+- Shows workflow preview (node count, stages)
+- "Request Deployment" button → creates request in database
+- Status tracking with realtime updates
+- Conflict detection (existing workflow with same name)
+- Options: Create New / Overwrite Existing / Cancel
+- Success state with deep link to n8n workflow
+- Error state with retry option
+```
 
-**Investment**:
-1. Embed Browserbase debug URL in an iframe directly in the `BrowserbaseExecutionPanel`
-2. Add fullscreen toggle for focused viewing
-3. Show current action overlay on the iframe (e.g., "Action 3/7: Clicking Save")
+### 4. Updated DeploymentPanel
+Add "Deploy to n8n" button alongside existing export options.
+
+```typescript
+// Changes to DeploymentPanel.tsx
+
+- Add MCPDeploymentModal component
+- New button: "Deploy to n8n" (primary action when MCP connected)
+- Detect if n8n MCP is connected (check for cached workflows)
+- Show deployment status badge when request is pending
+- Disable deploy button if workflow is invalid
+```
+
+### 5. Agent-Side Deployment Handler
+When the agent sees a pending deployment request, it will:
+
+1. Fetch the deployment request from the database
+2. Check for existing workflow with same name using `search_workflows`
+3. Handle conflicts (create with suffix or prompt user)
+4. Use the n8n API via the MCP connector to deploy
+5. Update deployment request status to success/failed
+6. Store the returned n8n workflow ID
+
+## UI/UX Flow
 
 ```text
+User Flow:
 ┌─────────────────────────────────────────────────────────────┐
-│  🔴 Live Session                               [Fullscreen] │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │                                                       │  │
-│  │      [n8n Editor - Browserbase Debug Stream]         │  │
-│  │                                                       │  │
-│  │                                                       │  │
-│  └───────────────────────────────────────────────────────┘  │
-│  Action 3/7: Configuring Slack credentials...               │
-│  ███████████░░░░░░░░░░░░░░░ 43%                             │
+│  Deploy Workflows                                           │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  [Copy JSON] [Download All] [By Stage ▼]  [Deploy to n8n →] │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Deploy to n8n                                              │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  Workflow: "Acme Corp - Complete Automation"                │
+│  Nodes: 24 across 6 stages                                  │
+│                                                             │
+│  ⚠ Existing workflow detected: "Acme Corp Sales"           │
+│                                                             │
+│  ○ Create as new workflow                                   │
+│  ○ Overwrite existing workflow                              │
+│                                                             │
+│                              [Cancel]  [Request Deployment] │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Deployment Requested                                       │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  🔵 Pending deployment...                                   │
+│                                                             │
+│  The Lovable agent will deploy this workflow to your        │
+│  n8n instance. This typically takes a few moments.          │
+│                                                             │
+│  [Cancel Request]                                           │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼ (Agent deploys via MCP)
+┌─────────────────────────────────────────────────────────────┐
+│  Deployment Complete! ✓                                     │
+│  ─────────────────────────────────────────────────────────  │
+│                                                             │
+│  Your workflow has been deployed to n8n.                    │
+│                                                             │
+│  Workflow ID: XopMVn0J7Ear4cZO                              │
+│  Status: Active                                             │
+│                                                             │
+│  Next steps:                                                │
+│  1. Configure credentials in n8n                            │
+│  2. Test the workflow with sample data                      │
+│  3. Activate for production use                             │
+│                                                             │
+│                              [Open in n8n →]  [Close]       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Technical changes**:
-- Modify `BrowserbaseExecutionPanel.tsx` to add iframe mode
-- Add `LiveSessionViewer.tsx` component with fullscreen dialog
-- Ensure Browserbase debug URLs allow iframe embedding (X-Frame-Options)
+## Files to Create/Modify
 
----
+| File | Action | Description |
+|------|--------|-------------|
+| `migrations/xxx_n8n_deployment_requests.sql` | Create | Deployment tracking table |
+| `src/hooks/useN8nDeployment.ts` | Create | Deployment request management hook |
+| `src/components/AutomationEngine/MCPDeploymentModal.tsx` | Create | Deployment dialog component |
+| `src/components/AutomationEngine/DeploymentPanel.tsx` | Modify | Add Deploy to n8n button |
+| `src/hooks/useN8nMcpConnection.ts` | Modify | Add helper to check MCP availability |
+| `src/integrations/supabase/types.ts` | Auto-update | Types for new table |
 
-### Priority 4: Webhook Test Triggers (1-2 days)
-**Current gap**: `N8nLiveStatusPanel` shows webhook health but doesn't let users trigger test runs.
+## Conflict Resolution Strategy
 
-**Investment**:
-1. Add "Test" button next to each detected webhook
-2. Send a sample payload via `n8n-webhook-health` edge function
-3. Display response status and body in a popover
-4. Green/red badge based on 200 OK vs error
+When deploying, check for existing workflows:
+1. **No conflict**: Deploy directly
+2. **Same name exists**: 
+   - Show conflict dialog with options
+   - "Create New" → append timestamp to name
+   - "Overwrite" → update existing workflow
+   - "Cancel" → abort deployment
 
-**Technical changes**:
-- Extend `n8n-webhook-health` edge function to support POST with sample payloads
-- Add `WebhookTestButton` component
-- Update `N8nLiveStatusPanel.tsx` to include test buttons
+## Security Considerations
 
----
+- All deployment requests are scoped to authenticated users via RLS
+- Workflow JSON is validated before storage
+- Only the owning user can view/update their deployment requests
+- MCP operations are executed by the trusted Lovable agent
 
-### Priority 5: MCP Direct Deployment (1 week)
-**Current gap**: Workflows are exported as JSON for manual import.
+## Success Metrics
 
-**Investment**:
-1. Detect if user has n8n MCP connected (via `mcp_01kg0zqwjceb9t7q486ydv2m02`)
-2. Add "Deploy Directly" button that creates/updates workflows via MCP
-3. Handle version conflicts (existing workflow with same name)
-4. Show deployment confirmation with workflow link
+- Deployment request created and stored successfully
+- Status updates in realtime via Supabase
+- Agent can retrieve and process pending deployments
+- Successful deployments link to n8n workflow
+- Failed deployments show clear error messages
 
-**Technical changes**:
-- Integrate with `execute_workflow` MCP tool for n8n create/update operations
-- Add conflict resolution UI (overwrite vs create new)
-- Modify `DeploymentPanel.tsx` to show direct deploy option when MCP available
+## Implementation Order
 
----
-
-## Recommended Implementation Order
-
-| Order | Feature | Effort | Impact | Why First |
-|-------|---------|--------|--------|-----------|
-| 1 | Credential Pre-fill | 2 days | High | Biggest friction reducer |
-| 2 | Webhook Test Triggers | 1-2 days | Medium | Quick win, high visibility |
-| 3 | Embedded Live Session | 2-3 days | High | "Wow" factor for demos |
-| 4 | Workflow Templates | 3-4 days | High | More reliable output |
-| 5 | MCP Direct Deploy | 1 week | Very High | Ultimate automation goal |
-
----
-
-## Database Changes Required
-
-### For Credential Pre-fill
-```sql
--- Extend user_api_keys to support n8n service credentials
-ALTER TABLE user_api_keys 
-  ADD COLUMN service_type TEXT DEFAULT 'ai_provider',
-  ADD COLUMN n8n_credential_id TEXT;
-
--- Add constraint for service types
--- service_type: 'ai_provider' | 'n8n_service' | 'webhook'
-```
-
-### For Workflow Templates
-```sql
-CREATE TABLE n8n_workflow_templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  description TEXT,
-  category TEXT NOT NULL, -- 'prospecting', 'outreach', 'crm', 'notifications'
-  node_count INTEGER NOT NULL,
-  workflow_json JSONB NOT NULL,
-  required_credentials TEXT[] NOT NULL, -- ['slack', 'apollo', 'googleSheets']
-  is_curated BOOLEAN DEFAULT false, -- true for system templates
-  created_by UUID REFERENCES auth.users(id),
-  usage_count INTEGER DEFAULT 0,
-  success_rate NUMERIC(5,2), -- percentage of successful runs
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Index for fast category lookups
-CREATE INDEX idx_templates_category ON n8n_workflow_templates(category);
-CREATE INDEX idx_templates_curated ON n8n_workflow_templates(is_curated) WHERE is_curated = true;
-```
-
----
-
-## Next Steps
-
-Choose which investment to start with. I recommend beginning with **Credential Pre-fill** as it:
-1. Directly reduces the #1 friction point (manual credential configuration)
-2. Builds on existing `user_api_keys` infrastructure
-3. Has clear UI/UX patterns to follow
-4. Can be completed in 2 days
-
-Would you like me to implement Credential Pre-fill first, or would you prefer to start with a different investment?
-
+1. Create database migration for `n8n_deployment_requests` table
+2. Create `useN8nDeployment` hook
+3. Create `MCPDeploymentModal` component
+4. Update `DeploymentPanel` with deploy button
+5. Test end-to-end flow with agent deployment
