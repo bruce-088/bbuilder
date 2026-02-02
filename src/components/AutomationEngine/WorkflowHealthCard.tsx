@@ -10,9 +10,11 @@ import {
   Loader2, 
   GitBranch,
   Clock,
-  AlertCircle
+  AlertCircle,
+  Webhook
 } from "lucide-react";
 import { WebhookHealthIndicator } from "./WebhookHealthIndicator";
+import { WebhookTestButton } from "./WebhookTestButton";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import type { WorkflowStatus, TriggerInfo } from "@/hooks/useN8nLiveStatus";
@@ -109,6 +111,40 @@ export function WorkflowHealthCard({
             </span>
           )}
         </div>
+
+        {/* Webhook triggers with test buttons */}
+        {hasWebhooks && (
+          <div className="space-y-1.5">
+            <p className="text-xs text-muted-foreground flex items-center gap-1">
+              <Webhook className="h-3 w-3" />
+              Webhook Endpoints
+            </p>
+            <div className="space-y-1">
+              {workflow.triggers
+                .filter((t) => t.webhookUrl)
+                .map((trigger, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 bg-muted/50 rounded px-2 py-1"
+                  >
+                    <WebhookHealthIndicator
+                      status={webhookHealth[trigger.webhookUrl!] ?? "unknown"}
+                    />
+                    <span
+                      className="text-xs font-mono truncate flex-1"
+                      title={trigger.webhookUrl}
+                    >
+                      {trigger.webhookUrl}
+                    </span>
+                    <WebhookTestButton
+                      webhookUrl={trigger.webhookUrl!}
+                      className="flex-shrink-0"
+                    />
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
 
         {/* Last updated */}
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
