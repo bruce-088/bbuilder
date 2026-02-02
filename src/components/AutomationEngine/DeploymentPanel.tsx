@@ -12,9 +12,12 @@ import {
   CheckCircle2,
   AlertTriangle,
   ChevronDown,
-  KeyRound
+  KeyRound,
+  Sparkles,
+  Clock
 } from "lucide-react";
 import { useN8nMcpConnection } from "@/hooks/useN8nMcpConnection";
+import { useN8nDeployment } from "@/hooks/useN8nDeployment";
 import { useToast } from "@/hooks/use-toast";
 import { PhaseResult } from "@/hooks/useAutomationRun";
 import {
@@ -35,23 +38,29 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { CredentialPreFillModal } from "./CredentialPreFillModal";
+import { MCPDeploymentModal } from "./MCPDeploymentModal";
 
 interface DeploymentPanelProps {
   phaseResults: PhaseResult[];
   businessName: string;
+  businessIdeaId?: string;
 }
 
-export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelProps) {
+export function DeploymentPanel({ phaseResults, businessName, businessIdeaId }: DeploymentPanelProps) {
   const { toast } = useToast();
   const {
     isConnected,
+    workflows,
     findWorkflowByStage,
     getImportUrl,
   } = useN8nMcpConnection();
 
+  const { activeDeployment, getPendingDeployment } = useN8nDeployment();
+
   const [copied, setCopied] = useState(false);
   const [credentialsExpanded, setCredentialsExpanded] = useState(false);
   const [showCredentialModal, setShowCredentialModal] = useState(false);
+  const [showDeploymentModal, setShowDeploymentModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<"download" | "copy" | null>(null);
 
   // Extract generated workflows from phase results
@@ -261,14 +270,14 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
         {/* Credential warnings */}
         {workflowStatus.credentialWarnings.length > 0 && (
           <Collapsible open={credentialsExpanded} onOpenChange={setCredentialsExpanded}>
-            <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3 space-y-2">
+            <div className="rounded-lg bg-secondary border border-border p-3 space-y-2">
               <CollapsibleTrigger asChild>
                 <button className="flex items-center justify-between w-full text-left">
-                  <div className="flex items-center gap-2 text-sm font-medium text-amber-600 dark:text-amber-400">
+                  <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                     <KeyRound className="h-4 w-4" />
                     {workflowStatus.credentialWarnings.length} node{workflowStatus.credentialWarnings.length > 1 ? 's' : ''} need credentials
                   </div>
-                  <ChevronDown className={`h-4 w-4 text-amber-600 dark:text-amber-400 transition-transform ${credentialsExpanded ? 'rotate-180' : ''}`} />
+                  <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${credentialsExpanded ? 'rotate-180' : ''}`} />
                 </button>
               </CollapsibleTrigger>
               <p className="text-xs text-muted-foreground">
@@ -283,7 +292,7 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
                     <span className="font-medium truncate max-w-[180px]" title={warning.nodeName}>
                       {warning.nodeName}
                     </span>
-                    <Badge variant="outline" className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                    <Badge variant="outline" className="text-xs bg-secondary text-foreground border-border">
                       {warning.missingCredential}
                     </Badge>
                   </div>
@@ -385,7 +394,29 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
             </DropdownMenu>
           )}
 
-          {getImportUrl() && (
+          {/* Deploy to n8n via MCP - primary action when connected */}
+          {isConnected && workflows.length > 0 && (
+            <Button 
+              onClick={() => setShowDeploymentModal(true)}
+              size="sm"
+              disabled={!workflowStatus.valid || !!getPendingDeployment(businessIdeaId)}
+              className="relative"
+            >
+              {getPendingDeployment(businessIdeaId) ? (
+                <>
+                  <Clock className="h-4 w-4 mr-2 animate-pulse" />
+                  Pending...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Deploy to n8n
+                </>
+              )}
+            </Button>
+          )}
+
+          {getImportUrl() && !isConnected && (
             <Button 
               variant="default" 
               size="sm"
@@ -402,6 +433,19 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
           )}
         </div>
 
+        {/* Pending deployment notice */}
+        {getPendingDeployment(businessIdeaId) && (
+          <div className="rounded-lg bg-primary/5 border border-primary/20 p-3">
+            <div className="flex items-center gap-2 text-sm">
+              <Clock className="h-4 w-4 text-primary animate-pulse" />
+              <span className="font-medium">Deployment pending</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-1">
+              Ask the assistant: "Deploy my pending workflow to n8n"
+            </p>
+          </div>
+        )}
+
         {/* Import instructions */}
         <div className="rounded-lg border bg-muted/30 p-3">
           <div className="flex items-start gap-2">
@@ -409,9 +453,8 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
             <div className="text-sm space-y-1">
               <p className="font-medium">Quick Import Instructions</p>
               <ol className="text-muted-foreground text-xs list-decimal list-inside space-y-0.5">
-                <li>Click "Open n8n" or go to your n8n instance</li>
-                <li>Create a new workflow (+ button)</li>
-                <li>Use ⌘/Ctrl + V to paste, or Import from file</li>
+                <li>Click "Deploy to n8n" or use "Open n8n" for manual import</li>
+                <li>If manual: Create new workflow and paste JSON</li>
                 <li>Configure credentials for each service</li>
                 <li>Activate the workflow</li>
               </ol>
@@ -426,6 +469,19 @@ export function DeploymentPanel({ phaseResults, businessName }: DeploymentPanelP
           credentialWarnings={workflowStatus.credentialWarnings}
           onComplete={handleCredentialModalComplete}
         />
+
+        {/* MCP Deployment Modal */}
+        {generatedWorkflows && (
+          <MCPDeploymentModal
+            open={showDeploymentModal}
+            onOpenChange={setShowDeploymentModal}
+            workflowName={`${businessName} - Complete Automation`}
+            workflowJson={(formatForN8nImport(generatedWorkflows, businessName) || {}) as Record<string, unknown>}
+            nodeCount={workflowStatus.nodeCount}
+            stageCount={availableStages.length}
+            businessIdeaId={businessIdeaId}
+          />
+        )}
       </CardContent>
     </Card>
   );

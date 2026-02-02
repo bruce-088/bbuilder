@@ -231,7 +231,8 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
             {phaseResults.some(r => r.phase === "generate" && r.status === "success") && (
               <DeploymentPanel 
                 phaseResults={phaseResults} 
-                businessName={businessName} 
+                businessName={businessName}
+                businessIdeaId={businessIdeaId}
               />
             )}
 
