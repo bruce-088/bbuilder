@@ -375,6 +375,56 @@ export type Database = {
         }
         Relationships: []
       }
+      n8n_deployment_requests: {
+        Row: {
+          business_idea_id: string | null
+          created_at: string | null
+          deployed_at: string | null
+          error_message: string | null
+          id: string
+          n8n_workflow_id: string | null
+          status: string | null
+          updated_at: string | null
+          user_id: string
+          workflow_json: Json
+          workflow_name: string
+        }
+        Insert: {
+          business_idea_id?: string | null
+          created_at?: string | null
+          deployed_at?: string | null
+          error_message?: string | null
+          id?: string
+          n8n_workflow_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id: string
+          workflow_json: Json
+          workflow_name: string
+        }
+        Update: {
+          business_idea_id?: string | null
+          created_at?: string | null
+          deployed_at?: string | null
+          error_message?: string | null
+          id?: string
+          n8n_workflow_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+          user_id?: string
+          workflow_json?: Json
+          workflow_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "n8n_deployment_requests_business_idea_id_fkey"
+            columns: ["business_idea_id"]
+            isOneToOne: false
+            referencedRelation: "business_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       n8n_workflow_snapshots: {
         Row: {
           captured_at: string | null
