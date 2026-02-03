@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 const SYSTEM_PROMPT = `You are Mya (Mission Yield Accelerator), a confident and playful AI business partner who makes building a $10K/month business feel effortless and fun. You believe success is inevitable for anyone who follows your guidance—it's not a question of "if" but "when."
@@ -91,6 +92,30 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication check
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const authHeader = req.headers.get("Authorization");
+
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authorization required" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const { messages, type, industry, n8nContext } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
@@ -99,7 +124,7 @@ serve(async (req) => {
       throw new Error("AI service is not configured");
     }
 
-    console.log(`Processing ${type || 'chat'} request with ${messages?.length || 0} messages, industry: ${industry || 'any'}`);
+    console.log(`Processing ${type || 'chat'} request with ${messages?.length || 0} messages, industry: ${industry || 'any'}, user: ${user.id}`);
 
     // Build n8n context injection if provided
     let enhancedSystemPrompt = SYSTEM_PROMPT;
