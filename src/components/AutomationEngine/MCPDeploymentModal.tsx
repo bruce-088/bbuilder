@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import {
   Workflow,
   Loader2,
@@ -20,9 +21,14 @@ import {
   AlertTriangle,
   Clock,
   Sparkles,
+  Copy,
+  Check,
+  Play,
+  Zap,
 } from "lucide-react";
 import { useN8nDeployment, DeploymentRequest } from "@/hooks/useN8nDeployment";
 import { useN8nMcpConnection } from "@/hooks/useN8nMcpConnection";
+import { toast } from "sonner";
 
 interface MCPDeploymentModalProps {
   open: boolean;
@@ -56,6 +62,10 @@ export function MCPDeploymentModal({
 
   const [deploymentMode, setDeploymentMode] = useState<DeploymentMode>("create");
   const [localDeployment, setLocalDeployment] = useState<DeploymentRequest | null>(null);
+  const [autoDeployEnabled, setAutoDeployEnabled] = useState(() => {
+    return localStorage.getItem("mya_auto_deploy_workflows") === "true";
+  });
+  const [promptCopied, setPromptCopied] = useState(false);
 
   // Check for existing workflow with similar name
   const existingWorkflow = workflows.find(
@@ -101,6 +111,21 @@ export function MCPDeploymentModal({
     onOpenChange(false);
   };
 
+  const handleToggleAutoDeploy = (checked: boolean) => {
+    setAutoDeployEnabled(checked);
+    localStorage.setItem("mya_auto_deploy_workflows", checked ? "true" : "false");
+    toast.success(checked ? "Auto-deploy enabled for future workflows" : "Auto-deploy disabled");
+  };
+
+  const deployPromptMessage = "Deploy my pending workflow to n8n";
+
+  const handleCopyPrompt = () => {
+    navigator.clipboard.writeText(deployPromptMessage);
+    setPromptCopied(true);
+    toast.success("Prompt copied! Paste in the chat to deploy.");
+    setTimeout(() => setPromptCopied(false), 3000);
+  };
+
   const getStatusDisplay = () => {
     if (!localDeployment) return null;
 
@@ -116,13 +141,30 @@ export function MCPDeploymentModal({
                 Pending
               </Badge>
             </div>
-            <div className="text-center space-y-2">
+            <div className="text-center space-y-3">
               <h3 className="font-semibold">Deployment Requested</h3>
-              <p className="text-sm text-muted-foreground max-w-sm">
-                Ask the assistant to deploy your workflow by saying: 
-                <span className="block mt-2 font-medium text-foreground bg-muted px-3 py-2 rounded-md">
-                  "Deploy my pending workflow to n8n"
-                </span>
+              <p className="text-sm text-muted-foreground">
+                Click below to copy the prompt, then paste it in the chat:
+              </p>
+              <Button
+                onClick={handleCopyPrompt}
+                variant={promptCopied ? "secondary" : "default"}
+                className="w-full max-w-xs"
+              >
+                {promptCopied ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Copied!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy deploy prompt
+                  </>
+                )}
+              </Button>
+              <p className="text-xs text-muted-foreground mt-2">
+                Or say: <span className="font-medium text-foreground">"{deployPromptMessage}"</span>
               </p>
             </div>
           </div>
@@ -160,13 +202,42 @@ export function MCPDeploymentModal({
                 </Badge>
               )}
             </div>
-            <div className="bg-muted/50 rounded-lg p-4 w-full max-w-sm">
-              <h4 className="text-sm font-medium mb-2">Next steps:</h4>
+            <div className="bg-muted/50 rounded-lg p-4 w-full max-w-sm space-y-3">
+              <h4 className="text-sm font-medium">Next steps:</h4>
               <ol className="text-xs text-muted-foreground list-decimal list-inside space-y-1">
                 <li>Configure credentials in n8n</li>
                 <li>Test the workflow with sample data</li>
                 <li>Activate for production use</li>
               </ol>
+              {localDeployment.n8n_workflow_id && getWorkflowEditUrl(localDeployment.n8n_workflow_id) && (
+                <div className="flex gap-2 pt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => {
+                      const url = getWorkflowEditUrl(localDeployment.n8n_workflow_id!);
+                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
+                    Open in n8n
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    onClick={() => {
+                      toast.info("Use the n8n editor to test workflow execution");
+                      const url = getWorkflowEditUrl(localDeployment.n8n_workflow_id!);
+                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                    }}
+                  >
+                    <Play className="h-3.5 w-3.5 mr-1.5" />
+                    Test Workflow
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
         );
@@ -213,27 +284,29 @@ export function MCPDeploymentModal({
             {getStatusDisplay()}
             <DialogFooter className="flex-col sm:flex-row gap-2">
               {localDeployment?.status === "pending" && (
-                <Button variant="outline" onClick={handleCancel}>
-                  Cancel Request
-                </Button>
+                <>
+                  <Button variant="outline" onClick={handleCancel}>
+                    Cancel Request
+                  </Button>
+                  <Button onClick={handleCopyPrompt} variant={promptCopied ? "secondary" : "default"}>
+                    {promptCopied ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Prompt
+                      </>
+                    )}
+                  </Button>
+                </>
               )}
               {localDeployment?.status === "success" && (
-                <>
-                  <Button variant="outline" onClick={() => onOpenChange(false)}>
-                    Close
-                  </Button>
-                  {localDeployment.n8n_workflow_id && getWorkflowEditUrl(localDeployment.n8n_workflow_id) && (
-                    <Button
-                      onClick={() => {
-                        const url = getWorkflowEditUrl(localDeployment.n8n_workflow_id!);
-                        if (url) window.open(url, "_blank", "noopener,noreferrer");
-                      }}
-                    >
-                      <ExternalLink className="h-4 w-4 mr-2" />
-                      Open in n8n
-                    </Button>
-                  )}
-                </>
+                <Button variant="outline" onClick={() => onOpenChange(false)}>
+                  Close
+                </Button>
               )}
               {localDeployment?.status === "failed" && (
                 <>
@@ -293,10 +366,27 @@ export function MCPDeploymentModal({
                 </div>
               )}
 
+              {/* Auto-deploy preference */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/30 border border-border">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-primary/10">
+                    <Zap className="h-4 w-4 text-primary" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Auto-deploy workflows</p>
+                    <p className="text-xs text-muted-foreground">Skip this dialog for future deployments</p>
+                  </div>
+                </div>
+                <Switch
+                  checked={autoDeployEnabled}
+                  onCheckedChange={handleToggleAutoDeploy}
+                />
+              </div>
+
               {/* Info note */}
               <div className="text-xs text-muted-foreground bg-muted/50 rounded-lg p-3">
                 <p>
-                  After requesting deployment, ask the assistant to complete the process. 
+                  After requesting deployment, paste the copied prompt in chat or ask the assistant directly.
                   The workflow will be created in your connected n8n instance.
                 </p>
               </div>
