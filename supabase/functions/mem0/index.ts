@@ -1,8 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
 serve(async (req) => {
@@ -12,6 +13,30 @@ serve(async (req) => {
   }
 
   try {
+    // Authentication check
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const authHeader = req.headers.get("Authorization");
+
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Authorization required", memories: [] }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Invalid token", memories: [] }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const MEM0_API_KEY = Deno.env.get("MEM0_API_KEY");
 
     if (!MEM0_API_KEY) {
@@ -23,7 +48,17 @@ serve(async (req) => {
     }
 
     const { action, userId, messages, query } = await req.json();
-    console.log(`Mem0 action: ${action} for user: ${userId}`);
+    
+    // Validate that the requested userId matches the authenticated user
+    if (userId && userId !== user.id) {
+      return new Response(
+        JSON.stringify({ error: "Access denied", memories: [] }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const effectiveUserId = userId || user.id;
+    console.log(`Mem0 action: ${action} for user: ${effectiveUserId}`);
 
     const baseUrl = "https://api.mem0.ai/v1";
 
@@ -37,7 +72,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           messages,
-          user_id: userId,
+          user_id: effectiveUserId,
         }),
       });
 
@@ -68,7 +103,7 @@ serve(async (req) => {
         },
         body: JSON.stringify({
           query,
-          user_id: userId,
+          user_id: effectiveUserId,
           limit: 10,
         }),
       });
@@ -92,7 +127,7 @@ serve(async (req) => {
 
     if (action === "getAll") {
       // Get all memories for user
-      const response = await fetch(`${baseUrl}/memories/?user_id=${userId}`, {
+      const response = await fetch(`${baseUrl}/memories/?user_id=${effectiveUserId}`, {
         method: "GET",
         headers: {
           "Authorization": `Token ${MEM0_API_KEY}`,
