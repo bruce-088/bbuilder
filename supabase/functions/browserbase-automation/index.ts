@@ -1633,6 +1633,33 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // ============= Authentication Check =============
+  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+  const authHeader = req.headers.get("Authorization");
+
+  if (!authHeader) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Authorization required" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  // Create authenticated client to verify token
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: { headers: { Authorization: authHeader } },
+  });
+
+  const { data: { user }, error: authError } = await authClient.auth.getUser();
+  if (authError || !user) {
+    return new Response(
+      JSON.stringify({ success: false, error: "Unauthorized" }),
+      { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+
+  console.log(`Authenticated user: ${user.id}`);
+
+  // ============= Credentials Check =============
   const BROWSERBASE_API_KEY = Deno.env.get("BROWSERBASE_API_KEY");
   const BROWSERBASE_PROJECT_ID = Deno.env.get("BROWSERBASE_PROJECT_ID");
   const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -1652,7 +1679,7 @@ serve(async (req) => {
     const body: AutomationRequest = await req.json();
     const { action, fixPrompt, n8nInstanceUrl, workflowId, workflowName, sessionId, contextId, actions: providedActions, connectUrl } = body;
 
-    console.log(`Browserbase automation action: ${action}`, { workflowId, workflowName, sessionId, contextId });
+    console.log(`Browserbase automation action: ${action} for user: ${user.id}`, { workflowId, workflowName, sessionId, contextId });
 
     switch (action) {
       case "create-context": {
@@ -1803,41 +1830,17 @@ serve(async (req) => {
           );
         }
 
-        // Get user ID from request or use a placeholder for job tracking
-        const requestUserId = body.userId;
-        
-        if (!requestUserId) {
-          // Fallback to synchronous execution if no userId provided (backwards compatibility)
-          console.log(`Executing ${providedActions.length} actions synchronously (no userId for job tracking)`);
+        // Always use the authenticated user's ID for job tracking and security
+        // This ensures users can only create and track their own jobs
+        const authenticatedUserId = user.id;
 
-          const executionResult = await executeAutomation(
-            connectUrl,
-            providedActions,
-            sessionId,
-            LOVABLE_API_KEY
-          );
-
-          return new Response(
-            JSON.stringify({
-              success: executionResult.success,
-              sessionId,
-              status: executionResult.success ? "completed" : "failed",
-              actionsExecuted: executionResult.actionsExecuted,
-              finalScreenshot: executionResult.finalScreenshot,
-              executionTimeMs: executionResult.executionTimeMs,
-              error: executionResult.error,
-            }),
-            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-          );
-        }
-
-        // Create job record for async execution
-        console.log(`Creating job for ${providedActions.length} actions on session ${sessionId}`);
+        // Create job record for async execution with authenticated user's ID
+        console.log(`Creating job for ${providedActions.length} actions on session ${sessionId} for user ${authenticatedUserId}`);
         
         const { data: job, error: jobError } = await supabase
           .from("automation_jobs")
           .insert({
-            user_id: requestUserId,
+            user_id: authenticatedUserId,
             session_id: sessionId,
             status: "pending",
             total_actions: providedActions.length,
@@ -2005,15 +2008,17 @@ serve(async (req) => {
           );
         }
 
+        // Query with user_id filter to ensure users can only access their own jobs
         const { data: job, error: jobError } = await supabase
           .from("automation_jobs")
           .select("*")
           .eq("id", jobId)
+          .eq("user_id", user.id) // Enforce ownership check
           .single();
 
         if (jobError || !job) {
           return new Response(
-            JSON.stringify({ success: false, error: "Job not found" }),
+            JSON.stringify({ success: false, error: "Job not found or access denied" }),
             { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
           );
         }
