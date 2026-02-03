@@ -1,10 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Validation schemas
+const MemoryMessageSchema = z.object({
+  role: z.enum(["user", "assistant", "system"]),
+  content: z.string().min(1).max(50000),
+});
+
+const Mem0RequestSchema = z.object({
+  action: z.enum(["add", "search", "getAll"]),
+  userId: z.string().uuid().optional(),
+  messages: z.array(MemoryMessageSchema).max(50).optional(),
+  query: z.string().max(5000).optional(),
+});
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -47,7 +61,19 @@ serve(async (req) => {
       );
     }
 
-    const { action, userId, messages, query } = await req.json();
+    // Validate request body
+    const rawBody = await req.json();
+    const parseResult = Mem0RequestSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      console.error("Validation error:", parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ error: "Invalid request format", details: parseResult.error.errors.map(e => e.message), memories: [] }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { action, userId, messages, query } = parseResult.data;
     
     // Validate that the requested userId matches the authenticated user
     if (userId && userId !== user.id) {
