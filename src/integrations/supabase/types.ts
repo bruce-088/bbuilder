@@ -536,6 +536,7 @@ export type Database = {
         Row: {
           created_at: string
           encrypted_key: string
+          encrypted_key_secure: string | null
           id: string
           n8n_credential_id: string | null
           provider: string
@@ -546,6 +547,7 @@ export type Database = {
         Insert: {
           created_at?: string
           encrypted_key: string
+          encrypted_key_secure?: string | null
           id?: string
           n8n_credential_id?: string | null
           provider: string
@@ -556,6 +558,7 @@ export type Database = {
         Update: {
           created_at?: string
           encrypted_key?: string
+          encrypted_key_secure?: string | null
           id?: string
           n8n_credential_id?: string | null
           provider?: string
@@ -617,7 +620,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_api_key_encrypted: {
+        Args: { p_provider: string; p_user_id: string }
+        Returns: string
+      }
+      store_api_key_encrypted: {
+        Args: {
+          p_encrypted_data: string
+          p_provider: string
+          p_service_type?: string
+          p_user_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
