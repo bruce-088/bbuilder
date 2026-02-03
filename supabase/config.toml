@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.n8n-webhook-health]
 verify_jwt = false
+
+[functions.secure-api-keys]
+verify_jwt = false
