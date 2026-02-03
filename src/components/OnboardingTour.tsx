@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   X, 
@@ -8,9 +8,14 @@ import {
   Trophy,
   ArrowRight,
   ArrowLeft,
-  Sparkles
+  Sparkles,
+  Link2,
+  CheckCircle2,
+  ExternalLink
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { toast } from "sonner";
 
 interface OnboardingTourProps {
   onComplete: () => void;
@@ -24,6 +29,7 @@ interface TourStep {
   icon: React.ReactNode;
   highlight: string;
   tip: string;
+  interactive?: boolean;
 }
 
 const TOUR_STEPS: TourStep[] = [
@@ -58,6 +64,15 @@ const TOUR_STEPS: TourStep[] = [
     icon: <Bookmark className="w-8 h-8" />,
     highlight: "save-idea",
     tip: "Once saved, your plan is always one click away.",
+  },
+  {
+    id: "n8n-setup",
+    title: "Connect Your Automation Engine",
+    description: "To deploy workflows automatically, we need your n8n instance URL. This enables one-click deployment and smart troubleshooting.",
+    icon: <Link2 className="w-8 h-8" />,
+    highlight: "n8n-setup",
+    tip: "Don't have n8n yet? You can skip this and set it up later in the Automation Guide!",
+    interactive: true,
   },
   {
     id: "whats-next",
@@ -107,9 +122,50 @@ export function useOnboardingTour() {
 
 export default function OnboardingTour({ onComplete, onSkip }: OnboardingTourProps) {
   const [currentStep, setCurrentStep] = useState(0);
+  const [n8nUrl, setN8nUrl] = useState("");
+  const [urlSaved, setUrlSaved] = useState(false);
+  
   const step = TOUR_STEPS[currentStep];
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === TOUR_STEPS.length - 1;
+  const isN8nStep = step.id === "n8n-setup";
+
+  // Load existing n8n URL on mount
+  useEffect(() => {
+    const savedUrl = localStorage.getItem("n8n_instance_url");
+    if (savedUrl) {
+      setN8nUrl(savedUrl);
+      setUrlSaved(true);
+    }
+  }, []);
+
+  const handleSaveN8nUrl = useCallback(() => {
+    if (!n8nUrl.trim()) {
+      toast.error("Please enter your n8n instance URL");
+      return;
+    }
+
+    // Basic URL validation
+    let cleanUrl = n8nUrl.trim();
+    if (!cleanUrl.startsWith("http://") && !cleanUrl.startsWith("https://")) {
+      cleanUrl = `https://${cleanUrl}`;
+    }
+    // Remove trailing slash
+    cleanUrl = cleanUrl.replace(/\/$/, "");
+
+    try {
+      new URL(cleanUrl);
+    } catch {
+      toast.error("Please enter a valid URL");
+      return;
+    }
+
+    localStorage.setItem("n8n_instance_url", cleanUrl);
+    localStorage.setItem("n8n_hosting_type", cleanUrl.includes("n8n.cloud") ? "cloud" : "self-hosted");
+    setN8nUrl(cleanUrl);
+    setUrlSaved(true);
+    toast.success("n8n instance URL saved!");
+  }, [n8nUrl]);
 
   const handleNext = () => {
     if (isLastStep) {
@@ -174,6 +230,58 @@ export default function OnboardingTour({ onComplete, onSkip }: OnboardingTourPro
             <p className="text-muted-foreground mb-4 leading-relaxed">
               {step.description}
             </p>
+
+            {/* n8n URL Input (only on n8n-setup step) */}
+            {isN8nStep && (
+              <div className="mb-4 space-y-3">
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="https://your-instance.n8n.cloud"
+                    value={n8nUrl}
+                    onChange={(e) => {
+                      setN8nUrl(e.target.value);
+                      setUrlSaved(false);
+                    }}
+                    className="flex-1"
+                  />
+                  <Button
+                    onClick={handleSaveN8nUrl}
+                    disabled={urlSaved && n8nUrl.trim() !== ""}
+                    className={urlSaved ? "bg-emerald-600 hover:bg-emerald-600" : ""}
+                  >
+                    {urlSaved ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 mr-1" />
+                        Saved
+                      </>
+                    ) : (
+                      "Save"
+                    )}
+                  </Button>
+                </div>
+                
+                {/* Examples */}
+                <div className="text-xs text-muted-foreground space-y-1">
+                  <p className="font-medium">Examples:</p>
+                  <ul className="list-disc list-inside space-y-0.5 pl-1">
+                    <li>n8n Cloud: <code className="text-primary/80">your-instance.app.n8n.cloud</code></li>
+                    <li>Hostinger: <code className="text-primary/80">n8n.srv12345.hstgr.cloud</code></li>
+                    <li>Self-hosted: <code className="text-primary/80">n8n.yourdomain.com</code></li>
+                  </ul>
+                </div>
+
+                {/* Help link */}
+                <a
+                  href="https://docs.n8n.io/hosting/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                >
+                  <ExternalLink className="w-3 h-3" />
+                  New to n8n? Learn how to set it up
+                </a>
+              </div>
+            )}
             
             {/* Tip Box */}
             <div className="bg-accent/10 border border-accent/20 rounded-lg p-3 mb-6">
@@ -213,13 +321,24 @@ export default function OnboardingTour({ onComplete, onSkip }: OnboardingTourPro
               </Button>
               
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  onClick={onSkip}
-                  className="text-muted-foreground"
-                >
-                  Skip Tour
-                </Button>
+                {isN8nStep && !urlSaved && (
+                  <Button
+                    variant="outline"
+                    onClick={handleNext}
+                    className="text-muted-foreground"
+                  >
+                    Skip for Now
+                  </Button>
+                )}
+                {(!isN8nStep || urlSaved) && (
+                  <Button
+                    variant="outline"
+                    onClick={onSkip}
+                    className="text-muted-foreground"
+                  >
+                    Skip Tour
+                  </Button>
+                )}
                 <Button
                   onClick={handleNext}
                   className="gap-2 bg-gradient-primary hover:opacity-90 btn-glow"
