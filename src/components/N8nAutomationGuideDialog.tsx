@@ -74,6 +74,7 @@ import {
 } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
+import { openExternalUrl } from "@/lib/openExternalUrl";
 import { Json } from "@/integrations/supabase/types";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
@@ -1339,7 +1340,7 @@ export default function N8nAutomationGuideDialog({ trigger, businessIdea }: N8nA
       // Open n8n import page if we have a URL
       if (importUrl) {
         setTimeout(() => {
-          window.open(importUrl, '_blank', 'noopener,noreferrer');
+          openExternalUrl(importUrl);
         }, 500);
       }
       

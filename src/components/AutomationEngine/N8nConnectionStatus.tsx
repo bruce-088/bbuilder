@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, CheckCircle2, XCircle, RefreshCw, ExternalLink, Workflow, Save } from "lucide-react";
 import { useN8nMcpConnection } from "@/hooks/useN8nMcpConnection";
 import { toast } from "sonner";
+import { openExternalUrl } from "@/lib/openExternalUrl";
 
 interface N8nConnectionStatusProps {
   onWorkflowsFound?: (count: number) => void;
@@ -212,7 +213,7 @@ export function N8nConnectionStatus({ onWorkflowsFound, onUrlConfigured }: N8nCo
             size="sm"
             onClick={() => {
               const url = getImportUrl();
-              if (url) window.open(url, "_blank", "noopener,noreferrer");
+              if (url) openExternalUrl(url);
             }}
           >
             <ExternalLink className="h-4 w-4 mr-2" />

@@ -16,6 +16,7 @@ import { WorkflowHealthCard } from "./WorkflowHealthCard";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { openExternalUrl } from "@/lib/openExternalUrl";
 
 interface N8nLiveStatusPanelProps {
   pollingInterval?: number;
@@ -62,9 +63,7 @@ export function N8nLiveStatusPanel({
 
   const handleOpenInN8n = (workflowId: string) => {
     const url = getWorkflowUrl(workflowId);
-    if (url) {
-      window.open(url, "_blank", "noopener,noreferrer");
-    }
+    if (url) openExternalUrl(url);
   };
 
   const activeCount = workflows.filter((w) => w.active).length;

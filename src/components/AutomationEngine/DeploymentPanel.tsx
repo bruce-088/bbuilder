@@ -16,6 +16,7 @@ import {
   Sparkles,
   Clock
 } from "lucide-react";
+import { openExternalUrl } from "@/lib/openExternalUrl";
 import { useN8nMcpConnection } from "@/hooks/useN8nMcpConnection";
 import { useN8nDeployment } from "@/hooks/useN8nDeployment";
 import { useToast } from "@/hooks/use-toast";
@@ -422,9 +423,7 @@ export function DeploymentPanel({ phaseResults, businessName, businessIdeaId }: 
               size="sm"
               onClick={() => {
                 const url = getImportUrl();
-                if (url) {
-                  window.open(url, "_blank", "noopener,noreferrer");
-                }
+                if (url) openExternalUrl(url);
               }}
             >
               <ExternalLink className="h-4 w-4 mr-2" />
