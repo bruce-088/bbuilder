@@ -615,6 +615,48 @@ export type Database = {
           },
         ]
       }
+      user_preferences: {
+        Row: {
+          auto_deploy_workflows: boolean | null
+          auto_expand_details: boolean | null
+          created_at: string
+          id: string
+          n8n_hosting_type: string | null
+          n8n_instance_url: string | null
+          n8n_workflow_path: string | null
+          onboarding_completed_at: string | null
+          preferred_fix_method: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_deploy_workflows?: boolean | null
+          auto_expand_details?: boolean | null
+          created_at?: string
+          id?: string
+          n8n_hosting_type?: string | null
+          n8n_instance_url?: string | null
+          n8n_workflow_path?: string | null
+          onboarding_completed_at?: string | null
+          preferred_fix_method?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_deploy_workflows?: boolean | null
+          auto_expand_details?: boolean | null
+          created_at?: string
+          id?: string
+          n8n_hosting_type?: string | null
+          n8n_instance_url?: string | null
+          n8n_workflow_path?: string | null
+          onboarding_completed_at?: string | null
+          preferred_fix_method?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

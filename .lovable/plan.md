@@ -1,12 +1,32 @@
 
 # Workflow Friction Reduction Plan
 
-## Executive Summary
-After analyzing the codebase, I've identified **8 high-impact friction points** in the automation workflow that can be eliminated or significantly reduced. These improvements focus on removing unnecessary steps, providing smarter defaults, and reducing cognitive load during the automation journey.
+## Implementation Status
+
+### ✅ Phase 1 - Quick Wins (COMPLETED)
+- [x] **Fix #3**: MCP auto-deploy toggle and copy button - Added to MCPDeploymentModal
+- [x] **Fix #4**: Fix guidance restructure - Created SmartFixRecommendation component with primary recommendation
+- [x] **Fix #5**: Progress bar smart visibility - Added persistence, auto-expand for first-time users, mini status badges
+
+### ⏳ Phase 2 - Core Improvements (NEXT)
+- [ ] **Fix #1**: n8n URL onboarding integration
+- [ ] **Fix #2**: Proactive credential collection  
+- [ ] **Fix #7**: OAuth guidance enhancement
+
+### 📋 Phase 3 - Advanced Features (PLANNED)
+- [ ] **Fix #6**: Workflow templates
+- [ ] **Fix #8**: Post-deployment action buttons
 
 ---
 
-## Identified Friction Points & Solutions
+## Database Changes (COMPLETED)
+- ✅ Created `user_preferences` table with RLS policies
+
+## New Components Created (Phase 1)
+- ✅ `src/hooks/useUserPreferences.ts` - Hook for managing user preferences
+- ✅ `src/components/AutomationEngine/SmartFixRecommendation.tsx` - Smart fix with primary recommendation
+
+---
 
 ### 1. n8n Instance URL Setup - "Cold Start" Friction
 **Problem**: Users must manually enter their n8n instance URL before any automation can work. The URL input appears in the middle of the automation flow, blocking progress.
