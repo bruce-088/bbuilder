@@ -5,19 +5,20 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { 
   AlertTriangle, XCircle, ChevronDown, ExternalLink, Copy, Sparkles, 
-  Loader2, CheckCircle2, Lightbulb, Shield, ListChecks, MessageSquare,
-  Play, Zap, Hand, Database
+  Loader2, Lightbulb, Shield, ListChecks,
+  Zap, Hand, Database
 } from "lucide-react";
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
-import { FixGuidancePopover } from "./FixGuidancePopover";
+import { SmartFixRecommendation, type FixMethod } from "./SmartFixRecommendation";
 import { generateDirectorAiFixPrompt, type BusinessContext, type FixIssue } from "@/lib/directorAiFixPromptGenerator";
 import { type DirectorAiOptions } from "@/lib/directorAiPromptGenerator";
 import { type VerificationData } from "@/lib/verificationPromptGenerator";
 import { useFixKnowledgeBase, generateVerificationDataFromKnowledgeBase, type FixKnowledgeEntry } from "@/hooks/useFixKnowledgeBase";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 import type { PhaseResult } from "@/hooks/useAutomationRun";
 
 type FilterType = "all" | "errors" | "warnings";
@@ -62,7 +63,8 @@ export function ExceptionReview({
   const { toast } = useToast();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { findFixesByPhase, isLoading: isLoadingKnowledge } = useFixKnowledgeBase();
+  const { findFixesByPhase } = useFixKnowledgeBase();
+  const { preferences } = useUserPreferences();
   
   const [expandedPhases, setExpandedPhases] = useState<Set<string>>(new Set());
   const [filter, setFilter] = useState<FilterType>("all");
@@ -70,7 +72,7 @@ export function ExceptionReview({
   const [fixResult, setFixResult] = useState<AIFixResult | null>(null);
   const [expandedFixes, setExpandedFixes] = useState<Set<number>>(new Set([0]));
   const [executingFixes, setExecutingFixes] = useState<Set<number>>(new Set());
-  const [copiedFixes, setCopiedFixes] = useState<Set<number>>(new Set());
+  const [chattingFixes, setChattingFixes] = useState<Set<number>>(new Set());
   const [knowledgeBaseCache, setKnowledgeBaseCache] = useState<Map<string, FixKnowledgeEntry[]>>(new Map());
 
   // Pre-fetch knowledge base entries when fixes are available
@@ -224,20 +226,7 @@ export function ExceptionReview({
     });
   }, [businessContext, n8nOptions, knowledgeBaseCache]);
 
-  const handleCopyFixDetails = (fix: AIFix, index: number) => {
-    const text = getFixDetailsText(fix);
-    navigator.clipboard.writeText(text);
-    setCopiedFixes((prev) => new Set(prev).add(index));
-    setTimeout(() => {
-      setCopiedFixes((prev) => {
-        const next = new Set(prev);
-        next.delete(index);
-        return next;
-      });
-    }, 3000);
-  };
-
-  const handleChatWithMya = async (fix: AIFix) => {
+  const handleChatWithMya = async (fix: AIFix, index: number) => {
     if (!user) {
       toast({
         title: "Sign in required",
@@ -247,6 +236,7 @@ export function ExceptionReview({
       return;
     }
 
+    setChattingFixes((prev) => new Set(prev).add(index));
     const fixDetails = getFixDetailsText(fix);
     
     try {
@@ -280,6 +270,12 @@ export function ExceptionReview({
         title: "Error",
         description: "Could not start chat. Please try again.",
         variant: "destructive",
+      });
+    } finally {
+      setChattingFixes((prev) => {
+        const next = new Set(prev);
+        next.delete(index);
+        return next;
       });
     }
   };
@@ -557,81 +553,24 @@ export function ExceptionReview({
                         <p className="text-sm text-foreground/90">{fix.prevention}</p>
                       </div>
 
-                      {/* Action Buttons */}
-                      <div className="pt-2 border-t flex flex-wrap items-center gap-2">
-                        {fix.automatable ? (
-                          <>
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleExecuteFix(fix, index)}
-                              disabled={executingFixes.has(index) || !onExecuteFix}
-                              className="gap-2"
-                            >
-                              {executingFixes.has(index) ? (
-                                <>
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                  Executing...
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="h-3 w-3" />
-                                  Execute Fix
-                                </>
-                              )}
-                            </Button>
-                            <FixGuidancePopover
-                              trigger={
-                                <Button variant="outline" size="sm">
-                                  <Copy className="h-3 w-3 mr-1" />
-                                  {copiedFixes.has(index) ? "Copied!" : "Copy Fix Details"}
-                                </Button>
-                              }
-                              fixDetails={getFixDetailsText(fix)}
-                              directorAiPrompt={getDirectorAiPrompt(fix)}
-                              onCopy={() => handleCopyFixDetails(fix, index)}
-                              copied={copiedFixes.has(index)}
-                              nodeType={fix.phase}
-                              issueType={fix.rootCause.slice(0, 100)}
-                              rootCause={fix.rootCause}
-                              solutionSummary={fix.solution}
-                              workflowName={businessContext?.businessName}
-                              n8nInstanceUrl={n8nOptions?.n8nWorkflowPath || localStorage.getItem("n8n_workflow_path") || ""}
-                              workflowId={businessIdeaId}
-                            />
-                          </>
-                        ) : (
-                          <>
-                            <FixGuidancePopover
-                              trigger={
-                                <Button variant="outline" size="sm">
-                                  <Copy className="h-3 w-3 mr-1" />
-                                  {copiedFixes.has(index) ? "Copied!" : "Copy Fix Details"}
-                                </Button>
-                              }
-                              fixDetails={getFixDetailsText(fix)}
-                              directorAiPrompt={getDirectorAiPrompt(fix)}
-                              onCopy={() => handleCopyFixDetails(fix, index)}
-                              copied={copiedFixes.has(index)}
-                              nodeType={fix.phase}
-                              issueType={fix.rootCause.slice(0, 100)}
-                              rootCause={fix.rootCause}
-                              solutionSummary={fix.solution}
-                              workflowName={businessContext?.businessName}
-                              n8nInstanceUrl={n8nOptions?.n8nWorkflowPath || localStorage.getItem("n8n_workflow_path") || ""}
-                              workflowId={businessIdeaId}
-                            />
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleChatWithMya(fix)}
-                              className="gap-2"
-                            >
-                              <MessageSquare className="h-3 w-3" />
-                              Open in Mya Chat
-                            </Button>
-                          </>
-                        )}
+                      {/* Smart Fix Recommendation */}
+                      <div className="pt-2 border-t">
+                        <SmartFixRecommendation
+                          fixDetails={getFixDetailsText(fix)}
+                          directorAiPrompt={getDirectorAiPrompt(fix)}
+                          nodeType={fix.phase}
+                          issueType={fix.rootCause.slice(0, 50)}
+                          isAutomatable={fix.automatable}
+                          preferredMethod={preferences?.preferred_fix_method as FixMethod | undefined}
+                          onRunAutoFix={fix.automatable ? async () => {
+                            await handleExecuteFix(fix, index);
+                          } : undefined}
+                          onChatWithMya={async () => {
+                            await handleChatWithMya(fix, index);
+                          }}
+                          isAutoFixRunning={executingFixes.has(index)}
+                          isChatLoading={chattingFixes.has(index)}
+                        />
                       </div>
                     </div>
                   </CollapsibleContent>
