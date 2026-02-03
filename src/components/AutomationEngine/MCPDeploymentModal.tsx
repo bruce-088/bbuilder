@@ -26,6 +26,7 @@ import {
   Play,
   Zap,
 } from "lucide-react";
+import { openExternalUrl } from "@/lib/openExternalUrl";
 import { useN8nDeployment, DeploymentRequest } from "@/hooks/useN8nDeployment";
 import { useN8nMcpConnection } from "@/hooks/useN8nMcpConnection";
 import { toast } from "sonner";
@@ -217,7 +218,7 @@ export function MCPDeploymentModal({
                     className="flex-1"
                     onClick={() => {
                       const url = getWorkflowEditUrl(localDeployment.n8n_workflow_id!);
-                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                      if (url) openExternalUrl(url);
                     }}
                   >
                     <ExternalLink className="h-3.5 w-3.5 mr-1.5" />
@@ -230,7 +231,7 @@ export function MCPDeploymentModal({
                     onClick={() => {
                       toast.info("Use the n8n editor to test workflow execution");
                       const url = getWorkflowEditUrl(localDeployment.n8n_workflow_id!);
-                      if (url) window.open(url, "_blank", "noopener,noreferrer");
+                      if (url) openExternalUrl(url);
                     }}
                   >
                     <Play className="h-3.5 w-3.5 mr-1.5" />
