@@ -1,10 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Validation schema
+const GenerateWorkflowRequestSchema = z.object({
+  workflowPrompt: z.string().min(1).max(50000),
+  stageName: z.string().max(200).optional(),
+  businessName: z.string().max(200).optional(),
+});
 
 const N8N_PROMPT = `You are an expert n8n workflow automation architect. Generate a COMPLETE, VALID n8n workflow JSON that can be directly imported into n8n via File → Import from File.
 
@@ -135,14 +143,19 @@ serve(async (req) => {
       );
     }
 
-    const { workflowPrompt, stageName, businessName } = await req.json();
-
-    if (!workflowPrompt) {
+    // Validate request body
+    const rawBody = await req.json();
+    const parseResult = GenerateWorkflowRequestSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      console.error("Validation error:", parseResult.error.errors);
       return new Response(
-        JSON.stringify({ error: "Missing workflowPrompt" }),
+        JSON.stringify({ error: "Invalid request format", details: parseResult.error.errors.map(e => e.message) }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
+
+    const { workflowPrompt, stageName, businessName } = parseResult.data;
 
     console.log(`Generating n8n workflow JSON for stage: ${stageName}, user: ${user.id}`);
 

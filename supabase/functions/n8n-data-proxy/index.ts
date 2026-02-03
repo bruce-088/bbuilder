@@ -1,10 +1,52 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
+
+// Validation schemas
+const NodeSchema = z.object({
+  id: z.string().max(100),
+  name: z.string().max(200),
+  type: z.string().max(200),
+  parameters: z.record(z.unknown()).optional(),
+  credentials: z.record(z.unknown()).optional(),
+  position: z.tuple([z.number(), z.number()]).optional(),
+});
+
+const WorkflowSnapshotSchema = z.object({
+  workflowId: z.string().max(100),
+  workflowName: z.string().max(500),
+  nodes: z.array(NodeSchema).max(200),
+  connections: z.record(z.unknown()).optional(),
+});
+
+const SaveSnapshotSchema = z.object({
+  workflowId: z.string().max(100),
+  workflowName: z.string().max(500),
+  nodes: z.array(NodeSchema).max(200),
+  connections: z.record(z.unknown()).optional(),
+  conversationId: z.string().uuid().optional().nullable(),
+});
+
+const GetSnapshotSchema = z.object({
+  workflowId: z.string().max(100).optional(),
+  conversationId: z.string().uuid().optional(),
+});
+
+const AnalyzeIssueSchema = z.object({
+  workflowSnapshot: WorkflowSnapshotSchema,
+  nodeName: z.string().max(200).optional(),
+  issueDescription: z.string().max(2000).optional(),
+});
+
+const CompareSnapshotsSchema = z.object({
+  snapshotIdBefore: z.string().uuid(),
+  snapshotIdAfter: z.string().uuid(),
+});
 
 interface WorkflowSnapshot {
   workflowId: string;
@@ -74,15 +116,17 @@ serve(async (req) => {
 
     if (action === "save-snapshot") {
       // Save a workflow snapshot to the database
-      const body = await req.json();
-      const { workflowId, workflowName, nodes, connections, conversationId } = body;
-
-      if (!workflowId || !workflowName || !nodes) {
+      const rawBody = await req.json();
+      const parseResult = SaveSnapshotSchema.safeParse(rawBody);
+      
+      if (!parseResult.success) {
         return new Response(
-          JSON.stringify({ error: "workflowId, workflowName, and nodes are required" }),
+          JSON.stringify({ error: "Invalid request format", details: parseResult.error.errors.map(e => e.message) }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      
+      const { workflowId, workflowName, nodes, connections, conversationId } = parseResult.data;
 
       // Upsert the snapshot (update if exists for same workflow+conversation, insert otherwise)
       const { data, error } = await supabase
@@ -150,7 +194,17 @@ serve(async (req) => {
 
     if (action === "get-snapshot") {
       // Get the latest snapshot for a workflow
-      const body = await req.json();
+      const rawBody = await req.json();
+      const parseResult = GetSnapshotSchema.safeParse(rawBody);
+      
+      if (!parseResult.success) {
+        return new Response(
+          JSON.stringify({ error: "Invalid request format", details: parseResult.error.errors.map(e => e.message) }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      const body = parseResult.data;
       const { workflowId, conversationId } = body;
 
       let query = supabase
@@ -209,15 +263,17 @@ serve(async (req) => {
 
     if (action === "analyze-issue") {
       // Analyze a workflow or specific node for issues
-      const body: AnalyzeIssueRequest = await req.json();
-      const { workflowSnapshot, nodeName, issueDescription } = body;
-
-      if (!workflowSnapshot || !workflowSnapshot.nodes) {
+      const rawBody = await req.json();
+      const parseResult = AnalyzeIssueSchema.safeParse(rawBody);
+      
+      if (!parseResult.success) {
         return new Response(
-          JSON.stringify({ error: "workflowSnapshot with nodes is required" }),
+          JSON.stringify({ error: "Invalid request format", details: parseResult.error.errors.map(e => e.message) }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      
+      const { workflowSnapshot, nodeName, issueDescription } = parseResult.data;
 
       const results: Record<string, AnalysisResult> = {};
 
@@ -243,7 +299,17 @@ serve(async (req) => {
 
     if (action === "compare-snapshots") {
       // Compare two snapshots to find differences
-      const body = await req.json();
+      const rawBody = await req.json();
+      const parseResult = CompareSnapshotsSchema.safeParse(rawBody);
+      
+      if (!parseResult.success) {
+        return new Response(
+          JSON.stringify({ error: "Invalid request format", details: parseResult.error.errors.map(e => e.message) }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      
+      const body = parseResult.data;
       const { snapshotIdBefore, snapshotIdAfter } = body;
 
       const { data: snapshots, error } = await supabase

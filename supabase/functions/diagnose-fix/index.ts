@@ -1,10 +1,36 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Validation schemas
+const N8nContextSchema = z.object({
+  instanceUrl: z.string().url().max(500).optional(),
+  workflowPath: z.string().max(1000).optional(),
+  hostingType: z.string().max(100).optional(),
+  deploymentMethod: z.string().max(100).optional(),
+}).optional();
+
+const BusinessContextSchema = z.object({
+  businessName: z.string().max(200).optional(),
+  niche: z.string().max(200).optional(),
+  targetAudience: z.string().max(500).optional(),
+}).optional();
+
+const DiagnoseFixRequestSchema = z.object({
+  stepText: z.string().max(5000).optional(),
+  checkDescription: z.string().max(2000).optional(),
+  failureIndicators: z.array(z.string().max(500)).max(20).optional(),
+  successIndicators: z.array(z.string().max(500)).max(20).optional(),
+  automatedActions: z.array(z.string().max(500)).max(50).optional(),
+  stageTitle: z.string().max(200).optional(),
+  businessContext: BusinessContextSchema,
+  n8nContext: N8nContextSchema,
+});
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -36,6 +62,18 @@ serve(async (req) => {
       );
     }
 
+    // Validate request body
+    const rawBody = await req.json();
+    const parseResult = DiagnoseFixRequestSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      console.error("Validation error:", parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ error: "Invalid request format", details: parseResult.error.errors.map(e => e.message) }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const {
       stepText,
       checkDescription,
@@ -45,7 +83,7 @@ serve(async (req) => {
       stageTitle,
       businessContext,
       n8nContext,
-    } = await req.json();
+    } = parseResult.data;
 
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {

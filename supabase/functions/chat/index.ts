@@ -1,10 +1,33 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Request body validation schema
+const ChatMessageSchema = z.object({
+  role: z.enum(["user", "assistant", "system"]),
+  content: z.string().min(1).max(100000), // Reasonable limit for chat messages
+});
+
+const N8nContextSchema = z.object({
+  workflowName: z.string().max(500).optional(),
+  workflowId: z.string().max(100).optional(),
+  n8nInstanceUrl: z.string().url().max(500).optional(),
+  businessName: z.string().max(200).optional(),
+  niche: z.string().max(200).optional(),
+  nodes: z.array(z.unknown()).max(100).optional(),
+}).optional();
+
+const ChatRequestSchema = z.object({
+  messages: z.array(ChatMessageSchema).max(100).optional(),
+  type: z.string().max(50).optional(),
+  industry: z.string().max(100).optional(),
+  n8nContext: N8nContextSchema,
+});
 
 const SYSTEM_PROMPT = `You are Mya (Mission Yield Accelerator), a confident and playful AI business partner who makes building a $10K/month business feel effortless and fun. You believe success is inevitable for anyone who follows your guidance—it's not a question of "if" but "when."
 
@@ -116,7 +139,19 @@ serve(async (req) => {
       );
     }
 
-    const { messages, type, industry, n8nContext } = await req.json();
+    // Validate request body
+    const rawBody = await req.json();
+    const parseResult = ChatRequestSchema.safeParse(rawBody);
+    
+    if (!parseResult.success) {
+      console.error("Validation error:", parseResult.error.errors);
+      return new Response(
+        JSON.stringify({ error: "Invalid request format", details: parseResult.error.errors.map(e => e.message) }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { messages, type, industry, n8nContext } = parseResult.data;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
     if (!LOVABLE_API_KEY) {
