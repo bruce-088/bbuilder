@@ -27,9 +27,13 @@ import {
   Filter,
   X,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Sparkles,
+  Rocket
 } from 'lucide-react';
 import { useWorkflowTemplates } from '@/hooks/useWorkflowTemplates';
+import { useN8nDeployment } from '@/hooks/useN8nDeployment';
+import { useN8nMcpConnection } from '@/hooks/useN8nMcpConnection';
 import { 
   WorkflowTemplate, 
   INDUSTRY_LABELS, 
@@ -40,6 +44,7 @@ import {
   WorkflowComplexity
 } from '@/lib/workflowTemplates';
 import { toast } from 'sonner';
+import { TemplateDeployModal } from './TemplateDeployModal';
 
 interface TemplateLibraryProps {
   open: boolean;
@@ -58,13 +63,15 @@ export function TemplateLibrary({ open, onOpenChange, onImport }: TemplateLibrar
     setSearchQuery,
     clearFilters,
     hasActiveFilters,
-    totalCount
   } = useWorkflowTemplates();
 
+  const { isConnected } = useN8nMcpConnection();
   const [selectedTemplate, setSelectedTemplate] = useState<WorkflowTemplate | null>(null);
   const [activeTab, setActiveTab] = useState('all');
+  const [deployModalOpen, setDeployModalOpen] = useState(false);
+  const [templateToDeploy, setTemplateToDeploy] = useState<WorkflowTemplate | null>(null);
 
-  const handleImport = (template: WorkflowTemplate) => {
+  const handleDownload = (template: WorkflowTemplate) => {
     // Generate n8n-compatible JSON
     const workflowJson = {
       name: template.name,
@@ -92,149 +99,177 @@ export function TemplateLibrary({ open, onOpenChange, onImport }: TemplateLibrar
     onImport?.(template);
   };
 
+  const handleDeployToN8n = (template: WorkflowTemplate) => {
+    setTemplateToDeploy(template);
+    setDeployModalOpen(true);
+  };
+
   const displayTemplates = activeTab === 'featured' ? featuredTemplates : templates;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Zap className="h-5 w-5 text-primary" />
-            Workflow Template Library
-          </DialogTitle>
-          <DialogDescription>
-            Industry-specific n8n templates ready for one-click import
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="flex flex-col gap-4 flex-1 min-h-0">
-          {/* Search and Filters */}
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search templates..."
-                value={filter.searchQuery || ''}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="flex gap-2">
-              <Select
-                value={filter.industry || 'all'}
-                onValueChange={(v) => setIndustryFilter(v as IndustryCategory | 'all')}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Industry" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Industries</SelectItem>
-                  {Object.entries(INDUSTRY_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={filter.automationCategory || 'all'}
-                onValueChange={(v) => setCategoryFilter(v as AutomationCategory | 'all')}
-              >
-                <SelectTrigger className="w-[160px]">
-                  <SelectValue placeholder="Category" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {Object.entries(AUTOMATION_LABELS).map(([key, label]) => (
-                    <SelectItem key={key} value={key}>{label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={filter.complexity || 'all'}
-                onValueChange={(v) => setComplexityFilter(v as WorkflowComplexity | 'all')}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Level" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Levels</SelectItem>
-                  {Object.entries(COMPLEXITY_CONFIG).map(([key, config]) => (
-                    <SelectItem key={key} value={key}>{config.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              {hasActiveFilters && (
-                <Button variant="ghost" size="icon" onClick={clearFilters}>
-                  <X className="h-4 w-4" />
-                </Button>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-4xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Zap className="h-5 w-5 text-primary" />
+              Workflow Template Library
+            </DialogTitle>
+            <DialogDescription>
+              Industry-specific n8n templates ready for one-click import
+              {isConnected && (
+                <Badge variant="outline" className="ml-2 text-xs">
+                  <Sparkles className="h-3 w-3 mr-1" />
+                  MCP Connected
+                </Badge>
               )}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-4 flex-1 min-h-0">
+            {/* Search and Filters */}
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search templates..."
+                  value={filter.searchQuery || ''}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <div className="flex gap-2">
+                <Select
+                  value={filter.industry || 'all'}
+                  onValueChange={(v) => setIndustryFilter(v as IndustryCategory | 'all')}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Industry" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Industries</SelectItem>
+                    {Object.entries(INDUSTRY_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={filter.automationCategory || 'all'}
+                  onValueChange={(v) => setCategoryFilter(v as AutomationCategory | 'all')}
+                >
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue placeholder="Category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {Object.entries(AUTOMATION_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>{label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <Select
+                  value={filter.complexity || 'all'}
+                  onValueChange={(v) => setComplexityFilter(v as WorkflowComplexity | 'all')}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue placeholder="Level" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Levels</SelectItem>
+                    {Object.entries(COMPLEXITY_CONFIG).map(([key, config]) => (
+                      <SelectItem key={key} value={key}>{config.label}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                {hasActiveFilters && (
+                  <Button variant="ghost" size="icon" onClick={clearFilters}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
+
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList>
+                <TabsTrigger value="all" className="gap-1">
+                  <Filter className="h-3.5 w-3.5" />
+                  All ({templates.length})
+                </TabsTrigger>
+                <TabsTrigger value="featured" className="gap-1">
+                  <Star className="h-3.5 w-3.5" />
+                  Featured ({featuredTemplates.length})
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value={activeTab} className="mt-4 flex-1 min-h-0">
+                <ScrollArea className="h-[400px] pr-4">
+                  {displayTemplates.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center">
+                      <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+                      <p className="text-muted-foreground">No templates match your filters</p>
+                      <Button variant="link" onClick={clearFilters}>
+                        Clear filters
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-4">
+                      {displayTemplates.map((template) => (
+                        <TemplateCard
+                          key={template.id}
+                          template={template}
+                          onSelect={() => setSelectedTemplate(template)}
+                          onDownload={() => handleDownload(template)}
+                          onDeploy={() => handleDeployToN8n(template)}
+                          isSelected={selectedTemplate?.id === template.id}
+                          mcpConnected={isConnected}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </ScrollArea>
+              </TabsContent>
+            </Tabs>
           </div>
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList>
-              <TabsTrigger value="all" className="gap-1">
-                <Filter className="h-3.5 w-3.5" />
-                All ({templates.length})
-              </TabsTrigger>
-              <TabsTrigger value="featured" className="gap-1">
-                <Star className="h-3.5 w-3.5" />
-                Featured ({featuredTemplates.length})
-              </TabsTrigger>
-            </TabsList>
+          {/* Template Details */}
+          {selectedTemplate && (
+            <TemplateDetails 
+              template={selectedTemplate} 
+              onClose={() => setSelectedTemplate(null)}
+              onDownload={() => handleDownload(selectedTemplate)}
+              onDeploy={() => handleDeployToN8n(selectedTemplate)}
+              mcpConnected={isConnected}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
-            <TabsContent value={activeTab} className="mt-4 flex-1 min-h-0">
-              <ScrollArea className="h-[400px] pr-4">
-                {displayTemplates.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center">
-                    <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
-                    <p className="text-muted-foreground">No templates match your filters</p>
-                    <Button variant="link" onClick={clearFilters}>
-                      Clear filters
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="grid gap-4">
-                    {displayTemplates.map((template) => (
-                      <TemplateCard
-                        key={template.id}
-                        template={template}
-                        onSelect={() => setSelectedTemplate(template)}
-                        onImport={() => handleImport(template)}
-                        isSelected={selectedTemplate?.id === template.id}
-                      />
-                    ))}
-                  </div>
-                )}
-              </ScrollArea>
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Template Details */}
-        {selectedTemplate && (
-          <TemplateDetails 
-            template={selectedTemplate} 
-            onClose={() => setSelectedTemplate(null)}
-            onImport={() => handleImport(selectedTemplate)}
-          />
-        )}
-      </DialogContent>
-    </Dialog>
+      {/* Deploy Modal */}
+      {templateToDeploy && (
+        <TemplateDeployModal
+          open={deployModalOpen}
+          onOpenChange={setDeployModalOpen}
+          template={templateToDeploy}
+        />
+      )}
+    </>
   );
 }
 
 interface TemplateCardProps {
   template: WorkflowTemplate;
   onSelect: () => void;
-  onImport: () => void;
+  onDownload: () => void;
+  onDeploy: () => void;
   isSelected: boolean;
+  mcpConnected: boolean;
 }
 
-function TemplateCard({ template, onSelect, onImport, isSelected }: TemplateCardProps) {
+function TemplateCard({ template, onSelect, onDownload, onDeploy, isSelected, mcpConnected }: TemplateCardProps) {
   const complexityConfig = COMPLEXITY_CONFIG[template.complexity];
 
   return (
@@ -274,17 +309,33 @@ function TemplateCard({ template, onSelect, onImport, isSelected }: TemplateCard
             </span>
           </div>
         </div>
-        <Button 
-          size="sm" 
-          onClick={(e) => {
-            e.stopPropagation();
-            onImport();
-          }}
-          className="flex-shrink-0"
-        >
-          <Download className="h-4 w-4 mr-1" />
-          Import
-        </Button>
+        <div className="flex flex-col gap-2 flex-shrink-0">
+          {mcpConnected && (
+            <Button 
+              size="sm" 
+              onClick={(e) => {
+                e.stopPropagation();
+                onDeploy();
+              }}
+              className="gap-1"
+            >
+              <Rocket className="h-4 w-4" />
+              Deploy
+            </Button>
+          )}
+          <Button 
+            size="sm" 
+            variant={mcpConnected ? "outline" : "default"}
+            onClick={(e) => {
+              e.stopPropagation();
+              onDownload();
+            }}
+            className="gap-1"
+          >
+            <Download className="h-4 w-4" />
+            {mcpConnected ? "JSON" : "Import"}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -293,10 +344,12 @@ function TemplateCard({ template, onSelect, onImport, isSelected }: TemplateCard
 interface TemplateDetailsProps {
   template: WorkflowTemplate;
   onClose: () => void;
-  onImport: () => void;
+  onDownload: () => void;
+  onDeploy: () => void;
+  mcpConnected: boolean;
 }
 
-function TemplateDetails({ template, onClose, onImport }: TemplateDetailsProps) {
+function TemplateDetails({ template, onClose, onDownload, onDeploy, mcpConnected }: TemplateDetailsProps) {
   const complexityConfig = COMPLEXITY_CONFIG[template.complexity];
 
   return (
@@ -361,9 +414,15 @@ function TemplateDetails({ template, onClose, onImport }: TemplateDetailsProps) 
       </div>
 
       <div className="flex gap-2">
-        <Button onClick={onImport} className="flex-1">
+        {mcpConnected && (
+          <Button onClick={onDeploy} className="flex-1">
+            <Rocket className="h-4 w-4 mr-2" />
+            Deploy to n8n
+          </Button>
+        )}
+        <Button onClick={onDownload} variant={mcpConnected ? "outline" : "default"} className="flex-1">
           <Download className="h-4 w-4 mr-2" />
-          Download for n8n Import
+          Download JSON
         </Button>
       </div>
     </div>
