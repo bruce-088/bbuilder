@@ -1,6 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useState, useRef, useCallback } from 'react';
 import { WorkflowNode, WorkflowConnection } from '@/lib/workflowTemplates/types';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { ZoomIn, ZoomOut, Maximize2, Move } from 'lucide-react';
 
 interface WorkflowDiagramProps {
   nodes: WorkflowNode[];
@@ -40,6 +42,12 @@ function getNodeStyle(type: string) {
 }
 
 export function WorkflowDiagram({ nodes, connections, className }: WorkflowDiagramProps) {
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const lastPanPoint = useRef({ x: 0, y: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+
   // Calculate positions and normalize to fit diagram
   const { normalizedNodes, svgPaths, bounds } = useMemo(() => {
     if (nodes.length === 0) return { normalizedNodes: [], svgPaths: [], bounds: { width: 0, height: 0 } };
@@ -99,6 +107,48 @@ export function WorkflowDiagram({ nodes, connections, className }: WorkflowDiagr
     };
   }, [nodes, connections]);
 
+  const handleZoomIn = useCallback(() => {
+    setZoom(prev => Math.min(prev + 0.25, 3));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setZoom(prev => Math.max(prev - 0.25, 0.5));
+  }, []);
+
+  const handleReset = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prev => Math.min(Math.max(prev + delta, 0.5), 3));
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button === 0) {
+      setIsPanning(true);
+      lastPanPoint.current = { x: e.clientX, y: e.clientY };
+    }
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!isPanning) return;
+    const dx = e.clientX - lastPanPoint.current.x;
+    const dy = e.clientY - lastPanPoint.current.y;
+    lastPanPoint.current = { x: e.clientX, y: e.clientY };
+    setPan(prev => ({ x: prev.x + dx, y: prev.y + dy }));
+  }, [isPanning]);
+
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
   if (nodes.length === 0) {
     return (
       <div className={cn("flex items-center justify-center h-32 text-muted-foreground text-sm", className)}>
@@ -109,66 +159,130 @@ export function WorkflowDiagram({ nodes, connections, className }: WorkflowDiagr
 
   return (
     <div className={cn("relative bg-muted/30 rounded-lg border overflow-hidden", className)}>
-      <svg
-        width={bounds.width}
-        height={bounds.height}
-        className="absolute inset-0"
-        style={{ pointerEvents: 'none' }}
-      >
-        <defs>
-          <marker
-            id="arrowhead"
-            markerWidth="8"
-            markerHeight="6"
-            refX="7"
-            refY="3"
-            orient="auto"
-          >
-            <polygon
-              points="0 0, 8 3, 0 6"
-              className="fill-muted-foreground/50"
-            />
-          </marker>
-        </defs>
-        {svgPaths.map((path, i) => {
-          // Create curved path
-          const midX = (path.from.x + path.to.x) / 2;
-          const d = `M ${path.from.x} ${path.from.y} C ${midX} ${path.from.y}, ${midX} ${path.to.y}, ${path.to.x} ${path.to.y}`;
-          
-          return (
-            <path
-              key={i}
-              d={d}
-              fill="none"
-              className="stroke-muted-foreground/40"
-              strokeWidth="2"
-              markerEnd="url(#arrowhead)"
-            />
-          );
-        })}
-      </svg>
+      {/* Zoom Controls */}
+      <div className="absolute top-2 right-2 z-10 flex items-center gap-1 bg-background/80 backdrop-blur-sm rounded-md border p-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={handleZoomOut}
+          title="Zoom Out"
+        >
+          <ZoomOut className="h-3.5 w-3.5" />
+        </Button>
+        <span className="text-xs text-muted-foreground min-w-[3rem] text-center">
+          {Math.round(zoom * 100)}%
+        </span>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={handleZoomIn}
+          title="Zoom In"
+        >
+          <ZoomIn className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-6 w-6"
+          onClick={handleReset}
+          title="Reset View"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
 
-      <div className="relative" style={{ width: bounds.width, height: bounds.height }}>
-        {normalizedNodes.map((node) => (
-          <div
-            key={node.id}
-            className={cn(
-              "absolute flex items-center gap-1.5 px-2 py-1.5 rounded-md border text-xs font-medium truncate shadow-sm",
-              node.style.bg,
-              node.style.border
-            )}
-            style={{
-              left: node.x,
-              top: node.y,
-              width: 120,
-              height: 40,
-            }}
-            title={node.name}
+      {/* Pan indicator */}
+      {isPanning && (
+        <div className="absolute top-2 left-2 z-10 flex items-center gap-1 bg-primary/10 text-primary rounded-md px-2 py-1 text-xs">
+          <Move className="h-3 w-3" />
+          Panning
+        </div>
+      )}
+
+      {/* Zoomable/Pannable container */}
+      <div
+        ref={containerRef}
+        className={cn("cursor-grab", isPanning && "cursor-grabbing")}
+        style={{ width: bounds.width, height: bounds.height }}
+        onWheel={handleWheel}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div
+          style={{
+            transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+            transformOrigin: 'center center',
+            width: bounds.width,
+            height: bounds.height,
+            position: 'relative',
+          }}
+        >
+          <svg
+            width={bounds.width}
+            height={bounds.height}
+            className="absolute inset-0"
+            style={{ pointerEvents: 'none' }}
           >
-            <span className="text-sm flex-shrink-0">{node.style.icon}</span>
-            <span className="truncate text-foreground">{node.name}</span>
+            <defs>
+              <marker
+                id="arrowhead"
+                markerWidth="8"
+                markerHeight="6"
+                refX="7"
+                refY="3"
+                orient="auto"
+              >
+                <polygon
+                  points="0 0, 8 3, 0 6"
+                  className="fill-muted-foreground/50"
+                />
+              </marker>
+            </defs>
+            {svgPaths.map((path, i) => {
+              // Create curved path
+              const midX = (path.from.x + path.to.x) / 2;
+              const d = `M ${path.from.x} ${path.from.y} C ${midX} ${path.from.y}, ${midX} ${path.to.y}, ${path.to.x} ${path.to.y}`;
+              
+              return (
+                <path
+                  key={i}
+                  d={d}
+                  fill="none"
+                  className="stroke-muted-foreground/40"
+                  strokeWidth="2"
+                  markerEnd="url(#arrowhead)"
+                />
+              );
+            })}
+          </svg>
+
+          <div className="relative" style={{ width: bounds.width, height: bounds.height }}>
+            {normalizedNodes.map((node) => (
+              <div
+                key={node.id}
+                className={cn(
+                  "absolute flex items-center gap-1.5 px-2 py-1.5 rounded-md border text-xs font-medium truncate shadow-sm",
+                  node.style.bg,
+                  node.style.border
+                )}
+                style={{
+                  left: node.x,
+                  top: node.y,
+                  width: 120,
+                  height: 40,
+                }}
+                title={node.name}
+              >
+                <span className="text-sm flex-shrink-0">{node.style.icon}</span>
+                <span className="truncate text-foreground">{node.name}</span>
+              </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );
