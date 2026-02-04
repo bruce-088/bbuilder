@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useUserPreferences } from "@/hooks/useUserPreferences";
 
 interface OnboardingTourProps {
   onComplete: () => void;
@@ -124,22 +125,29 @@ export default function OnboardingTour({ onComplete, onSkip }: OnboardingTourPro
   const [currentStep, setCurrentStep] = useState(0);
   const [n8nUrl, setN8nUrl] = useState("");
   const [urlSaved, setUrlSaved] = useState(false);
+  const { preferences, setN8nConfig } = useUserPreferences();
   
   const step = TOUR_STEPS[currentStep];
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === TOUR_STEPS.length - 1;
   const isN8nStep = step.id === "n8n-setup";
 
-  // Load existing n8n URL on mount
+  // Load existing n8n URL from preferences (database) or localStorage
   useEffect(() => {
-    const savedUrl = localStorage.getItem("n8n_instance_url");
-    if (savedUrl) {
-      setN8nUrl(savedUrl);
+    // Prefer database preferences over localStorage
+    if (preferences?.n8n_instance_url) {
+      setN8nUrl(preferences.n8n_instance_url);
       setUrlSaved(true);
+    } else {
+      const savedUrl = localStorage.getItem("n8n_instance_url");
+      if (savedUrl) {
+        setN8nUrl(savedUrl);
+        setUrlSaved(true);
+      }
     }
-  }, []);
+  }, [preferences]);
 
-  const handleSaveN8nUrl = useCallback(() => {
+  const handleSaveN8nUrl = useCallback(async () => {
     if (!n8nUrl.trim()) {
       toast.error("Please enter your n8n instance URL");
       return;
@@ -160,12 +168,25 @@ export default function OnboardingTour({ onComplete, onSkip }: OnboardingTourPro
       return;
     }
 
+    const hostingType = cleanUrl.includes("n8n.cloud") ? "cloud" : "self-hosted";
+
+    // Save to localStorage for immediate access
     localStorage.setItem("n8n_instance_url", cleanUrl);
-    localStorage.setItem("n8n_hosting_type", cleanUrl.includes("n8n.cloud") ? "cloud" : "self-hosted");
+    localStorage.setItem("n8n_hosting_type", hostingType);
+    
+    // Sync to database for cross-device persistence
+    const success = await setN8nConfig(cleanUrl, hostingType);
+    
     setN8nUrl(cleanUrl);
     setUrlSaved(true);
-    toast.success("n8n instance URL saved!");
-  }, [n8nUrl]);
+    
+    if (success) {
+      toast.success("n8n instance URL saved and synced!");
+    } else {
+      // Still saved locally even if DB sync fails
+      toast.success("n8n instance URL saved locally!");
+    }
+  }, [n8nUrl, setN8nConfig]);
 
   const handleNext = () => {
     if (isLastStep) {
