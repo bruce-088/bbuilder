@@ -29,10 +29,11 @@ import {
   CheckCircle2,
   AlertCircle,
   Sparkles,
-  Rocket
+  Rocket,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { useWorkflowTemplates } from '@/hooks/useWorkflowTemplates';
-import { useN8nDeployment } from '@/hooks/useN8nDeployment';
 import { useN8nMcpConnection } from '@/hooks/useN8nMcpConnection';
 import { 
   WorkflowTemplate, 
@@ -43,6 +44,7 @@ import {
   AutomationCategory,
   WorkflowComplexity
 } from '@/lib/workflowTemplates';
+import { WorkflowDiagram } from './WorkflowDiagram';
 import { toast } from 'sonner';
 import { TemplateDeployModal } from './TemplateDeployModal';
 
@@ -270,6 +272,7 @@ interface TemplateCardProps {
 }
 
 function TemplateCard({ template, onSelect, onDownload, onDeploy, isSelected, mcpConnected }: TemplateCardProps) {
+  const [showDiagram, setShowDiagram] = useState(false);
   const complexityConfig = COMPLEXITY_CONFIG[template.complexity];
 
   return (
@@ -307,6 +310,18 @@ function TemplateCard({ template, onSelect, onDownload, onDeploy, isSelected, mc
             <span className="text-xs text-muted-foreground">
               {template.nodes.length} nodes
             </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 px-2 text-xs gap-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowDiagram(!showDiagram);
+              }}
+            >
+              {showDiagram ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+              {showDiagram ? 'Hide' : 'Preview'}
+            </Button>
           </div>
         </div>
         <div className="flex flex-col gap-2 flex-shrink-0">
@@ -337,6 +352,17 @@ function TemplateCard({ template, onSelect, onDownload, onDeploy, isSelected, mc
           </Button>
         </div>
       </div>
+
+      {/* Expandable diagram preview */}
+      {showDiagram && (
+        <div className="mt-3 pt-3 border-t">
+          <WorkflowDiagram 
+            nodes={template.nodes} 
+            connections={template.connections}
+            className="h-[200px]"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -399,6 +425,16 @@ function TemplateDetails({ template, onClose, onDownload, onDeploy, mcpConnected
             </Badge>
           ))}
         </div>
+      </div>
+
+      {/* Visual Workflow Diagram */}
+      <div className="mb-4">
+        <div className="text-sm font-medium mb-2">Workflow Preview</div>
+        <WorkflowDiagram 
+          nodes={template.nodes} 
+          connections={template.connections}
+          className="h-[180px]"
+        />
       </div>
 
       <div className="mb-4">
