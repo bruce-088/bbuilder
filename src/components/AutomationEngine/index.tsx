@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Rocket, Loader2, X } from "lucide-react";
+import { Rocket, Loader2, X, Library } from "lucide-react";
 import { useAutomationRun } from "@/hooks/useAutomationRun";
 import { SimpleProgressBar } from "./SimpleProgressBar";
 import { AutomationProgress } from "./AutomationProgress";
@@ -14,6 +14,7 @@ import { DeploymentPanel } from "./DeploymentPanel";
 import { N8nLiveStatusPanel } from "./N8nLiveStatusPanel";
 import { BrowserbaseExecutionPanel } from "./BrowserbaseExecutionPanel";
 import { AISettingsDialog } from "@/components/AISettingsDialog";
+import { TemplateLibrary } from "@/components/TemplateLibrary";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useBrowserbaseAutomation } from "@/hooks/useBrowserbaseAutomation";
@@ -30,6 +31,7 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
   const [isOpen, setIsOpen] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState<string>("lovable");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [templateLibraryOpen, setTemplateLibraryOpen] = useState(false);
   const [businessContext, setBusinessContext] = useState<BusinessContext | undefined>();
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
   
@@ -142,6 +144,14 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
           onOpenSettings={() => setSettingsOpen(true)}
         />
         <Button
+          variant="outline"
+          onClick={() => setTemplateLibraryOpen(true)}
+          className="gap-2"
+        >
+          <Library className="h-4 w-4" />
+          Templates
+        </Button>
+        <Button
           onClick={handleStart}
           disabled={isRunning}
           className="bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70"
@@ -163,6 +173,11 @@ export function AutomationEngine({ businessIdeaId, businessName, onComplete }: A
       <AISettingsDialog
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
+      />
+
+      <TemplateLibrary
+        open={templateLibraryOpen}
+        onOpenChange={setTemplateLibraryOpen}
       />
 
       <Dialog open={isOpen} onOpenChange={handleClose}>
