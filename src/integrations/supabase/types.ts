@@ -395,6 +395,63 @@ export type Database = {
           },
         ]
       }
+      n8n_execution_logs: {
+        Row: {
+          created_at: string
+          duration_ms: number | null
+          error_message: string | null
+          error_node: string | null
+          execution_data: Json | null
+          execution_id: string
+          finished_at: string | null
+          id: string
+          node_execution_count: number | null
+          retry_count: number | null
+          started_at: string
+          status: string
+          trigger_type: string | null
+          user_id: string
+          workflow_id: string
+          workflow_name: string
+        }
+        Insert: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          error_node?: string | null
+          execution_data?: Json | null
+          execution_id: string
+          finished_at?: string | null
+          id?: string
+          node_execution_count?: number | null
+          retry_count?: number | null
+          started_at?: string
+          status?: string
+          trigger_type?: string | null
+          user_id: string
+          workflow_id: string
+          workflow_name: string
+        }
+        Update: {
+          created_at?: string
+          duration_ms?: number | null
+          error_message?: string | null
+          error_node?: string | null
+          execution_data?: Json | null
+          execution_id?: string
+          finished_at?: string | null
+          id?: string
+          node_execution_count?: number | null
+          retry_count?: number | null
+          started_at?: string
+          status?: string
+          trigger_type?: string | null
+          user_id?: string
+          workflow_id?: string
+          workflow_name?: string
+        }
+        Relationships: []
+      }
       n8n_workflow_snapshots: {
         Row: {
           captured_at: string | null
@@ -438,6 +495,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      n8n_workflow_stats: {
+        Row: {
+          avg_duration_ms: number | null
+          created_at: string
+          error_count: number | null
+          id: string
+          last_execution_at: string | null
+          last_status: string | null
+          success_count: number | null
+          success_rate: number | null
+          total_executions: number | null
+          updated_at: string
+          user_id: string
+          workflow_id: string
+          workflow_name: string
+        }
+        Insert: {
+          avg_duration_ms?: number | null
+          created_at?: string
+          error_count?: number | null
+          id?: string
+          last_execution_at?: string | null
+          last_status?: string | null
+          success_count?: number | null
+          success_rate?: number | null
+          total_executions?: number | null
+          updated_at?: string
+          user_id: string
+          workflow_id: string
+          workflow_name: string
+        }
+        Update: {
+          avg_duration_ms?: number | null
+          created_at?: string
+          error_count?: number | null
+          id?: string
+          last_execution_at?: string | null
+          last_status?: string | null
+          success_count?: number | null
+          success_rate?: number | null
+          total_executions?: number | null
+          updated_at?: string
+          user_id?: string
+          workflow_id?: string
+          workflow_name?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {

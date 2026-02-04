@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   RefreshCw, 
   Activity, 
@@ -9,10 +10,12 @@ import {
   ChevronDown, 
   ChevronUp,
   Bell,
-  Loader2
+  Loader2,
+  BarChart3
 } from "lucide-react";
 import { useN8nLiveStatus, WorkflowChange } from "@/hooks/useN8nLiveStatus";
 import { WorkflowHealthCard } from "./WorkflowHealthCard";
+import { ExecutionMonitor } from "./ExecutionMonitor";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -22,17 +25,19 @@ interface N8nLiveStatusPanelProps {
   pollingInterval?: number;
   onTestWorkflow?: (workflowId: string) => void;
   className?: string;
+  showExecutionMonitor?: boolean;
 }
 
 export function N8nLiveStatusPanel({
   pollingInterval = 30000,
   onTestWorkflow,
   className,
+  showExecutionMonitor = true,
 }: N8nLiveStatusPanelProps) {
   const [isExpanded, setIsExpanded] = useState(true);
   const [showChanges, setShowChanges] = useState(false);
   const [testingWorkflowId, setTestingWorkflowId] = useState<string | null>(null);
-
+  const [activeTab, setActiveTab] = useState<"workflows" | "executions">("workflows");
   const {
     workflows,
     lastChecked,
@@ -183,19 +188,53 @@ export function N8nLiveStatusPanel({
             </Collapsible>
           )}
 
-          {/* Workflow cards grid */}
-          <div className="grid gap-3 sm:grid-cols-2">
-            {workflows.map((workflow) => (
-              <WorkflowHealthCard
-                key={workflow.id}
-                workflow={workflow}
-                webhookHealth={webhookHealth}
-                onTestRun={handleTestRun}
-                onOpenInN8n={handleOpenInN8n}
-                isTestRunning={testingWorkflowId === workflow.id}
-              />
-            ))}
-          </div>
+          {/* Tabs for workflows and executions */}
+          {showExecutionMonitor ? (
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "workflows" | "executions")}>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="workflows" className="text-xs">
+                  <Activity className="h-3 w-3 mr-1" />
+                  Workflows ({workflows.length})
+                </TabsTrigger>
+                <TabsTrigger value="executions" className="text-xs">
+                  <BarChart3 className="h-3 w-3 mr-1" />
+                  Executions
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="workflows" className="mt-4">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {workflows.map((workflow) => (
+                    <WorkflowHealthCard
+                      key={workflow.id}
+                      workflow={workflow}
+                      webhookHealth={webhookHealth}
+                      onTestRun={handleTestRun}
+                      onOpenInN8n={handleOpenInN8n}
+                      isTestRunning={testingWorkflowId === workflow.id}
+                    />
+                  ))}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="executions" className="mt-4">
+                <ExecutionMonitor />
+              </TabsContent>
+            </Tabs>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {workflows.map((workflow) => (
+                <WorkflowHealthCard
+                  key={workflow.id}
+                  workflow={workflow}
+                  webhookHealth={webhookHealth}
+                  onTestRun={handleTestRun}
+                  onOpenInN8n={handleOpenInN8n}
+                  isTestRunning={testingWorkflowId === workflow.id}
+                />
+              ))}
+            </div>
+          )}
         </CardContent>
       )}
     </Card>
