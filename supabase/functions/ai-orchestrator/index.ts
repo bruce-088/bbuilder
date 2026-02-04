@@ -7,6 +7,80 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Encryption helpers (must match secure-api-keys function)
+function toBase64(data: Uint8Array): string {
+  return btoa(String.fromCharCode(...data));
+}
+
+function fromBase64(str: string): Uint8Array {
+  const binary = atob(str);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return bytes;
+}
+
+function deriveKey(secret: string, saltBase64: string): Uint8Array {
+  const combined = secret + saltBase64;
+  const key = new Uint8Array(32);
+  for (let i = 0; i < 32; i++) {
+    key[i] = combined.charCodeAt(i % combined.length);
+  }
+  return key;
+}
+
+function decryptApiKey(encryptedBase64: string, secret: string): string {
+  const combined = fromBase64(encryptedBase64);
+  const salt = combined.slice(0, 16);
+  const encrypted = combined.slice(16);
+  const key = deriveKey(secret, toBase64(salt));
+  
+  const decrypted = new Uint8Array(encrypted.length);
+  for (let i = 0; i < encrypted.length; i++) {
+    decrypted[i] = encrypted[i] ^ key[i % key.length];
+  }
+  
+  return new TextDecoder().decode(decrypted);
+}
+
+// Retrieve and decrypt API key from database
+async function getDecryptedApiKey(
+  supabase: SupabaseClient,
+  userId: string,
+  provider: string
+): Promise<string | null> {
+  const encryptionSecret = Deno.env.get("API_KEY_ENCRYPTION_SECRET");
+  if (!encryptionSecret) {
+    console.error("API_KEY_ENCRYPTION_SECRET not configured");
+    return null;
+  }
+
+  // Get encrypted key using the secure RPC function
+  const { data, error } = await supabase.rpc("get_api_key_encrypted", {
+    p_user_id: userId,
+    p_provider: provider,
+  });
+
+  if (error) {
+    console.error(`Error retrieving encrypted key for ${provider}:`, error);
+    return null;
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  try {
+    // Convert bytea to base64 string for decryption
+    const encryptedBase64 = toBase64(new Uint8Array(data));
+    return decryptApiKey(encryptedBase64, encryptionSecret);
+  } catch (decryptError) {
+    console.error(`Decryption failed for ${provider}:`, decryptError);
+    return null;
+  }
+}
+
 interface AIFix {
   phase: string;
   rootCause: string;
@@ -188,59 +262,35 @@ async function callAI(
 ): Promise<Response> {
   switch (provider) {
     case "openai": {
-      const { data: keyData } = await supabase
-        .from("user_api_keys")
-        .select("encrypted_key")
-        .eq("user_id", userId)
-        .eq("provider", "openai")
-        .maybeSingle();
-
-      if (!keyData?.encrypted_key) {
+      const apiKey = await getDecryptedApiKey(supabase, userId, "openai");
+      if (!apiKey) {
         throw new Error("OpenAI API key not configured. Please add your API key in AI Settings.");
       }
-      return callOpenAI(messages, keyData.encrypted_key);
+      return callOpenAI(messages, apiKey);
     }
 
     case "claude": {
-      const { data: keyData } = await supabase
-        .from("user_api_keys")
-        .select("encrypted_key")
-        .eq("user_id", userId)
-        .eq("provider", "claude")
-        .maybeSingle();
-
-      if (!keyData?.encrypted_key) {
+      const apiKey = await getDecryptedApiKey(supabase, userId, "claude");
+      if (!apiKey) {
         throw new Error("Claude API key not configured. Please add your API key in AI Settings.");
       }
-      return callClaude(messages, keyData.encrypted_key);
+      return callClaude(messages, apiKey);
     }
 
     case "perplexity": {
-      const { data: keyData } = await supabase
-        .from("user_api_keys")
-        .select("encrypted_key")
-        .eq("user_id", userId)
-        .eq("provider", "perplexity")
-        .maybeSingle();
-
-      if (!keyData?.encrypted_key) {
+      const apiKey = await getDecryptedApiKey(supabase, userId, "perplexity");
+      if (!apiKey) {
         throw new Error("Perplexity API key not configured. Please add your API key in AI Settings.");
       }
-      return callPerplexity(messages, keyData.encrypted_key);
+      return callPerplexity(messages, apiKey);
     }
 
     case "gemini": {
-      const { data: keyData } = await supabase
-        .from("user_api_keys")
-        .select("encrypted_key")
-        .eq("user_id", userId)
-        .eq("provider", "gemini")
-        .maybeSingle();
-
-      if (!keyData?.encrypted_key) {
+      const apiKey = await getDecryptedApiKey(supabase, userId, "gemini");
+      if (!apiKey) {
         throw new Error("Gemini API key not configured. Please add your API key in AI Settings.");
       }
-      return callGemini(messages, keyData.encrypted_key);
+      return callGemini(messages, apiKey);
     }
 
     default:

@@ -70,47 +70,29 @@ export function useN8nServiceCredentials(requiredServices: string[]) {
     fetchCredentials();
   }, [fetchCredentials]);
 
-  // Save a new service credential
+  // Save a new service credential using secure edge function
   const saveCredential = async (provider: string, apiKey: string, n8nCredentialId?: string): Promise<boolean> => {
     if (!user?.id) return false;
 
     setSaving(true);
     try {
-      // Check if credential already exists
-      const { data: existing } = await supabase
-        .from("user_api_keys")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("provider", provider)
-        .maybeSingle();
+      // Use secure-api-keys edge function for encrypted storage
+      const { data, error } = await supabase.functions.invoke('secure-api-keys', {
+        body: { 
+          action: 'store', 
+          provider, 
+          apiKey, 
+          serviceType: 'n8n_service' 
+        }
+      });
 
-      if (existing) {
-        // Update existing
-        const { error } = await supabase
-          .from("user_api_keys")
-          .update({ 
-            encrypted_key: apiKey,
-            updated_at: new Date().toISOString()
-          })
-          .eq("id", existing.id);
-
-        if (error) throw error;
-      } else {
-        // Insert new
-        const { error } = await supabase
-          .from("user_api_keys")
-          .insert({
-            user_id: user.id,
-            provider,
-            encrypted_key: apiKey,
-          });
-
-        if (error) throw error;
+      if (error || !data?.success) {
+        throw new Error(error?.message || data?.error || "Failed to save credential");
       }
 
       toast({
-        title: "Credential saved",
-        description: `${N8N_SERVICE_TYPES[provider as N8nServiceType]?.label || provider} credential saved securely`,
+        title: "Credential saved securely",
+        description: `${N8N_SERVICE_TYPES[provider as N8nServiceType]?.label || provider} credential encrypted and stored`,
       });
 
       // Refresh credentials list

@@ -95,21 +95,19 @@ export function useAIProviders() {
         return false;
       }
 
-      // Save/update the key in user_api_keys
-      const { error: keyError } = await supabase
-        .from("user_api_keys")
-        .upsert(
-          {
-            user_id: user.id,
-            provider,
-            encrypted_key: apiKey, // Note: In production, encrypt before storing
-          },
-          { onConflict: "user_id,provider" }
-        );
+      // Use secure-api-keys edge function for encrypted storage
+      const { data, error: keyError } = await supabase.functions.invoke('secure-api-keys', {
+        body: { 
+          action: 'store', 
+          provider, 
+          apiKey, 
+          serviceType: 'ai_provider' 
+        }
+      });
 
-      if (keyError) {
-        console.error("Error saving API key:", keyError);
-        toast.error("Failed to save API key");
+      if (keyError || !data?.success) {
+        console.error("Error saving API key:", keyError || data?.error);
+        toast.error("Failed to save API key securely");
         return false;
       }
 
@@ -143,7 +141,7 @@ export function useAIProviders() {
         provider === "claude" ? "Claude" : 
         provider === "gemini" ? "Gemini" :
         "Perplexity";
-      toast.success(`${providerName} connected successfully!`);
+      toast.success(`${providerName} connected securely!`);
       return true;
     } catch (err) {
       console.error("Error saving API key:", err);
@@ -242,15 +240,13 @@ export function useAIProviders() {
     if (!user) return null;
 
     try {
-      const { data, error } = await supabase
-        .from("user_api_keys")
-        .select("encrypted_key")
-        .eq("user_id", user.id)
-        .eq("provider", provider)
-        .maybeSingle();
+      // Use secure-api-keys edge function for decryption
+      const { data, error } = await supabase.functions.invoke('secure-api-keys', {
+        body: { action: 'retrieve', provider }
+      });
 
-      if (error || !data) return null;
-      return data.encrypted_key;
+      if (error || !data?.apiKey) return null;
+      return data.apiKey;
     } catch {
       return null;
     }
