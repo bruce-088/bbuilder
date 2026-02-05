@@ -4,6 +4,7 @@
  import { useLeadManagement, type Lead, type LeadStage, type LeadSource } from "@/hooks/useLeadManagement";
  import { Button } from "@/components/ui/button";
  import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
  import { 
    Select,
    SelectContent,
@@ -16,7 +17,8 @@
    LeadPipeline, 
    LeadDetailPanel, 
    AddLeadDialog,
-   LeadStatsCard 
+  LeadStatsCard,
+  WebhookSetupPanel,
  } from "@/components/LeadCRM";
  import { 
    ArrowLeft, 
@@ -25,7 +27,8 @@
    Users,
    DollarSign,
    TrendingUp,
-   Loader2
+  Loader2,
+  Link2,
  } from "lucide-react";
  
  export default function Leads() {
@@ -49,6 +52,7 @@
  
    const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
    const [showAddDialog, setShowAddDialog] = useState(false);
+  const [activeTab, setActiveTab] = useState<"pipeline" | "webhook">("pipeline");
  
    if (authLoading) {
      return (
@@ -125,65 +129,103 @@
          </div>
        </div>
  
-       {/* Filters */}
-       <div className="border-b bg-card/30">
-         <div className="container mx-auto px-4 py-3">
-           <div className="flex items-center gap-4">
-             <div className="relative flex-1 max-w-xs">
-               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-               <Input
-                 placeholder="Search leads..."
-                 value={filters.search || ""}
-                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-                 className="pl-10"
-               />
-             </div>
-             <Select
-               value={filters.source || "all"}
-               onValueChange={(value) => setFilters({ ...filters, source: value as LeadSource | "all" })}
-             >
-               <SelectTrigger className="w-40">
-                 <SelectValue placeholder="All sources" />
-               </SelectTrigger>
-               <SelectContent>
-                 <SelectItem value="all">All Sources</SelectItem>
-                 <SelectItem value="manual">Manual</SelectItem>
-                 <SelectItem value="landing_page">Landing Page</SelectItem>
-                 <SelectItem value="referral">Referral</SelectItem>
-                 <SelectItem value="n8n_webhook">Automation</SelectItem>
-               </SelectContent>
-             </Select>
+      {/* Tabs */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)} className="flex-1 flex flex-col">
+        <div className="border-b bg-card/30">
+          <div className="container mx-auto px-4">
+            <TabsList className="h-12 bg-transparent">
+              <TabsTrigger value="pipeline" className="data-[state=active]:bg-primary/10">
+                <Users className="h-4 w-4 mr-2" />
+                Pipeline
+              </TabsTrigger>
+              <TabsTrigger value="webhook" className="data-[state=active]:bg-primary/10">
+                <Link2 className="h-4 w-4 mr-2" />
+                Webhook Setup
+              </TabsTrigger>
+            </TabsList>
            </div>
-         </div>
-       </div>
- 
-       {/* Pipeline */}
-       <main className="container mx-auto">
-         {loading ? (
-           <div className="flex items-center justify-center py-20">
-             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-           </div>
-         ) : leads.length === 0 ? (
-           <div className="flex flex-col items-center justify-center py-20 text-center">
-             <Users className="h-16 w-16 text-muted-foreground mb-4" />
-             <h2 className="text-xl font-semibold mb-2">No leads yet</h2>
-             <p className="text-muted-foreground mb-4">
-               Start building your pipeline by adding your first lead.
-             </p>
-             <Button onClick={() => setShowAddDialog(true)}>
-               <Plus className="h-4 w-4 mr-2" />
-               Add Your First Lead
-             </Button>
-           </div>
-         ) : (
-           <LeadPipeline
-             leadsByStage={leadsByStage}
-             onSelectLead={setSelectedLead}
-             onStageChange={changeStage}
-             onDeleteLead={deleteLead}
-           />
-         )}
-       </main>
+        </div>
+
+        {/* Pipeline Tab */}
+        <TabsContent value="pipeline" className="flex-1 mt-0">
+          {/* Filters */}
+          <div className="border-b bg-card/30">
+            <div className="container mx-auto px-4 py-3">
+              <div className="flex items-center gap-4">
+                <div className="relative flex-1 max-w-xs">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search leads..."
+                    value={filters.search || ""}
+                    onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                    className="pl-10"
+                  />
+                </div>
+                <Select
+                  value={filters.source || "all"}
+                  onValueChange={(value) => setFilters({ ...filters, source: value as LeadSource | "all" })}
+                >
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="All sources" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Sources</SelectItem>
+                    <SelectItem value="manual">Manual</SelectItem>
+                    <SelectItem value="landing_page">Landing Page</SelectItem>
+                    <SelectItem value="referral">Referral</SelectItem>
+                    <SelectItem value="n8n_webhook">Automation</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+
+          {/* Pipeline Content */}
+          <main className="container mx-auto">
+            {loading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : leads.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <Users className="h-16 w-16 text-muted-foreground mb-4" />
+                <h2 className="text-xl font-semibold mb-2">No leads yet</h2>
+                <p className="text-muted-foreground mb-4">
+                  Start building your pipeline by adding your first lead.
+                </p>
+                <Button onClick={() => setShowAddDialog(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add Your First Lead
+                </Button>
+              </div>
+            ) : (
+              <LeadPipeline
+                leadsByStage={leadsByStage}
+                onSelectLead={setSelectedLead}
+                onStageChange={changeStage}
+                onDeleteLead={deleteLead}
+              />
+            )}
+          </main>
+        </TabsContent>
+
+        {/* Webhook Setup Tab */}
+        <TabsContent value="webhook" className="flex-1 mt-0">
+          <div className="container mx-auto max-w-3xl">
+            <WebhookSetupPanel
+              recentLeads={leads
+                .filter((l) => l.source === 'n8n_webhook')
+                .slice(0, 5)
+                .map((l) => ({
+                  id: l.id,
+                  name: l.name,
+                  source: l.source,
+                  created_at: l.created_at,
+                }))}
+            />
+          </div>
+        </TabsContent>
+      </Tabs>
  
        {/* Lead detail panel */}
        <LeadDetailPanel
