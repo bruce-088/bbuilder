@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.secure-api-keys]
 verify_jwt = false
+
+[functions.lead-webhook]
+verify_jwt = false

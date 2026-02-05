@@ -345,6 +345,106 @@ export type Database = {
           },
         ]
       }
+      lead_activities: {
+        Row: {
+          activity_type: string
+          content: string | null
+          created_at: string
+          id: string
+          lead_id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          activity_type: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          lead_id: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          activity_type?: string
+          content?: string | null
+          created_at?: string
+          id?: string
+          lead_id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_activities_lead_id_fkey"
+            columns: ["lead_id"]
+            isOneToOne: false
+            referencedRelation: "lead_contacts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lead_contacts: {
+        Row: {
+          business_idea_id: string | null
+          company: string | null
+          created_at: string
+          custom_fields: Json | null
+          email: string | null
+          estimated_value: number | null
+          id: string
+          last_contact_at: string | null
+          name: string
+          phone: string | null
+          source: string
+          stage: string
+          tags: string[] | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_idea_id?: string | null
+          company?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          email?: string | null
+          estimated_value?: number | null
+          id?: string
+          last_contact_at?: string | null
+          name: string
+          phone?: string | null
+          source?: string
+          stage?: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_idea_id?: string | null
+          company?: string | null
+          created_at?: string
+          custom_fields?: Json | null
+          email?: string | null
+          estimated_value?: number | null
+          id?: string
+          last_contact_at?: string | null
+          name?: string
+          phone?: string | null
+          source?: string
+          stage?: string
+          tags?: string[] | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lead_contacts_business_idea_id_fkey"
+            columns: ["business_idea_id"]
+            isOneToOne: false
+            referencedRelation: "business_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       n8n_deployment_requests: {
         Row: {
           business_idea_id: string | null
