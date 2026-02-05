@@ -172,12 +172,23 @@ async function validateElevenLabs(apiKey: string): Promise<{ valid: boolean; err
       },
     });
 
+    console.log("ElevenLabs validation response status:", response.status);
+    const responseText = await response.text();
+    console.log("ElevenLabs validation response body:", responseText);
+
     if (response.ok) {
       return { valid: true };
     }
 
     if (response.status === 401) {
-      return { valid: false, error: "Invalid API key" };
+      // Parse the error for more details
+      try {
+        const errorData = JSON.parse(responseText);
+        const errorMsg = errorData.detail?.message || errorData.detail || "Invalid API key";
+        return { valid: false, error: errorMsg };
+      } catch {
+        return { valid: false, error: "Invalid API key" };
+      }
     }
 
     if (response.status === 429) {
@@ -185,11 +196,15 @@ async function validateElevenLabs(apiKey: string): Promise<{ valid: boolean; err
       return { valid: true };
     }
 
-    const errorData = await response.json().catch(() => ({}));
-    return { 
-      valid: false, 
-      error: errorData.detail?.message || `ElevenLabs API error: ${response.status}` 
-    };
+    try {
+      const errorData = JSON.parse(responseText);
+      return { 
+        valid: false, 
+        error: errorData.detail?.message || errorData.detail || `ElevenLabs API error: ${response.status}` 
+      };
+    } catch {
+      return { valid: false, error: `ElevenLabs API error: ${response.status}` };
+    }
   } catch (err) {
     console.error("ElevenLabs validation error:", err);
     return { valid: false, error: "Failed to connect to ElevenLabs" };
