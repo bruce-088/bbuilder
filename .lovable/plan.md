@@ -1,219 +1,214 @@
 
-# Add Email Follow-up Integration to Lead Detail Panel
+# Connect n8n Workflow to Lead Webhook
 
 ## Overview
 
-This plan adds the ability to send follow-up emails directly from the lead detail panel, with email composition via a modal dialog and activity logging to track all sent emails.
+This plan adds a dedicated UI component and workflow template to help users connect their existing n8n workflows (like the "GhostWriter AI: Lead Prospecting & Discovery Engine") to automatically push captured leads into the Mya CRM via the `lead-webhook` edge function.
 
 ## Current State
 
-- `LeadDetailPanel.tsx` has tabs for Details and Activity
-- Activity tab can add notes but not send emails
-- `useLeadManagement.ts` already supports `email_sent` activity type
-- `LeadActivityTimeline.tsx` already has styling for `email_sent` activities
-- No email sending edge function exists yet
-- **RESEND_API_KEY** is not configured in secrets
+**Available Infrastructure:**
+- `lead-webhook` edge function already exists and accepts:
+  - `user_id` (required)
+  - `name` (required)
+  - `email`, `phone`, `company`, `estimated_value`, `tags`, `custom_fields` (optional)
+- The endpoint is: `https://vxceyvrsxslxdvnttxxp.supabase.co/functions/v1/lead-webhook`
+- User's n8n instance has "GhostWriter AI: Lead Prospecting & Discovery Engine" workflow (Apollo/Hunter prospecting)
+- Template library exists for deploying n8n workflows
 
-## Architecture
-
-```text
-┌─────────────────────────────────────────────────────────────────┐
-│                      LeadDetailPanel                            │
-├────────────────────────────────────┬────────────────────────────┤
-│  Details Tab                       │  Activity Tab              │
-│  - Contact Info                    │  - Add Note (existing)     │
-│  - Stage selector                  │  - Send Email (NEW)        │
-│  - Quick actions                   │  - Activity Timeline       │
-└────────────────────────────────────┴────────────────────────────┘
-                                           │
-                                           ▼
-                              ┌─────────────────────────┐
-                              │   SendEmailDialog       │
-                              │  - Subject input        │
-                              │  - Body textarea        │
-                              │  - Template selector    │
-                              │  - Preview              │
-                              └───────────┬─────────────┘
-                                          │
-                                          ▼
-                              ┌─────────────────────────┐
-                              │  send-lead-email        │
-                              │  Edge Function          │
-                              │  - Uses Resend API      │
-                              │  - Logs activity        │
-                              └─────────────────────────┘
-```
+**Gap:** No guided connection between n8n workflows and the webhook endpoint.
 
 ## Implementation Plan
 
-### Step 1: Request RESEND_API_KEY from User
+### 1. Create N8N HTTP Request Node Template
 
-Before implementing, request the Resend API key from the user:
-- Direct user to resend.com to create an account
-- Need verified domain for sending emails
-- Create API key at resend.com/api-keys
+Create a ready-to-copy n8n HTTP Request node configuration that users can add to their workflows:
 
-### Step 2: Create Edge Function - `send-lead-email`
-
-**File:** `supabase/functions/send-lead-email/index.ts`
-
-The edge function will:
-- Accept: recipient email, subject, body, lead_id, user_id
-- Validate all inputs using zod
-- Send email via Resend API
-- Return success/failure response
-
-```typescript
-// Key structure:
-interface SendEmailRequest {
-  to: string;           // Lead's email address
-  subject: string;      // Email subject
-  body: string;         // Email body (plain text or HTML)
-  leadId: string;       // For activity logging
-  leadName: string;     // For personalization
-  fromName?: string;    // Sender display name
+```json
+{
+  "name": "Push to Mya CRM",
+  "type": "n8n-nodes-base.httpRequest",
+  "parameters": {
+    "method": "POST",
+    "url": "{{WEBHOOK_URL}}",
+    "sendHeaders": true,
+    "headerParameters": {
+      "parameters": [
+        { "name": "Content-Type", "value": "application/json" }
+      ]
+    },
+    "sendBody": true,
+    "bodyParameters": {
+      "parameters": [
+        { "name": "user_id", "value": "={{$json.user_id}}" },
+        { "name": "name", "value": "={{$json.name}}" },
+        { "name": "email", "value": "={{$json.email}}" },
+        { "name": "company", "value": "={{$json.company}}" },
+        { "name": "estimated_value", "value": "={{$json.estimated_value}}" }
+      ]
+    }
+  }
 }
 ```
 
-### Step 3: Create SendEmailDialog Component
+### 2. Create WebhookSetupPanel Component
 
-**File:** `src/components/LeadCRM/SendEmailDialog.tsx`
+**File:** `src/components/LeadCRM/WebhookSetupPanel.tsx`
 
-A modal dialog for composing emails:
-- Subject line input
-- Body textarea with larger height for message composition
-- Quick template buttons for common follow-ups:
-  - "Initial Outreach"
-  - "Follow-up Check-in"
-  - "Meeting Request"
-  - "Thank You"
-- Dynamic placeholders that auto-fill:
-  - `{{name}}` - Lead's name
-  - `{{company}}` - Lead's company
-- Preview tab to see formatted email
-- Send button with loading state
+A panel in the Leads page that helps users:
+- View their unique webhook URL with user_id pre-filled
+- Copy n8n node configuration JSON
+- Test the connection with sample data
+- See real-time connection status
 
-### Step 4: Create useLeadEmail Hook
+**Key features:**
+- Auto-generates webhook URL with authenticated user_id
+- Copy buttons for webhook URL and full n8n node JSON
+- "Test Connection" button to verify endpoint works
+- Quick setup guide with step-by-step instructions
+- Connection status indicator showing last successful webhook
 
-**File:** `src/hooks/useLeadEmail.ts`
+### 3. Add Webhook Setup Tab to Leads Page
 
-Custom hook to handle email sending logic:
+**File:** `src/pages/Leads.tsx`
+
+Add a "Webhook Setup" tab alongside the pipeline view:
+- Shows WebhookSetupPanel
+- Displays recent webhook events from activity log
+- Link to Template Library for ready-made workflows
+
+### 4. Create Lead Capture Workflow Template
+
+**File:** `src/lib/workflowTemplates/templates.ts`
+
+Add a new template specifically for LinkedIn/Apollo lead capture:
+
 ```typescript
-function useLeadEmail() {
-  const sendEmail = async (params: {
-    lead: Lead;
-    subject: string;
-    body: string;
-  }) => {
-    // 1. Call send-lead-email edge function
-    // 2. On success, add email_sent activity via addActivity
-    // 3. Return success/failure
-  };
-  
-  return { sendEmail, isSending };
+{
+  id: 'lead-capture-to-crm',
+  name: 'LinkedIn Lead Capture to Mya CRM',
+  description: 'Automatically capture leads from LinkedIn/Apollo and push them to your Mya CRM pipeline.',
+  industry: 'agency',
+  automationCategory: 'lead-generation',
+  complexity: 'beginner',
+  estimatedSetupTime: '10 min',
+  requiredCredentials: ['Apollo or LinkedIn Sales Navigator'],
+  tags: ['linkedin', 'apollo', 'crm', 'lead capture'],
+  featured: true,
+  nodes: [
+    // Schedule Trigger
+    // Apollo/LinkedIn Search
+    // Filter/Score
+    // Push to Mya CRM (HTTP Request to lead-webhook)
+  ]
 }
 ```
 
-### Step 5: Update LeadDetailPanel
+### 5. Add Integration with Existing Workflows
 
-**File:** `src/components/LeadCRM/LeadDetailPanel.tsx`
+Create a helper function that generates the correct HTTP Request node configuration based on the user's existing workflow output format:
 
-Changes to the Activity tab:
-1. Add "Send Email" button next to "Add Note"
-2. Import and use SendEmailDialog
-3. Pass onAddActivity for logging email_sent activities
-4. Show warning if lead has no email address
+**File:** `src/lib/leadWebhookIntegration.ts`
 
-### Step 6: Update Exports
+```typescript
+export function generateWebhookNodeConfig(userId: string, fieldMappings: Record<string, string>) {
+  // Returns n8n-compatible node configuration
+  // with dynamic field mappings based on source data structure
+}
 
-**File:** `src/components/LeadCRM/index.ts`
-
-Add export for the new SendEmailDialog component.
-
-### Step 7: Update config.toml
-
-**File:** `supabase/config.toml`
-
-Add configuration for the new edge function:
-```toml
-[functions.send-lead-email]
-verify_jwt = true
+export function generateMcpDeployPrompt(userId: string) {
+  // Returns a prompt users can paste to have the agent
+  // add the webhook node to their existing workflow
+}
 ```
 
-## Email Templates
+## UI Design
 
-Four pre-built templates with placeholder support:
-
-1. **Initial Outreach**
-   ```
-   Subject: Quick question about {{company}}
-   Body: Hi {{name}}, I came across {{company}} and wanted to reach out...
-   ```
-
-2. **Follow-up Check-in**
-   ```
-   Subject: Following up on our conversation
-   Body: Hi {{name}}, I wanted to check in and see if you had any questions...
-   ```
-
-3. **Meeting Request**
-   ```
-   Subject: Quick call this week?
-   Body: Hi {{name}}, I'd love to schedule a brief call to discuss...
-   ```
-
-4. **Thank You**
-   ```
-   Subject: Thank you, {{name}}!
-   Body: Hi {{name}}, I just wanted to send a quick note to thank you...
-   ```
-
-## UI/UX Details
-
-- "Send Email" button styled with green color to differentiate from notes
-- Dialog has max-width of 600px for comfortable reading
-- Character count shown for subject (max 100) and body (max 5000)
-- Disable send if lead has no email address
-- Success toast shows "Email sent to [name]"
-- Email activity shows in timeline with green badge
-
-## Security Considerations
-
-- Edge function requires JWT authentication (verify_jwt = true)
-- Validate email format before sending
-- Rate limiting to prevent abuse (handled by Resend)
-- Input sanitization via zod schemas
-
-## Technical Implementation Sequence
-
-1. Request RESEND_API_KEY from user
-2. Create `send-lead-email` edge function
-3. Deploy and test edge function
-4. Create SendEmailDialog component with templates
-5. Create useLeadEmail hook
-6. Update LeadDetailPanel to integrate email button and dialog
-7. Update exports in index.ts
-8. End-to-end testing: send email, verify activity logged, check Resend dashboard
+```text
+┌─────────────────────────────────────────────────────────────────┐
+│ Leads                                                [+ Add Lead]│
+├─────────────────────────────────────────────────────────────────┤
+│  [Pipeline] [Webhook Setup]                                      │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  🔗 Webhook Integration                                     ││
+│  │                                                             ││
+│  │  Your webhook URL:                                          ││
+│  │  ┌───────────────────────────────────────────────┐ [Copy]   ││
+│  │  │ https://...functions/v1/lead-webhook          │          ││
+│  │  └───────────────────────────────────────────────┘          ││
+│  │                                                             ││
+│  │  [Copy n8n Node Config]  [Test Connection]                  ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  📋 Quick Setup Guide                                       ││
+│  │                                                             ││
+│  │  1. Open your n8n workflow (e.g., Lead Prospecting Engine)  ││
+│  │  2. Add a new HTTP Request node after your lead scoring     ││
+│  │  3. Paste the webhook URL and map your fields               ││
+│  │  4. Test with sample data                                   ││
+│  │                                                             ││
+│  │  [View Template Library] [Copy Agent Prompt]                ││
+│  └─────────────────────────────────────────────────────────────┘│
+│                                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  Recent Webhook Events                                      ││
+│  │  ─────────────────────────────────────────────────          ││
+│  │  ✓ John Doe (Webhook Test) - 20 min ago                     ││
+│  │  ✓ Lead via Apollo - 2 hours ago                            ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+```
 
 ## Files to Create/Modify
 
 | File | Action | Description |
 |------|--------|-------------|
-| `supabase/functions/send-lead-email/index.ts` | Create | Edge function using Resend API |
-| `supabase/config.toml` | Modify | Add function config with verify_jwt = true |
-| `src/components/LeadCRM/SendEmailDialog.tsx` | Create | Modal dialog for composing emails |
-| `src/hooks/useLeadEmail.ts` | Create | Hook for email sending logic |
-| `src/components/LeadCRM/LeadDetailPanel.tsx` | Modify | Add Send Email button and dialog integration |
-| `src/components/LeadCRM/index.ts` | Modify | Export SendEmailDialog |
+| `src/components/LeadCRM/WebhookSetupPanel.tsx` | Create | Main webhook setup UI component |
+| `src/lib/leadWebhookIntegration.ts` | Create | Helper functions for generating n8n configs |
+| `src/pages/Leads.tsx` | Modify | Add Webhook Setup tab |
+| `src/components/LeadCRM/index.ts` | Modify | Export WebhookSetupPanel |
+| `src/lib/workflowTemplates/templates.ts` | Modify | Add LinkedIn Lead Capture template |
 
-## Testing Plan
+## Technical Details
 
-After implementation:
-1. Navigate to /leads and select a lead with an email address
-2. Click "Send Email" in the Activity tab
-3. Use a template or compose custom email
-4. Send and verify:
-   - Success toast appears
-   - Activity logged in timeline
-   - Email received (if using real email)
-   - Edge function logs show successful send
+### Webhook URL Construction
+```typescript
+const webhookUrl = `https://vxceyvrsxslxdvnttxxp.supabase.co/functions/v1/lead-webhook`;
+```
+
+### Required Payload Structure
+```json
+{
+  "user_id": "uuid-from-auth",
+  "name": "John Doe",
+  "email": "john@company.com",
+  "phone": "+1234567890",
+  "company": "Acme Corp",
+  "estimated_value": 15000,
+  "tags": ["linkedin", "apollo"],
+  "custom_fields": {
+    "linkedin_url": "https://linkedin.com/in/johndoe",
+    "lead_score": 85
+  }
+}
+```
+
+### Field Mapping for GhostWriter Workflow
+Based on the existing Lead Prospecting Engine output:
+- `$json.first_name + " " + $json.last_name` -> `name`
+- `$json.email` -> `email`
+- `$json.organization_name` -> `company`
+- `$json.lead_score * 1000` -> `estimated_value`
+- `$json.linkedin_url` -> `custom_fields.linkedin_url`
+
+## Implementation Sequence
+
+1. Create `leadWebhookIntegration.ts` with helper functions
+2. Create `WebhookSetupPanel.tsx` component
+3. Add webhook tab to `Leads.tsx` page
+4. Update exports in `index.ts`
+5. Add LinkedIn Lead Capture template to template library
+6. Test end-to-end: copy config -> add to n8n -> trigger -> verify lead appears
