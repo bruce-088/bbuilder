@@ -1,176 +1,205 @@
 
-# Making Mya More Powerful: Strategic Enhancement Plan
+# Lead Management CRM Implementation Plan
 
-## Current State Summary
+## Overview
 
-Mya is already a sophisticated AI-powered business consultant with:
-- **AI Business Plan Generation** with detailed $10K/month blueprints
-- **6-Phase Automation Engine** (Analyze, Generate, Deploy, Verify, Fix, Validate)
-- **n8n Workflow Integration** with MCP deployment, live monitoring, and smart credential pre-fill
-- **Mission Control Gamification** with quests, XP, and achievements
-- **Multi-AI Provider Support** (Lovable, OpenAI, Claude, Perplexity, Gemini)
-- **Browserbase Automation** for programmatic workflow execution
-- **Fix Knowledge Base** for learning from successful resolutions
+This plan implements a lightweight CRM system integrated with Mya that tracks leads across the 6-stage sales funnel, stores contact history, syncs with n8n webhook data, and provides quick actions for follow-ups and status changes.
 
-## High-Impact Enhancement Opportunities
-
-### 1. Revenue Tracking & Analytics Dashboard
-**Impact: Critical for closing the loop on the "14-day first customer" mission**
-
-Add a dedicated revenue tracking system that:
-- Tracks actual revenue against the $10K/month goal
-- Shows conversion metrics across the 6-stage funnel
-- Visualizes progress with charts (lead count → qualified → outreach → closed)
-- Integrates with Stripe/payment webhooks to auto-record sales
-- Provides weekly/monthly progress reports
+## Architecture
 
 ```text
-┌────────────────────────────────────────────────────────────┐
-│  REVENUE DASHBOARD                                         │
-├────────────────────────────────────────────────────────────┤
-│  Goal: $10,000/mo     Current: $3,200     Gap: $6,800     │
-│  ████████████░░░░░░░░░░░░░░░░░░░░  32%                    │
-├────────────────────────────────────────────────────────────┤
-│  FUNNEL METRICS                                            │
-│  Leads: 247 → Qualified: 89 → Outreach: 45 → Closed: 4    │
-│  Conversion: 1.6%                                          │
-└────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         LEAD MANAGEMENT CRM                             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                    PIPELINE VIEW (KANBAN)                        │   │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌────────┐ │   │
+│  │  │ CAPTURED │ │QUALIFIED │ │ OUTREACH │ │NURTURING │ │ WON/   │ │   │
+│  │  │    12    │→│    8     │→│    5     │→│    3     │→│ LOST   │ │   │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └────────┘ │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+│                                                                         │
+│  ┌────────────────────────────┐  ┌────────────────────────────────┐    │
+│  │      LEAD DETAILS          │  │      ACTIVITY TIMELINE         │    │
+│  │  Name: John Smith          │  │  📧 Email sent (2h ago)        │    │
+│  │  Email: john@example.com   │  │  📞 Call scheduled (1d ago)    │    │
+│  │  Source: Landing Page      │  │  💬 Note added (3d ago)        │    │
+│  │  Value: $2,500             │  │  🔄 Stage changed (5d ago)     │    │
+│  └────────────────────────────┘  └────────────────────────────────┘    │
+│                                                                         │
+│  ┌─────────────────────────────────────────────────────────────────┐   │
+│  │                      QUICK ACTIONS                               │   │
+│  │  [Send Follow-up] [Add Note] [Schedule Call] [Mark Won/Lost]    │   │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Template Library with Industry-Specific Workflows
-**Impact: Dramatically reduces time-to-launch for new users**
+## Database Schema
 
-Create a curated library of pre-built, tested n8n workflow templates:
-- **By Industry**: SaaS, Coaching, E-commerce, Real Estate, etc.
-- **By Stage**: Lead capture templates, outreach sequences, onboarding flows
-- **One-click import** with automatic credential detection
-- **Community-contributed** templates with ratings
+### Table: `lead_contacts`
+Stores all lead/contact information with funnel stage tracking.
 
-This addresses the current gap where users must generate workflows from scratch every time.
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uuid | Primary key |
+| `user_id` | uuid | Owner of the lead |
+| `business_idea_id` | uuid | Linked business plan (optional) |
+| `name` | text | Contact name |
+| `email` | text | Contact email |
+| `phone` | text | Contact phone (optional) |
+| `company` | text | Company name (optional) |
+| `stage` | text | Funnel stage: captured, qualified, outreach, nurturing, won, lost |
+| `source` | text | How lead was acquired (landing_page, referral, n8n_webhook, manual) |
+| `estimated_value` | numeric | Potential deal value |
+| `tags` | text[] | Custom tags for filtering |
+| `custom_fields` | jsonb | Flexible additional data from webhooks |
+| `created_at` | timestamptz | When lead was added |
+| `updated_at` | timestamptz | Last modification |
+| `last_contact_at` | timestamptz | Last interaction date |
 
-### 3. AI Coaching & Proactive Recommendations
-**Impact: Transforms Mya from reactive assistant to proactive mentor**
+### Table: `lead_activities`
+Stores timeline of interactions with each lead.
 
-Enhance Mya to provide unsolicited, timely advice:
-- **Daily check-ins**: "You haven't sent outreach in 3 days. Want me to help?"
-- **Milestone alerts**: "Your first 10 leads are qualified! Time for Stage 3."
-- **Pattern recognition**: "Your email open rate dropped 40%. Here's why..."
-- **Smart suggestions** based on Mission Control progress
+| Column | Type | Description |
+|--------|------|-------------|
+| `id` | uuid | Primary key |
+| `user_id` | uuid | Owner |
+| `lead_id` | uuid | Foreign key to lead_contacts |
+| `activity_type` | text | Type: note, email_sent, call, stage_change, webhook_event |
+| `content` | text | Activity description or note content |
+| `metadata` | jsonb | Additional context (e.g., from/to stage for stage_change) |
+| `created_at` | timestamptz | When activity occurred |
 
-### 4. Real-Time n8n Execution Monitoring ✅ IMPLEMENTED
-**Impact: Critical visibility into what's actually happening**
+## Components to Create
 
-The N8n Live Status Panel now includes:
-- ✅ Live execution logs streamed in real-time via Supabase Realtime
-- ✅ Error counts and success rates per workflow (auto-calculated via database trigger)
-- ✅ Visual timeline of workflow executions grouped by date
-- ✅ Drill-down into failed executions with AI-powered "Ask Mya to Fix" integration
-- ✅ Aggregate stats dashboard (total executions, success rate, running count)
-- ✅ Workflow performance chart showing success/error distribution
-- ✅ Edge function `n8n-execution-sync` for webhook-based logging from n8n
+### 1. Main CRM Page (`src/pages/Leads.tsx`)
+- Route: `/leads`
+- Full-page lead management interface
+- Pipeline view with drag-and-drop stage changes
+- Filtering by stage, source, tags, and search
+- Quick stats bar showing funnel metrics
 
-**Database Tables Added:**
-- `n8n_execution_logs`: Tracks individual workflow executions
-- `n8n_workflow_stats`: Auto-aggregated stats via database trigger
+### 2. Lead Pipeline Component (`src/components/LeadCRM/LeadPipeline.tsx`)
+- Kanban-style board with columns for each stage
+- Drag-and-drop functionality using existing motion library
+- Lead count badges per column
+- Conversion rate indicators between stages
 
-### 5. Lead Management CRM (Lightweight)
-**Impact: Keeps everything in one place instead of external tools**
+### 3. Lead Card Component (`src/components/LeadCRM/LeadCard.tsx`)
+- Compact card showing name, email, value, source
+- Quick action buttons (email, note, stage change)
+- Time since last contact indicator
+- Click to expand for full details
 
-Add a simple built-in CRM to track:
-- Leads captured by automation workflows
-- Lead status across the 6-stage funnel
-- Contact history and notes
-- Integration with n8n webhook data
-- Quick actions: "Send follow-up", "Mark as won/lost"
+### 4. Lead Detail Panel (`src/components/LeadCRM/LeadDetailPanel.tsx`)
+- Slide-out panel with full lead information
+- Activity timeline showing all interactions
+- Editable fields for updating lead info
+- Stage change dropdown with activity logging
+- Quick actions: Send Follow-up, Add Note, Mark Won/Lost
 
-This prevents context-switching to external CRMs and gives Mya visibility into lead data for better coaching.
+### 5. Add Lead Dialog (`src/components/LeadCRM/AddLeadDialog.tsx`)
+- Form for manual lead entry
+- Fields: name, email, phone, company, source, estimated value
+- Option to link to a business plan
+- Tag selection/creation
 
-### 6. A/B Testing for Outreach Messages
-**Impact: Data-driven optimization of conversion rates**
+### 6. Lead Activity Timeline (`src/components/LeadCRM/LeadActivityTimeline.tsx`)
+- Chronological list of all interactions
+- Icons for different activity types
+- Expandable note content
+- "Ask Mya" integration for AI-suggested follow-ups
 
-Enable users to:
-- Create multiple versions of email templates
-- Automatically split-test across leads
-- Track open rates, reply rates, and conversions per variant
-- AI-generated suggestions for improving underperforming messages
+### 7. Lead Stats Card (`src/components/LeadCRM/LeadStatsCard.tsx`)
+- Reusable widget for Dashboard integration
+- Shows pipeline summary counts
+- Conversion rate metrics
+- Link to full CRM view
 
-### 7. Voice Input & Audio Summaries
-**Impact: Accessibility and convenience for mobile/on-the-go users**
+### 8. Lead Webhook Receiver (`supabase/functions/lead-webhook/index.ts`)
+- Edge function to receive leads from n8n workflows
+- Validates incoming data structure
+- Auto-creates leads with appropriate source tagging
+- Creates initial activity log entry
 
-Add voice capabilities:
-- Voice-to-text for chat with Mya
-- Audio summaries of daily progress
-- Voice commands: "Mya, what's my pipeline looking like?"
-- Integration with mobile push notifications
+## Custom Hook
 
-### 8. Competitor Analysis Integration
-**Impact: Strategic intelligence for business planning**
+### `useLeadManagement.ts`
+- CRUD operations for leads and activities
+- Stage transition with automatic activity logging
+- Filtering and search functionality
+- Real-time subscription for lead updates
+- Aggregate stats calculation
 
-Leverage Perplexity's real-time web search to:
-- Analyze competitors mentioned in the business plan
-- Track competitor pricing, features, and positioning
-- Suggest differentiation strategies
-- Monitor industry trends and news
+## Integration Points
 
----
+### n8n Workflow Integration
+- New webhook endpoint `/lead-webhook` receives leads from automation workflows
+- Auto-populates `custom_fields` with any extra data from n8n
+- Creates "Captured via n8n" activity entry
 
-## Recommended Priority Order
+### Mission Control Integration
+- Update `useMissionProgress.ts` to check `lead_contacts` for outreach/sale quests
+- Award XP when leads progress through stages
+- Trigger "first_sale" achievement when a lead is marked as "won"
 
-| Priority | Feature | Effort | Impact | Status |
-|----------|---------|--------|--------|--------|
-| 1 | Revenue Tracking Dashboard | Medium | High | 🔲 Not Started |
-| 2 | Template Library | Medium | High | 🔲 Not Started |
-| 3 | Proactive AI Coaching | Low | Medium | 🔲 Not Started |
-| 4 | Real-Time Execution Monitoring | Medium | High | ✅ **DONE** |
-| 5 | Lead Management CRM | High | Medium | 🔲 Not Started |
-| 6 | A/B Testing | Medium | Medium | 🔲 Not Started |
-| 7 | Voice Input | Low | Low | 🔲 Not Started |
-| 8 | Competitor Analysis | Low | Medium | 🔲 Not Started |
+### Dashboard Widget
+- Add `LeadStatsCard` to Dashboard showing pipeline summary
+- Quick link to full CRM view
+- "Hot leads" indicator for leads needing follow-up
 
----
+## Files to Create
 
-## Technical Implementation Notes
+| File | Purpose |
+|------|---------|
+| `src/pages/Leads.tsx` | Main CRM page |
+| `src/components/LeadCRM/index.ts` | Barrel export |
+| `src/components/LeadCRM/LeadPipeline.tsx` | Kanban board |
+| `src/components/LeadCRM/LeadCard.tsx` | Individual lead card |
+| `src/components/LeadCRM/LeadDetailPanel.tsx` | Slide-out details |
+| `src/components/LeadCRM/AddLeadDialog.tsx` | New lead form |
+| `src/components/LeadCRM/LeadActivityTimeline.tsx` | Activity history |
+| `src/components/LeadCRM/LeadStatsCard.tsx` | Dashboard widget |
+| `src/hooks/useLeadManagement.ts` | Lead data hook |
+| `supabase/functions/lead-webhook/index.ts` | Webhook receiver |
 
-### For Revenue Tracking:
-- New `revenue_records` table with `user_id`, `amount`, `source`, `business_idea_id`, `recorded_at`
-- Webhook endpoint for Stripe payment events
-- Dashboard component with Recharts (already installed)
-- Integration with Mission Control for "first sale" achievement trigger
+## Files to Modify
 
-### For Template Library:
-- New `workflow_templates` table with `industry`, `stage`, `template_json`, `ratings`, `usage_count`
-- Template browser UI with filtering and search
-- Import flow that maps template credentials to user's stored keys
+| File | Changes |
+|------|---------|
+| `src/App.tsx` | Add `/leads` route |
+| `src/pages/Dashboard.tsx` | Add LeadStatsCard widget and navigation link |
+| `src/hooks/useMissionProgress.ts` | Add lead-based quest completion checks |
+| `src/components/MissionControl/types.ts` | Add lead-related achievements |
 
-### For Proactive Coaching:
-- Background job (could use n8n workflow) that checks user activity
-- Push notification system via browser notifications or email
-- Context-aware prompts stored in `coaching_prompts` table
+## RLS Policies
 
-### Database Changes Required:
-- `revenue_records`: Tracks actual sales and revenue
-- `workflow_templates`: Stores community/curated templates
-- `lead_contacts`: Lightweight CRM data (optional for Phase 5)
-- `coaching_events`: Logs proactive AI interactions
+Both tables will have standard user-scoped RLS:
+- SELECT: `auth.uid() = user_id`
+- INSERT: `auth.uid() = user_id`
+- UPDATE: `auth.uid() = user_id`
+- DELETE: `auth.uid() = user_id`
 
----
+The webhook edge function will use service role for inserts, validating user ownership via the request payload.
 
-## Quick Wins (Implementable in 1-2 hours each)
+## Implementation Sequence
 
-1. **Add a "Time to First Customer" countdown widget** on the dashboard
-2. **Show workflow execution count** in the Live Status Panel
-3. **Add "Quick Prompt" buttons** in chat for common questions
-4. **Enable email notifications** when automations complete or fail
-5. **Add a "Share my plan" feature** to generate a shareable link
+1. **Database Setup**: Create `lead_contacts` and `lead_activities` tables with RLS
+2. **Core Hook**: Build `useLeadManagement.ts` with CRUD and filtering
+3. **Lead Cards**: Create `LeadCard.tsx` and `LeadDetailPanel.tsx`
+4. **Pipeline View**: Build `LeadPipeline.tsx` with drag-and-drop
+5. **Forms**: Create `AddLeadDialog.tsx` for manual entry
+6. **Main Page**: Assemble `Leads.tsx` with all components
+7. **Webhook**: Create `lead-webhook` edge function
+8. **Dashboard Integration**: Add `LeadStatsCard` and navigation
+9. **Mission Control**: Update progress tracking for lead milestones
+10. **Testing**: End-to-end verification of all flows
 
----
+## Technical Notes
 
-## Questions Before Implementation
-
-Would you like me to focus on:
-- **Revenue & Metrics** (Dashboard, tracking, analytics)
-- **Workflow Acceleration** (Templates, faster deployment)
-- **AI Intelligence** (Proactive coaching, competitor analysis)
-- **User Experience** (CRM, voice, mobile improvements)
-
-Or should I implement a specific feature from the list above?
+- Uses `framer-motion` (already installed) for drag-and-drop interactions
+- Follows existing design system with glass morphism cards and glow effects
+- Leverages existing table/form components from shadcn/ui
+- Real-time updates via Supabase Realtime subscriptions
+- Responsive design for mobile pipeline viewing (horizontal scroll)
