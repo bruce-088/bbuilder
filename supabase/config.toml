@@ -42,5 +42,14 @@ verify_jwt = false
 [functions.lead-webhook]
 verify_jwt = false
  
- [functions.send-lead-email]
- verify_jwt = false
+[functions.send-lead-email]
+verify_jwt = false
+
+[functions.elevenlabs-tts]
+verify_jwt = false
+
+[functions.elevenlabs-stt]
+verify_jwt = false
+
+[functions.competitor-analysis]
+verify_jwt = false

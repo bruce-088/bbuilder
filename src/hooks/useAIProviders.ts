@@ -3,7 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 
-export type AIProvider = "lovable" | "openai" | "claude" | "perplexity" | "gemini";
+export type AIProvider = "lovable" | "openai" | "claude" | "perplexity" | "gemini" | "elevenlabs";
 
 export interface ProviderStatus {
   id: AIProvider;
@@ -19,6 +19,7 @@ interface UserAIPreferences {
   claude_configured: boolean | null;
   perplexity_configured: boolean | null;
   gemini_configured: boolean | null;
+  elevenlabs_configured: boolean | null;
 }
 
 export function useAIProviders() {
@@ -33,6 +34,7 @@ export function useAIProviders() {
     { id: "claude", name: "Claude", description: "Complex multi-step tasks", configured: false, available: false },
     { id: "perplexity", name: "Perplexity", description: "Real-time web research", configured: false, available: false },
     { id: "gemini", name: "Gemini", description: "Google's multimodal AI", configured: false, available: false },
+    { id: "elevenlabs", name: "ElevenLabs", description: "Voice synthesis & speech-to-text", configured: false, available: false },
   ]);
 
   const loadPreferences = useCallback(async () => {
@@ -66,6 +68,9 @@ export function useAIProviders() {
             if (p.id === "gemini") {
               return { ...p, configured: data.gemini_configured || false, available: data.gemini_configured || false };
             }
+            if (p.id === "elevenlabs") {
+              return { ...p, configured: data.elevenlabs_configured || false, available: data.elevenlabs_configured || false };
+            }
             return p;
           })
         );
@@ -81,7 +86,7 @@ export function useAIProviders() {
     loadPreferences();
   }, [loadPreferences]);
 
-  const saveApiKey = async (provider: "openai" | "claude" | "perplexity" | "gemini", apiKey: string): Promise<boolean> => {
+  const saveApiKey = async (provider: "openai" | "claude" | "perplexity" | "gemini" | "elevenlabs", apiKey: string): Promise<boolean> => {
     if (!user) {
       toast.error("Please sign in to save API keys");
       return false;
@@ -116,6 +121,7 @@ export function useAIProviders() {
         provider === "openai" ? "openai_configured" : 
         provider === "claude" ? "claude_configured" : 
         provider === "gemini" ? "gemini_configured" :
+        provider === "elevenlabs" ? "elevenlabs_configured" :
         "perplexity_configured";
       const { error: prefError } = await supabase
         .from("user_ai_preferences")
@@ -140,6 +146,7 @@ export function useAIProviders() {
         provider === "openai" ? "OpenAI" : 
         provider === "claude" ? "Claude" : 
         provider === "gemini" ? "Gemini" :
+        provider === "elevenlabs" ? "ElevenLabs" :
         "Perplexity";
       toast.success(`${providerName} connected securely!`);
       return true;
@@ -152,7 +159,7 @@ export function useAIProviders() {
     }
   };
 
-  const testApiKey = async (provider: "openai" | "claude" | "perplexity" | "gemini", apiKey: string): Promise<boolean> => {
+  const testApiKey = async (provider: "openai" | "claude" | "perplexity" | "gemini" | "elevenlabs", apiKey: string): Promise<boolean> => {
     setTesting(provider);
     try {
       const response = await supabase.functions.invoke("validate-api-key", {
@@ -169,6 +176,7 @@ export function useAIProviders() {
         provider === "openai" ? "OpenAI" : 
         provider === "claude" ? "Claude" : 
         provider === "gemini" ? "Gemini" :
+        provider === "elevenlabs" ? "ElevenLabs" :
         "Perplexity";
       if (!data.valid) {
         toast.error(data.error || `Invalid ${providerName} API key`);
@@ -186,7 +194,7 @@ export function useAIProviders() {
     }
   };
 
-  const removeApiKey = async (provider: "openai" | "claude" | "perplexity" | "gemini"): Promise<boolean> => {
+  const removeApiKey = async (provider: "openai" | "claude" | "perplexity" | "gemini" | "elevenlabs"): Promise<boolean> => {
     if (!user) return false;
 
     setSaving(true);
@@ -209,6 +217,7 @@ export function useAIProviders() {
         provider === "openai" ? "openai_configured" : 
         provider === "claude" ? "claude_configured" : 
         provider === "gemini" ? "gemini_configured" :
+        provider === "elevenlabs" ? "elevenlabs_configured" :
         "perplexity_configured";
       await supabase
         .from("user_ai_preferences")
@@ -224,6 +233,7 @@ export function useAIProviders() {
         provider === "openai" ? "OpenAI" : 
         provider === "claude" ? "Claude" : 
         provider === "gemini" ? "Gemini" :
+        provider === "elevenlabs" ? "ElevenLabs" :
         "Perplexity";
       toast.success(`${providerName} disconnected`);
       return true;
@@ -236,7 +246,7 @@ export function useAIProviders() {
     }
   };
 
-  const getApiKey = async (provider: "openai" | "claude" | "perplexity" | "gemini"): Promise<string | null> => {
+  const getApiKey = async (provider: "openai" | "claude" | "perplexity" | "gemini" | "elevenlabs"): Promise<string | null> => {
     if (!user) return null;
 
     try {

@@ -238,6 +238,62 @@ export type Database = {
           },
         ]
       }
+      competitor_analyses: {
+        Row: {
+          analyzed_at: string | null
+          business_idea_id: string | null
+          competitor_name: string
+          created_at: string | null
+          features: string[] | null
+          id: string
+          positioning: string | null
+          pricing_info: Json | null
+          recent_news: Json | null
+          source_urls: string[] | null
+          strengths: string[] | null
+          user_id: string
+          weaknesses: string[] | null
+        }
+        Insert: {
+          analyzed_at?: string | null
+          business_idea_id?: string | null
+          competitor_name: string
+          created_at?: string | null
+          features?: string[] | null
+          id?: string
+          positioning?: string | null
+          pricing_info?: Json | null
+          recent_news?: Json | null
+          source_urls?: string[] | null
+          strengths?: string[] | null
+          user_id: string
+          weaknesses?: string[] | null
+        }
+        Update: {
+          analyzed_at?: string | null
+          business_idea_id?: string | null
+          competitor_name?: string
+          created_at?: string | null
+          features?: string[] | null
+          id?: string
+          positioning?: string | null
+          pricing_info?: Json | null
+          recent_news?: Json | null
+          source_urls?: string[] | null
+          strengths?: string[] | null
+          user_id?: string
+          weaknesses?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_analyses_business_idea_id_fkey"
+            columns: ["business_idea_id"]
+            isOneToOne: false
+            referencedRelation: "business_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -264,6 +320,47 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      differentiation_strategies: {
+        Row: {
+          business_idea_id: string | null
+          confidence_score: number | null
+          created_at: string | null
+          id: string
+          recommendation: string
+          strategy_type: string
+          supporting_data: Json | null
+          user_id: string
+        }
+        Insert: {
+          business_idea_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          recommendation: string
+          strategy_type: string
+          supporting_data?: Json | null
+          user_id: string
+        }
+        Update: {
+          business_idea_id?: string | null
+          confidence_score?: number | null
+          created_at?: string | null
+          id?: string
+          recommendation?: string
+          strategy_type?: string
+          supporting_data?: Json | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "differentiation_strategies_business_idea_id_fkey"
+            columns: ["business_idea_id"]
+            isOneToOne: false
+            referencedRelation: "business_ideas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       fix_knowledge_base: {
         Row: {
@@ -675,35 +772,44 @@ export type Database = {
         Row: {
           claude_configured: boolean | null
           created_at: string
+          elevenlabs_configured: boolean | null
           gemini_configured: boolean | null
           id: string
           openai_configured: boolean | null
           perplexity_configured: boolean | null
           preferred_provider: string | null
+          preferred_voice_id: string | null
           updated_at: string
           user_id: string
+          voice_enabled: boolean | null
         }
         Insert: {
           claude_configured?: boolean | null
           created_at?: string
+          elevenlabs_configured?: boolean | null
           gemini_configured?: boolean | null
           id?: string
           openai_configured?: boolean | null
           perplexity_configured?: boolean | null
           preferred_provider?: string | null
+          preferred_voice_id?: string | null
           updated_at?: string
           user_id: string
+          voice_enabled?: boolean | null
         }
         Update: {
           claude_configured?: boolean | null
           created_at?: string
+          elevenlabs_configured?: boolean | null
           gemini_configured?: boolean | null
           id?: string
           openai_configured?: boolean | null
           perplexity_configured?: boolean | null
           preferred_provider?: string | null
+          preferred_voice_id?: string | null
           updated_at?: string
           user_id?: string
+          voice_enabled?: boolean | null
         }
         Relationships: []
       }
