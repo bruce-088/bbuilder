@@ -34,7 +34,7 @@ import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import SavePromptBanner from "@/components/SavePromptBanner";
 import PostSaveDialog from "@/components/PostSaveDialog";
-import { WorkflowContextPanel, VerifyFixButton } from "@/components/Chat";
+import { WorkflowContextPanel, VerifyFixButton, VoiceInputButton, AudioPlaybackButton } from "@/components/Chat";
 import { useN8nWorkflowContext } from "@/hooks/useN8nWorkflowContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -859,6 +859,11 @@ export default function Chat() {
                     className="resize-none min-h-[48px] max-h-[200px]"
                     disabled={isStreaming}
                   />
+                  <VoiceInputButton
+                    onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
+                    disabled={isStreaming}
+                    className="h-12 w-12"
+                  />
                   <Button
                     onClick={handleSend}
                     disabled={(!input.trim() && pastedImages.length === 0) || isStreaming}
@@ -918,6 +923,16 @@ export default function Chat() {
                         <p className="whitespace-pre-wrap">{message.content}</p>
                       )}
                     </div>
+                    {/* Audio playback button for Mya's responses */}
+                    {message.role === "assistant" && message.content && !isStreaming && (
+                      <div className="flex items-center gap-1">
+                        <AudioPlaybackButton 
+                          text={message.content} 
+                          className="h-7 w-7 text-muted-foreground hover:text-primary"
+                        />
+                        <span className="text-xs text-muted-foreground">Listen</span>
+                      </div>
+                    )}
                     {/* Save prompt banner or save button for business idea messages */}
                     {message.role === "assistant" && 
                      message.content && 
@@ -1285,6 +1300,11 @@ export default function Chat() {
                 placeholder="I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"
                 className="resize-none min-h-[48px] max-h-[200px]"
                 disabled={isStreaming}
+              />
+              <VoiceInputButton
+                onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
+                disabled={isStreaming}
+                className="h-12 w-12"
               />
               <Button
                 onClick={handleSend}
