@@ -724,6 +724,130 @@ return [{ json: { ...$input.first().json, score } }];`
         { node: 'Send Email Alert', type: 'main', index: 0 }
       ]]}
     }
+  },
+
+  // Lead Capture to Mya CRM
+  {
+    id: 'lead-capture-to-crm',
+    name: 'LinkedIn Lead Capture to Mya CRM',
+    description: 'Automatically capture leads from LinkedIn/Apollo and push them to your Mya CRM pipeline with lead scoring.',
+    industry: 'agency',
+    automationCategory: 'lead-generation',
+    complexity: 'beginner',
+    estimatedSetupTime: '10 min',
+    requiredCredentials: ['Apollo or LinkedIn Sales Navigator'],
+    tags: ['linkedin', 'apollo', 'crm', 'lead capture', 'mya'],
+    featured: true,
+    nodes: [
+      {
+        id: 'schedule-trigger',
+        name: 'Daily Lead Search',
+        type: 'n8n-nodes-base.scheduleTrigger',
+        typeVersion: 1.1,
+        position: [250, 300],
+        parameters: {
+          rule: {
+            interval: [{ field: 'days', daysInterval: 1 }]
+          }
+        }
+      },
+      {
+        id: 'apollo-search',
+        name: 'Search Apollo Contacts',
+        type: 'n8n-nodes-base.httpRequest',
+        typeVersion: 4.2,
+        position: [450, 300],
+        parameters: {
+          method: 'POST',
+          url: 'https://api.apollo.io/v1/mixed_people/search',
+          sendHeaders: true,
+          headerParameters: {
+            parameters: [
+              { name: 'Content-Type', value: 'application/json' },
+              { name: 'X-Api-Key', value: '={{$credentials.apolloApi.apiKey}}' }
+            ]
+          },
+          sendBody: true,
+          specifyBody: 'json',
+          jsonBody: '{"per_page": 25, "person_titles": ["CEO", "Founder", "CTO"]}'
+        }
+      },
+      {
+        id: 'filter-quality',
+        name: 'Filter Quality Leads',
+        type: 'n8n-nodes-base.filter',
+        typeVersion: 1,
+        position: [650, 300],
+        parameters: {
+          conditions: {
+            string: [
+              { value1: '={{$json.email}}', operation: 'isNotEmpty' }
+            ]
+          }
+        }
+      },
+      {
+        id: 'score-lead',
+        name: 'Score Lead',
+        type: 'n8n-nodes-base.code',
+        typeVersion: 2,
+        position: [850, 300],
+        parameters: {
+          jsCode: `// Score leads based on seniority and company size
+const title = $input.first().json.title || '';
+const employees = $input.first().json.organization?.estimated_num_employees || 0;
+let score = 50;
+
+if (title.includes('CEO') || title.includes('Founder')) score += 30;
+else if (title.includes('VP') || title.includes('Director')) score += 20;
+
+if (employees > 100) score += 20;
+else if (employees > 20) score += 10;
+
+return [{
+  json: {
+    ...$input.first().json,
+    lead_score: score,
+    estimated_value: score * 100
+  }
+}];`
+        }
+      },
+      {
+        id: 'push-to-crm',
+        name: 'Push to Mya CRM',
+        type: 'n8n-nodes-base.httpRequest',
+        typeVersion: 4.2,
+        position: [1050, 300],
+        parameters: {
+          method: 'POST',
+          url: 'https://vxceyvrsxslxdvnttxxp.supabase.co/functions/v1/lead-webhook',
+          sendHeaders: true,
+          headerParameters: {
+            parameters: [
+              { name: 'Content-Type', value: 'application/json' }
+            ]
+          },
+          sendBody: true,
+          specifyBody: 'json',
+          bodyParameters: {
+            parameters: [
+              { name: 'user_id', value: '={{$env.MYA_USER_ID}}' },
+              { name: 'name', value: '={{$json.first_name}} {{$json.last_name}}' },
+              { name: 'email', value: '={{$json.email}}' },
+              { name: 'company', value: '={{$json.organization?.name}}' },
+              { name: 'estimated_value', value: '={{$json.estimated_value}}' }
+            ]
+          }
+        }
+      }
+    ],
+    connections: {
+      'Daily Lead Search': { main: [[{ node: 'Search Apollo Contacts', type: 'main', index: 0 }]] },
+      'Search Apollo Contacts': { main: [[{ node: 'Filter Quality Leads', type: 'main', index: 0 }]] },
+      'Filter Quality Leads': { main: [[{ node: 'Score Lead', type: 'main', index: 0 }]] },
+      'Score Lead': { main: [[{ node: 'Push to Mya CRM', type: 'main', index: 0 }]] }
+    }
   }
 ];
 

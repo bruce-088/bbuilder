@@ -5,3 +5,4 @@
  export { LeadActivityTimeline } from "./LeadActivityTimeline";
  export { LeadStatsCard } from "./LeadStatsCard";
  export { SendEmailDialog } from "./SendEmailDialog";
+export { WebhookSetupPanel } from "./WebhookSetupPanel";
