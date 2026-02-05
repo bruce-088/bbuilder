@@ -4,3 +4,4 @@
  export { AddLeadDialog } from "./AddLeadDialog";
  export { LeadActivityTimeline } from "./LeadActivityTimeline";
  export { LeadStatsCard } from "./LeadStatsCard";
+ export { SendEmailDialog } from "./SendEmailDialog";
