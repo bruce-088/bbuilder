@@ -28,20 +28,30 @@
      // Verify JWT authentication
      const authHeader = req.headers.get("Authorization");
      if (!authHeader?.startsWith("Bearer ")) {
+      console.error("Missing or invalid Authorization header");
        return new Response(
          JSON.stringify({ error: "Unauthorized" }),
          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
        );
      }
  
+    const token = authHeader.replace("Bearer ", "");
+
      const supabase = createClient(
        Deno.env.get("SUPABASE_URL")!,
        Deno.env.get("SUPABASE_ANON_KEY")!,
-       { global: { headers: { Authorization: authHeader } } }
+      {
+        global: { headers: { Authorization: authHeader } },
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
      );
  
-     const { data: userData, error: userError } = await supabase.auth.getUser();
+    const { data: userData, error: userError } = await supabase.auth.getUser(token);
      if (userError || !userData?.user) {
+      console.error("User verification failed:", userError?.message);
        return new Response(
          JSON.stringify({ error: "Unauthorized" }),
          { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
@@ -106,7 +116,7 @@
      if (!resendApiKey) {
        console.error("RESEND_API_KEY not configured");
        return new Response(
-         JSON.stringify({ error: "Email service not configured" }),
+        JSON.stringify({ error: "Email service not configured. Please add RESEND_API_KEY to your secrets." }),
          { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
        );
      }
