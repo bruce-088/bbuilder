@@ -41,3 +41,6 @@ verify_jwt = false
 
 [functions.lead-webhook]
 verify_jwt = false
+ 
+ [functions.send-lead-email]
+ verify_jwt = false

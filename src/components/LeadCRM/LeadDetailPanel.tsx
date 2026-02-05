@@ -1,4 +1,6 @@
  import { useState } from "react";
+ import { SendEmailDialog } from "./SendEmailDialog";
+ import { useLeadEmail } from "@/hooks/useLeadEmail";
  import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
  import { Button } from "@/components/ui/button";
  import { Input } from "@/components/ui/input";
@@ -22,7 +24,8 @@
    Trophy,
    XCircle,
    Save,
-   Trash2
+   Trash2,
+   Send
  } from "lucide-react";
  import { LeadActivityTimeline } from "./LeadActivityTimeline";
  import type { Lead, LeadStage, LeadActivity, ActivityType } from "@/hooks/useLeadManagement";
@@ -39,7 +42,7 @@
    onFetchActivities: (leadId: string) => void;
  }
  
- const stageOptions: { value: LeadStage; label: string }[] = [
+const stageOptions: { value: LeadStage; label: string }[] = [
    { value: "captured", label: "Captured" },
    { value: "qualified", label: "Qualified" },
    { value: "outreach", label: "Outreach" },
@@ -62,6 +65,11 @@
    const [editedLead, setEditedLead] = useState<Partial<Lead>>({});
    const [noteContent, setNoteContent] = useState("");
    const [isSaving, setIsSaving] = useState(false);
+   const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+ 
+   const { sendEmail, isSending: isEmailSending } = useLeadEmail({
+     onAddActivity: onAddActivity,
+   });
  
    if (!lead) return null;
  
@@ -81,6 +89,10 @@
      if (!noteContent.trim()) return;
      await onAddActivity(lead.id, "note", noteContent.trim());
      setNoteContent("");
+   };
+ 
+   const handleSendEmail = async (subject: string, body: string): Promise<boolean> => {
+     return sendEmail({ lead, subject, body });
    };
  
    const handleDelete = async () => {
@@ -231,8 +243,8 @@
            </TabsContent>
  
            <TabsContent value="activity" className="space-y-4 mt-4">
-             {/* Add note */}
-             <div className="space-y-2">
+               {/* Add note / Send email */}
+               <div className="space-y-3">
                <Label>Add Note</Label>
                <Textarea
                  value={noteContent}
@@ -240,14 +252,25 @@
                  placeholder="Add a note about this lead..."
                  rows={3}
                />
-               <Button
-                 onClick={handleAddNote}
-                 disabled={!noteContent.trim()}
-                 size="sm"
-               >
-                 <MessageSquare className="h-4 w-4 mr-2" />
-                 Add Note
-               </Button>
+                 <div className="flex gap-2">
+                   <Button
+                     onClick={handleAddNote}
+                     disabled={!noteContent.trim()}
+                     size="sm"
+                   >
+                     <MessageSquare className="h-4 w-4 mr-2" />
+                     Add Note
+                   </Button>
+                   <Button
+                     onClick={() => setEmailDialogOpen(true)}
+                     size="sm"
+                     variant="outline"
+                     className="border-primary text-primary hover:bg-primary/10"
+                   >
+                     <Send className="h-4 w-4 mr-2" />
+                     Send Email
+                   </Button>
+                 </div>
              </div>
  
              {/* Activity timeline */}
@@ -261,6 +284,15 @@
              </div>
            </TabsContent>
          </Tabs>
+          
+          {/* Email Dialog */}
+          <SendEmailDialog
+            lead={lead}
+            open={emailDialogOpen}
+            onClose={() => setEmailDialogOpen(false)}
+            onSend={handleSendEmail}
+            isSending={isEmailSending}
+          />
        </SheetContent>
      </Sheet>
    );
