@@ -86,43 +86,76 @@ export function useAIProviders() {
     loadPreferences();
   }, [loadPreferences]);
 
-  const saveApiKey = async (provider: "openai" | "claude" | "perplexity" | "gemini" | "elevenlabs", apiKey: string): Promise<boolean> => {
+  const getProviderName = (p: AIProvider): string => {
+    switch (p) {
+      case "openai":
+        return "OpenAI";
+      case "claude":
+        return "Claude";
+      case "perplexity":
+        return "Perplexity";
+      case "gemini":
+        return "Gemini";
+      case "elevenlabs":
+        return "ElevenLabs";
+      case "lovable":
+      default:
+        return "Lovable AI";
+    }
+  };
+
+  const saveApiKey = async (
+    provider: "openai" | "claude" | "perplexity" | "gemini" | "elevenlabs",
+    apiKey: string
+  ): Promise<boolean> => {
     if (!user) {
       toast.error("Please sign in to save API keys");
       return false;
     }
+
+    const providerName = getProviderName(provider);
 
     setSaving(true);
     try {
       // First, test the API key
       const testResult = await testApiKey(provider, apiKey);
       if (!testResult) {
+        // Do not store invalid keys.
         return false;
       }
 
       // Use secure-api-keys edge function for encrypted storage
-      const { data, error: keyError } = await supabase.functions.invoke('secure-api-keys', {
-        body: { 
-          action: 'store', 
-          provider, 
-          apiKey, 
-          serviceType: 'ai_provider' 
-        }
+      const { data, error: keyError } = await supabase.functions.invoke("secure-api-keys", {
+        body: {
+          action: "store",
+          provider,
+          apiKey,
+          serviceType: "ai_provider",
+        },
       });
 
       if (keyError || !data?.success) {
-        console.error("Error saving API key:", keyError || data?.error);
-        toast.error("Failed to save API key securely");
+        const details =
+          (data && typeof data === "object" && "error" in data ? (data as any).error : undefined) ??
+          (keyError as any)?.message;
+
+        console.error("Error saving API key:", { provider, keyError, data });
+        toast.error(details ? `Failed to save ${providerName} key: ${details}` : `Failed to save ${providerName} key securely`);
         return false;
       }
 
       // Update user_ai_preferences
-      const updateField = 
-        provider === "openai" ? "openai_configured" : 
-        provider === "claude" ? "claude_configured" : 
-        provider === "gemini" ? "gemini_configured" :
-        provider === "elevenlabs" ? "elevenlabs_configured" :
-        "perplexity_configured";
+      const updateField =
+        provider === "openai"
+          ? "openai_configured"
+          : provider === "claude"
+            ? "claude_configured"
+            : provider === "gemini"
+              ? "gemini_configured"
+              : provider === "elevenlabs"
+                ? "elevenlabs_configured"
+                : "perplexity_configured";
+
       const { error: prefError } = await supabase
         .from("user_ai_preferences")
         .upsert(
@@ -135,6 +168,7 @@ export function useAIProviders() {
 
       if (prefError) {
         console.error("Error updating preferences:", prefError);
+        // Keep key stored even if preference flag update fails.
       }
 
       // Update local state
@@ -142,24 +176,23 @@ export function useAIProviders() {
         prev.map((p) => (p.id === provider ? { ...p, configured: true, available: true } : p))
       );
 
-      const providerName = 
-        provider === "openai" ? "OpenAI" : 
-        provider === "claude" ? "Claude" : 
-        provider === "gemini" ? "Gemini" :
-        provider === "elevenlabs" ? "ElevenLabs" :
-        "Perplexity";
       toast.success(`${providerName} connected securely!`);
       return true;
     } catch (err) {
       console.error("Error saving API key:", err);
-      toast.error("Failed to save API key");
+      toast.error(`Failed to save ${providerName} API key`);
       return false;
     } finally {
       setSaving(false);
     }
   };
 
-  const testApiKey = async (provider: "openai" | "claude" | "perplexity" | "gemini" | "elevenlabs", apiKey: string): Promise<boolean> => {
+  const testApiKey = async (
+    provider: "openai" | "claude" | "perplexity" | "gemini" | "elevenlabs",
+    apiKey: string
+  ): Promise<boolean> => {
+    const providerName = getProviderName(provider);
+
     setTesting(provider);
     try {
       const response = await supabase.functions.invoke("validate-api-key", {
@@ -167,27 +200,23 @@ export function useAIProviders() {
       });
 
       if (response.error) {
-        toast.error(`Invalid ${provider === "openai" ? "OpenAI" : "Claude"} API key`);
+        console.error("API key validation request failed:", { provider, error: response.error });
+        toast.error(response.error.message || `Failed to validate ${providerName} API key`);
         return false;
       }
 
       const data = response.data as { valid: boolean; error?: string };
-      const providerName = 
-        provider === "openai" ? "OpenAI" : 
-        provider === "claude" ? "Claude" : 
-        provider === "gemini" ? "Gemini" :
-        provider === "elevenlabs" ? "ElevenLabs" :
-        "Perplexity";
+
       if (!data.valid) {
         toast.error(data.error || `Invalid ${providerName} API key`);
         return false;
       }
 
-      toast.success("API key validated successfully!");
+      toast.success(`${providerName} API key validated successfully!`);
       return true;
     } catch (err) {
       console.error("Error testing API key:", err);
-      toast.error("Failed to validate API key");
+      toast.error(`Failed to validate ${providerName} API key`);
       return false;
     } finally {
       setTesting(null);
