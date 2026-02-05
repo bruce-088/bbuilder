@@ -73,6 +73,8 @@ import {
   WhatsNextCard 
 } from "@/components/MissionControl";
 import { useMissionProgress } from "@/hooks/useMissionProgress";
+import { useLeadManagement } from "@/hooks/useLeadManagement";
+import { LeadStatsCard } from "@/components/LeadCRM";
 import OnboardingTour, { useOnboardingTour } from "@/components/OnboardingTour";
 import { celebrateFirstIdea } from "@/lib/confetti";
 interface BusinessIdea {
@@ -139,6 +141,10 @@ export default function Dashboard() {
 
   // Onboarding tour
   const { showTour, completeTour, skipTour, resetTour } = useOnboardingTour();
+
+  // Lead management for stats widget
+  const { getStats, loading: leadsLoading } = useLeadManagement();
+  const leadStats = getStats();
 
   const industries = [
     { value: "any", label: "Any Industry (Surprise me!)" },
@@ -840,6 +846,9 @@ export default function Dashboard() {
                   {completedQuests.length > 0 && (
                     <XPProgress currentXP={xpEarned} />
                   )}
+                  
+                  {/* Lead Pipeline Stats */}
+                  <LeadStatsCard stats={leadStats} loading={leadsLoading} />
                 </>
               )}
               <WhatsNextCard
