@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 interface ValidateRequest {
-  provider: "openai" | "claude" | "perplexity" | "gemini";
+  provider: "openai" | "claude" | "perplexity" | "gemini" | "elevenlabs";
   apiKey: string;
 }
 
@@ -162,6 +162,40 @@ async function validateGemini(apiKey: string): Promise<{ valid: boolean; error?:
   }
 }
 
+async function validateElevenLabs(apiKey: string): Promise<{ valid: boolean; error?: string }> {
+  try {
+    // Use the user endpoint to validate the API key
+    const response = await fetch("https://api.elevenlabs.io/v1/user", {
+      method: "GET",
+      headers: {
+        "xi-api-key": apiKey,
+      },
+    });
+
+    if (response.ok) {
+      return { valid: true };
+    }
+
+    if (response.status === 401) {
+      return { valid: false, error: "Invalid API key" };
+    }
+
+    if (response.status === 429) {
+      // Rate limited but key is valid
+      return { valid: true };
+    }
+
+    const errorData = await response.json().catch(() => ({}));
+    return { 
+      valid: false, 
+      error: errorData.detail?.message || `ElevenLabs API error: ${response.status}` 
+    };
+  } catch (err) {
+    console.error("ElevenLabs validation error:", err);
+    return { valid: false, error: "Failed to connect to ElevenLabs" };
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -218,6 +252,9 @@ serve(async (req) => {
         break;
       case "gemini":
         result = await validateGemini(apiKey);
+        break;
+      case "elevenlabs":
+        result = await validateElevenLabs(apiKey);
         break;
       default:
         result = { valid: false, error: `Unknown provider: ${provider}` };
