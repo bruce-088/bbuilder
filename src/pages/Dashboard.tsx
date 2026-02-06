@@ -53,7 +53,8 @@ import {
   HelpCircle,
   Rocket,
   Trophy,
-  Eye
+  Eye,
+  Workflow
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -766,6 +767,10 @@ export default function Dashboard() {
             <span className="font-display font-bold text-xl">Mya</span>
           </div>
           <div className="flex items-center gap-2">
+            <Button onClick={() => navigate("/workflows")} variant="ghost" size="sm">
+              <Workflow className="w-4 h-4 mr-2" />
+              Workflows
+            </Button>
             <Button onClick={() => setShowHowToUse(true)} variant="ghost" size="sm">
               <HelpCircle className="w-4 h-4 mr-2" />
               How to Use
