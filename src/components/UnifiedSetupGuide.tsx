@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Users,
   Target,
@@ -33,8 +34,11 @@ import {
   ExternalLink,
   Sparkles,
   Bot,
+  Mic,
+  Rocket,
 } from "lucide-react";
 import { Json } from "@/integrations/supabase/types";
+import { useManualProgress } from "@/hooks/useManualProgress";
 
 interface BusinessIdeaData {
   id: string;
@@ -294,18 +298,28 @@ const capabilities: CapabilityArea[] = [
   },
 ];
 
+const QUICK_LAUNCH_PROMPT =
+  "Set up my business: add 3 sample leads, create a follow-up workflow, and give me a business summary";
+
 export default function UnifiedSetupGuide({
   trigger,
   businessIdea,
 }: UnifiedSetupGuideProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const { toggleStep, getCompleted, isStepDone } = useManualProgress(capabilities);
 
   const handleTryIt = (command: string) => {
     setOpen(false);
-    // Navigate to chat with a pre-filled message
     navigate("/chat/new", {
       state: { initialPrompt: command.replace(/"/g, "") },
+    });
+  };
+
+  const handleQuickLaunch = () => {
+    setOpen(false);
+    navigate("/chat/new", {
+      state: { initialPrompt: QUICK_LAUNCH_PROMPT },
     });
   };
 
@@ -349,7 +363,7 @@ export default function UnifiedSetupGuide({
           <ScrollArea className="flex-1 min-h-0 mt-4 -mx-6 px-6 [&>[data-radix-scroll-area-viewport]]:max-h-[55vh]">
             {/* Side by Side */}
             <TabsContent value="side-by-side" className="mt-0">
-              <Accordion type="multiple" className="space-y-2">
+              <Accordion type="multiple" defaultValue={["lead-gen"]} className="space-y-2">
                 {capabilities.map((cap) => (
                   <AccordionItem
                     key={cap.id}
@@ -357,9 +371,14 @@ export default function UnifiedSetupGuide({
                     className="border border-border/50 rounded-lg px-3 data-[state=open]:bg-card/50"
                   >
                     <AccordionTrigger className="hover:no-underline py-3">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1">
                         <cap.icon className="w-4 h-4 text-primary" />
                         <span className="font-medium text-sm">{cap.title}</span>
+                        {getCompleted(cap.id, cap.manual.steps.length) > 0 && (
+                          <Badge variant="secondary" className="text-xs ml-auto mr-2">
+                            {getCompleted(cap.id, cap.manual.steps.length)}/{cap.manual.steps.length}
+                          </Badge>
+                        )}
                       </div>
                     </AccordionTrigger>
                     <AccordionContent>
@@ -408,19 +427,31 @@ export default function UnifiedSetupGuide({
                               <p className="text-xs text-muted-foreground font-medium">
                                 Steps:
                               </p>
-                              <ol className="space-y-1">
+                              <ol className="space-y-1.5">
                                 {cap.manual.steps.map((step, i) => (
                                   <li
                                     key={i}
-                                    className="text-xs text-muted-foreground flex gap-2"
+                                    className="text-xs text-muted-foreground flex items-start gap-2"
                                   >
-                                    <span className="text-muted-foreground/50 font-mono">
-                                      {i + 1}.
+                                    <Checkbox
+                                      checked={isStepDone(cap.id, i)}
+                                      onCheckedChange={() => toggleStep(cap.id, i, cap.manual.steps.length)}
+                                      className="mt-0.5 h-3.5 w-3.5"
+                                    />
+                                    <span className={isStepDone(cap.id, i) ? "line-through opacity-50" : ""}>
+                                      {step}
                                     </span>
-                                    {step}
                                   </li>
                                 ))}
                               </ol>
+                              {/* Bridge CTA */}
+                              <button
+                                onClick={() => handleTryIt(cap.mya.commands[0])}
+                                className="mt-2 w-full text-left text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 transition-colors"
+                              >
+                                <Bot className="w-3 h-3" />
+                                <span>Or skip the rest — tell Mya: <em className="text-primary">{cap.mya.commands[0]}</em></span>
+                              </button>
                             </div>
                           </CardContent>
                         </Card>
@@ -480,6 +511,30 @@ export default function UnifiedSetupGuide({
 
             {/* Mya Only */}
             <TabsContent value="mya" className="mt-0 space-y-3">
+              {/* Quick Launch Hero */}
+              <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/30">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Rocket className="w-5 h-5 text-primary" />
+                    <span className="font-semibold">Do It All For Me</span>
+                  </div>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    One tap to get started — Mya will add sample leads, create a workflow, and summarize your business.
+                  </p>
+                  <Button onClick={handleQuickLaunch} className="w-full gap-2">
+                    <Sparkles className="w-4 h-4" />
+                    Quick Launch
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Voice Mode Hint */}
+              <div className="flex items-center gap-2 px-3 py-2 rounded-md bg-accent/10 border border-accent/20 text-xs text-muted-foreground">
+                <Mic className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+                <span>You can also <strong className="text-foreground">long-press the mic button</strong> to talk to Mya hands-free</span>
+              </div>
+
               <Card className="bg-primary/5 border-primary/20">
                 <CardContent className="p-4">
                   <div className="flex items-center gap-2 mb-2">
@@ -580,22 +635,41 @@ export default function UnifiedSetupGuide({
                         </div>
                       </div>
                       <div>
-                        <p className="text-xs text-muted-foreground font-medium mb-1.5">
-                          Setup steps:
-                        </p>
-                        <ol className="space-y-1.5">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <p className="text-xs text-muted-foreground font-medium">
+                            Setup steps:
+                          </p>
+                          {getCompleted(cap.id, cap.manual.steps.length) > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {getCompleted(cap.id, cap.manual.steps.length)}/{cap.manual.steps.length}
+                            </Badge>
+                          )}
+                        </div>
+                        <ol className="space-y-2">
                           {cap.manual.steps.map((step, i) => (
                             <li
                               key={i}
-                              className="text-sm text-muted-foreground flex gap-2"
+                              className="text-sm text-muted-foreground flex items-start gap-2"
                             >
-                              <span className="text-muted-foreground/50 font-mono text-xs mt-0.5">
-                                {i + 1}.
+                              <Checkbox
+                                checked={isStepDone(cap.id, i)}
+                                onCheckedChange={() => toggleStep(cap.id, i, cap.manual.steps.length)}
+                                className="mt-0.5"
+                              />
+                              <span className={isStepDone(cap.id, i) ? "line-through opacity-50" : ""}>
+                                {step}
                               </span>
-                              {step}
                             </li>
                           ))}
                         </ol>
+                        {/* Bridge CTA */}
+                        <button
+                          onClick={() => handleTryIt(cap.mya.commands[0])}
+                          className="mt-3 w-full text-left text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 transition-colors"
+                        >
+                          <Bot className="w-3 h-3" />
+                          <span>Or skip the rest — tell Mya: <em className="text-primary">{cap.mya.commands[0]}</em></span>
+                        </button>
                       </div>
                     </div>
                   </CardContent>
