@@ -10,6 +10,8 @@ interface CanvasProps {
   pan: { x: number; y: number };
   zoom: number;
   executionStatuses?: Record<string, string>;
+  connectingFrom: string | null;
+  connectingMousePos: { x: number; y: number } | null;
   onPanChange: (pan: { x: number; y: number }) => void;
   onZoomChange: (zoom: number) => void;
   onSelectNode: (id: string | null) => void;
@@ -19,12 +21,15 @@ interface CanvasProps {
   onAddNode: (type: NodeType, x: number, y: number) => void;
   onConnectStart: (id: string) => void;
   onConnectEnd: (id: string) => void;
+  onConnectMouseMove: (pos: { x: number; y: number }) => void;
+  onConnectCancel: () => void;
 }
 
 export function Canvas({
   nodes, edges, selectedNodeId, pan, zoom, executionStatuses,
+  connectingFrom, connectingMousePos,
   onPanChange, onZoomChange, onSelectNode, onMoveNode, onDeleteNode, onDeleteEdge,
-  onAddNode, onConnectStart, onConnectEnd,
+  onAddNode, onConnectStart, onConnectEnd, onConnectMouseMove, onConnectCancel,
 }: CanvasProps) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [isPanning, setIsPanning] = useState(false);
@@ -40,16 +45,53 @@ export function Canvas({
   }, [onSelectNode]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (connectingFrom && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = (e.clientX - rect.left - pan.x) / zoom;
+      const y = (e.clientY - rect.top - pan.y) / zoom;
+      onConnectMouseMove({ x, y });
+      return; // Don't pan while connecting
+    }
     if (!isPanning) return;
     const dx = e.clientX - lastMouse.current.x;
     const dy = e.clientY - lastMouse.current.y;
     lastMouse.current = { x: e.clientX, y: e.clientY };
     onPanChange({ x: pan.x + dx, y: pan.y + dy });
-  }, [isPanning, pan, onPanChange]);
+  }, [isPanning, pan, onPanChange, connectingFrom, zoom, onConnectMouseMove]);
 
-  const handleMouseUp = useCallback(() => {
+  const NODE_WIDTH = 192;
+  const NODE_HEIGHT = 72;
+
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
     setIsPanning(false);
-  }, []);
+    if (connectingFrom && canvasRef.current) {
+      const rect = canvasRef.current.getBoundingClientRect();
+      const mouseX = (e.clientX - rect.left - pan.x) / zoom;
+      const mouseY = (e.clientY - rect.top - pan.y) / zoom;
+      const SNAP_RADIUS = 30;
+
+      let bestNode: string | null = null;
+      let bestDist = SNAP_RADIUS;
+
+      for (const node of nodes) {
+        if (node.id === connectingFrom) continue;
+        if (node.type.includes("trigger")) continue; // triggers have no input handle
+        const inputX = node.position_x - 8;
+        const inputY = node.position_y + NODE_HEIGHT / 2;
+        const dist = Math.hypot(mouseX - inputX, mouseY - inputY);
+        if (dist < bestDist) {
+          bestDist = dist;
+          bestNode = node.id;
+        }
+      }
+
+      if (bestNode) {
+        onConnectEnd(bestNode);
+      } else {
+        onConnectCancel();
+      }
+    }
+  }, [connectingFrom, pan, zoom, nodes, onConnectEnd, onConnectCancel]);
 
   const handleWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault();
@@ -108,7 +150,7 @@ export function Canvas({
           transformOrigin: "0 0",
         }}
       >
-        <EdgeRenderer edges={edges} nodes={nodes} onDelete={onDeleteEdge} />
+        <EdgeRenderer edges={edges} nodes={nodes} onDelete={onDeleteEdge} connectingFromId={connectingFrom} connectingMousePos={connectingMousePos} />
         {nodes.map((node) => (
           <NodeRenderer
             key={node.id}

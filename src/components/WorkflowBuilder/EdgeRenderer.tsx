@@ -4,6 +4,8 @@ interface EdgeRendererProps {
   edges: WorkflowEdge[];
   nodes: WorkflowNode[];
   onDelete?: (edgeId: string) => void;
+  connectingFromId?: string | null;
+  connectingMousePos?: { x: number; y: number } | null;
 }
 
 const NODE_WIDTH = 192; // w-48 = 12rem = 192px
@@ -16,8 +18,20 @@ function getNodeCenter(node: WorkflowNode, side: "left" | "right") {
   };
 }
 
-export function EdgeRenderer({ edges, nodes, onDelete }: EdgeRendererProps) {
+export function EdgeRenderer({ edges, nodes, onDelete, connectingFromId, connectingMousePos }: EdgeRendererProps) {
   const nodeMap = new Map(nodes.map((n) => [n.id, n]));
+
+  // Render the temporary "connecting" line
+  let connectingPath: string | null = null;
+  if (connectingFromId && connectingMousePos) {
+    const sourceNode = nodeMap.get(connectingFromId);
+    if (sourceNode) {
+      const start = getNodeCenter(sourceNode, "right");
+      const end = connectingMousePos;
+      const dx = Math.abs(end.x - start.x) * 0.5;
+      connectingPath = `M ${start.x} ${start.y} C ${start.x + dx} ${start.y}, ${end.x - dx} ${end.y}, ${end.x} ${end.y}`;
+    }
+  }
 
   return (
     <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ overflow: "visible" }}>
@@ -39,26 +53,14 @@ export function EdgeRenderer({ edges, nodes, onDelete }: EdgeRendererProps) {
 
         return (
           <g key={edge.id}>
-            {/* Invisible wider path for click target */}
-            <path
-              d={path}
-              fill="none"
-              stroke="transparent"
-              strokeWidth={16}
-              className="pointer-events-auto cursor-pointer"
-              onClick={() => onDelete?.(edge.id)}
-            />
-            <path
-              d={path}
-              fill="none"
-              stroke="hsl(215, 20%, 35%)"
-              strokeWidth={2}
-              markerEnd="url(#arrowhead)"
-              className="transition-colors"
-            />
+            <path d={path} fill="none" stroke="transparent" strokeWidth={16} className="pointer-events-auto cursor-pointer" onClick={() => onDelete?.(edge.id)} />
+            <path d={path} fill="none" stroke="hsl(215, 20%, 35%)" strokeWidth={2} markerEnd="url(#arrowhead)" className="transition-colors" />
           </g>
         );
       })}
+      {connectingPath && (
+        <path d={connectingPath} fill="none" stroke="hsl(var(--primary))" strokeWidth={2} strokeDasharray="6 4" className="pointer-events-none" />
+      )}
     </svg>
   );
 }

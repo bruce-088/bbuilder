@@ -15,6 +15,7 @@ export function useWorkflowBuilder(workflowId?: string) {
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [connectingFrom, setConnectingFrom] = useState<string | null>(null);
+  const [connectingMousePos, setConnectingMousePos] = useState<{ x: number; y: number } | null>(null);
 
   // Canvas state
   const [pan, setPan] = useState({ x: 0, y: 0 });
@@ -163,6 +164,7 @@ export function useWorkflowBuilder(workflowId?: string) {
     workflow, setWorkflow, nodes, edges, selectedNode, selectedNodeId,
     loading, saving, pan, setPan, zoom, setZoom,
     connectingFrom, setConnectingFrom,
+    connectingMousePos, setConnectingMousePos,
     loadWorkflow, createWorkflow, saveWorkflow,
     addNode, updateNode, deleteNode, addEdge, deleteEdge, moveNode,
     setSelectedNodeId,

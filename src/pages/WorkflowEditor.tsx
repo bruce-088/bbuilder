@@ -20,6 +20,7 @@ export default function WorkflowEditor() {
     workflow, setWorkflow, nodes, edges, selectedNode, selectedNodeId,
     loading, saving, pan, setPan, zoom, setZoom,
     connectingFrom, setConnectingFrom,
+    connectingMousePos, setConnectingMousePos,
     loadWorkflow, createWorkflow, saveWorkflow,
     addNode, updateNode, deleteNode, addEdge, deleteEdge, moveNode,
     setSelectedNodeId,
@@ -46,6 +47,11 @@ export default function WorkflowEditor() {
   const handleConnectEnd = (nodeId: string) => {
     if (connectingFrom && connectingFrom !== nodeId) addEdge(connectingFrom, nodeId);
     setConnectingFrom(null);
+    setConnectingMousePos(null);
+  };
+  const handleConnectCancel = () => {
+    setConnectingFrom(null);
+    setConnectingMousePos(null);
   };
 
   const handleRun = async () => {
@@ -95,6 +101,8 @@ export default function WorkflowEditor() {
           pan={pan}
           zoom={zoom}
           executionStatuses={executionStatuses}
+          connectingFrom={connectingFrom}
+          connectingMousePos={connectingMousePos}
           onPanChange={setPan}
           onZoomChange={setZoom}
           onSelectNode={setSelectedNodeId}
@@ -104,6 +112,8 @@ export default function WorkflowEditor() {
           onAddNode={handleAddNode}
           onConnectStart={handleConnectStart}
           onConnectEnd={handleConnectEnd}
+          onConnectMouseMove={setConnectingMousePos}
+          onConnectCancel={handleConnectCancel}
         />
         {selectedNode && (
           <NodeInspector
