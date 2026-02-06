@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkflowBuilder } from "@/hooks/useWorkflowBuilder";
+import { useWorkflowExecution } from "@/hooks/useWorkflowExecution";
 import { Canvas } from "@/components/WorkflowBuilder/Canvas";
 import { NodePalette } from "@/components/WorkflowBuilder/NodePalette";
 import { NodeInspector } from "@/components/WorkflowBuilder/NodeInspector";
@@ -14,7 +15,6 @@ export default function WorkflowEditor() {
   const { id } = useParams<{ id: string }>();
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
-  const [running, setRunning] = useState(false);
 
   const {
     workflow, setWorkflow, nodes, edges, selectedNode, selectedNodeId,
@@ -24,6 +24,10 @@ export default function WorkflowEditor() {
     addNode, updateNode, deleteNode, addEdge, deleteEdge, moveNode,
     setSelectedNodeId,
   } = useWorkflowBuilder();
+
+  const {
+    executing, runWorkflow, getNodeStatus, nodeLogs,
+  } = useWorkflowExecution(workflow?.id);
 
   useEffect(() => {
     if (authLoading) return;
@@ -38,14 +42,9 @@ export default function WorkflowEditor() {
     }
   }, [id, user, authLoading]);
 
-  const handleConnectStart = (nodeId: string) => {
-    setConnectingFrom(nodeId);
-  };
-
+  const handleConnectStart = (nodeId: string) => setConnectingFrom(nodeId);
   const handleConnectEnd = (nodeId: string) => {
-    if (connectingFrom && connectingFrom !== nodeId) {
-      addEdge(connectingFrom, nodeId);
-    }
+    if (connectingFrom && connectingFrom !== nodeId) addEdge(connectingFrom, nodeId);
     setConnectingFrom(null);
   };
 
@@ -54,14 +53,18 @@ export default function WorkflowEditor() {
       toast.error("Add some nodes before running");
       return;
     }
-    setRunning(true);
-    toast.info("Workflow execution coming in the next phase!");
-    setTimeout(() => setRunning(false), 1500);
+    // Auto-save before running
+    await saveWorkflow();
+    await runWorkflow({});
   };
 
-  const handleAddNode = (type: NodeType, x: number, y: number) => {
-    addNode(type, x, y);
-  };
+  const handleAddNode = (type: NodeType, x: number, y: number) => addNode(type, x, y);
+
+  // Build execution statuses map
+  const executionStatuses: Record<string, string> = {};
+  for (const node of nodes) {
+    executionStatuses[node.id] = getNodeStatus(node.id);
+  }
 
   if (authLoading || loading) {
     return (
@@ -81,7 +84,7 @@ export default function WorkflowEditor() {
         onSave={saveWorkflow}
         onRun={handleRun}
         saving={saving}
-        running={running}
+        running={executing}
       />
       <div className="flex-1 flex overflow-hidden">
         <NodePalette onDragStart={() => {}} />
@@ -91,6 +94,7 @@ export default function WorkflowEditor() {
           selectedNodeId={selectedNodeId}
           pan={pan}
           zoom={zoom}
+          executionStatuses={executionStatuses}
           onPanChange={setPan}
           onZoomChange={setZoom}
           onSelectNode={setSelectedNodeId}
