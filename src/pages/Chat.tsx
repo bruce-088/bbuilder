@@ -933,20 +933,25 @@ export default function Chat() {
                   </div>
                 )}
                 <div className="flex gap-3">
-                  <Textarea
-                    ref={textareaRef}
-                    value={input}
-                    onChange={(e) => {
-                      setInput(e.target.value);
-                      e.target.style.height = "auto";
-                      e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
-                    }}
-                    onKeyDown={handleKeyDown}
-                    onPaste={handlePaste}
-                    placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"}
-                    className="resize-none min-h-[48px] max-h-[200px]"
-                    disabled={isStreaming}
-                  />
+                  <div className="relative flex-1">
+                    {cowork.isActive && (
+                      <Globe className="absolute left-3 top-3.5 w-4 h-4 text-primary animate-pulse pointer-events-none z-10" />
+                    )}
+                    <Textarea
+                      ref={textareaRef}
+                      value={input}
+                      onChange={(e) => {
+                        setInput(e.target.value);
+                        e.target.style.height = "auto";
+                        e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+                      }}
+                      onKeyDown={handleKeyDown}
+                      onPaste={handlePaste}
+                      placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"}
+                      className={`resize-none min-h-[48px] max-h-[200px] ${cowork.isActive ? "pl-9" : ""}`}
+                      disabled={isStreaming}
+                    />
+                  </div>
                   <VoiceInputButton
                     onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
                     disabled={isStreaming}
@@ -1396,20 +1401,25 @@ export default function Chat() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Dashboard
               </Button>
-              <Textarea
-                ref={footerTextareaRef}
-                value={input}
-                onChange={(e) => {
-                  setInput(e.target.value);
-                  e.target.style.height = "auto";
-                  e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
-                }}
-                onKeyDown={handleKeyDown}
-                onPaste={handlePaste}
-                placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"}
-                className="resize-none min-h-[48px] max-h-[200px]"
-                disabled={isStreaming}
-              />
+              <div className="relative flex-1">
+                {cowork.isActive && (
+                  <Globe className="absolute left-3 top-3.5 w-4 h-4 text-primary animate-pulse pointer-events-none z-10" />
+                )}
+                <Textarea
+                  ref={footerTextareaRef}
+                  value={input}
+                  onChange={(e) => {
+                    setInput(e.target.value);
+                    e.target.style.height = "auto";
+                    e.target.style.height = Math.min(e.target.scrollHeight, 200) + "px";
+                  }}
+                  onKeyDown={handleKeyDown}
+                  onPaste={handlePaste}
+                  placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"}
+                  className={`resize-none min-h-[48px] max-h-[200px] ${cowork.isActive ? "pl-9" : ""}`}
+                  disabled={isStreaming}
+                />
+              </div>
               <VoiceInputButton
                 onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
                 disabled={isStreaming}
