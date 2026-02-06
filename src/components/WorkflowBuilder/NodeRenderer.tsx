@@ -65,10 +65,11 @@ export function NodeRenderer({
     >
       {/* Input handle */}
       {!node.type.includes("trigger") && (
-        <div
-          className="node-handle absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-muted-foreground/40 bg-background hover:border-primary hover:bg-primary/20 transition-colors cursor-crosshair z-20"
+        <div className="node-handle absolute -left-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center cursor-crosshair z-20"
           onMouseUp={(e) => { e.stopPropagation(); onConnectEnd(node.id); }}
-        />
+        >
+          <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/40 bg-background hover:border-primary hover:bg-primary/20 transition-colors pointer-events-none" />
+        </div>
       )}
 
       {/* Node body */}
@@ -105,9 +106,11 @@ export function NodeRenderer({
 
       {/* Output handle */}
       <div
-        className="node-handle absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full border-2 border-muted-foreground/40 bg-background hover:border-primary hover:bg-primary/20 transition-colors cursor-crosshair z-20"
+        className="node-handle absolute -right-2.5 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center cursor-crosshair z-20"
         onMouseDown={(e) => { e.stopPropagation(); onConnectStart(node.id); }}
-      />
+      >
+        <div className="w-5 h-5 rounded-full border-2 border-muted-foreground/40 bg-background hover:border-primary hover:bg-primary/20 transition-colors pointer-events-none" />
+      </div>
     </div>
   );
 }
