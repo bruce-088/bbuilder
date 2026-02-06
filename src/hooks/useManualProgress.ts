@@ -6,6 +6,9 @@ const STORAGE_KEY = "setup_guide_progress";
 
 type ProgressState = Record<string, boolean[]>;
 
+// Use untyped client to access tables not yet in generated types
+const db = supabase as any;
+
 export function useManualProgress(capabilities: { id: string; manual: { steps: { text: string }[] } }[]) {
   const { user } = useAuth();
   const [progress, setProgress] = useState<ProgressState>(() => {
@@ -21,18 +24,24 @@ export function useManualProgress(capabilities: { id: string; manual: { steps: {
   // Load from DB on mount when authenticated
   useEffect(() => {
     if (!user || dbLoaded.current) return;
-
     const load = async () => {
-      const { data } = await supabase
-        .from("setup_guide_progress")
-        .select("progress")
-        .eq("user_id", user.id)
-        .maybeSingle();
+      try {
+        const { data, error } = await db
+          .from("setup_guide_progress")
+          .select("progress")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-      if (data?.progress) {
-        const dbProgress = data.progress as ProgressState;
+        if (error) {
+          console.warn("Failed to load setup guide progress from DB:", error.message);
+          dbLoaded.current = true;
+          return;
+        }
+
+        const dbProgress = (data?.progress as ProgressState) || {};
+        
+        // Always merge local + DB, then force a state update to trigger DB save
         setProgress((local) => {
-          // Merge: take the union (any step done in either source stays done)
           const merged: ProgressState = { ...local };
           for (const key of Object.keys(dbProgress)) {
             const dbArr = dbProgress[key] || [];
@@ -42,9 +51,12 @@ export function useManualProgress(capabilities: { id: string; manual: { steps: {
               (dbArr[i] ?? false) || (localArr[i] ?? false)
             );
           }
-          return merged;
+          return { ...merged };
         });
+      } catch (e) {
+        console.warn("Setup guide progress load error:", e);
       }
+      
       dbLoaded.current = true;
     };
     load();
@@ -60,12 +72,16 @@ export function useManualProgress(capabilities: { id: string; manual: { steps: {
 
     if (saveTimeout.current) clearTimeout(saveTimeout.current);
     saveTimeout.current = setTimeout(async () => {
-      await supabase
-        .from("setup_guide_progress")
-        .upsert(
-          { user_id: user.id, progress: progress as any },
-          { onConflict: "user_id" }
-        );
+      try {
+        await db
+          .from("setup_guide_progress")
+          .upsert(
+            { user_id: user.id, progress },
+            { onConflict: "user_id" }
+          );
+      } catch (e) {
+        console.warn("Failed to save setup guide progress:", e);
+      }
     }, 1000);
 
     return () => {
@@ -132,10 +148,12 @@ export function useManualProgress(capabilities: { id: string; manual: { steps: {
     setProgress({});
     try { localStorage.removeItem(STORAGE_KEY); } catch {}
     if (user) {
-      await supabase
-        .from("setup_guide_progress")
-        .delete()
-        .eq("user_id", user.id);
+      try {
+        await db
+          .from("setup_guide_progress")
+          .delete()
+          .eq("user_id", user.id);
+      } catch {}
     }
   }, [user]);
 
