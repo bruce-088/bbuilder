@@ -76,7 +76,7 @@ import {
   DailyBriefing,
 } from "@/components/MissionControl";
 import { useMissionProgress } from "@/hooks/useMissionProgress";
-import { useMissionIntelligence } from "@/hooks/useMissionIntelligence";
+import { useMissionIntelligenceContext } from "@/contexts/MissionIntelligenceContext";
 import { useLeadManagement } from "@/hooks/useLeadManagement";
 import { LeadStatsCard } from "@/components/LeadCRM";
 import OnboardingTour, { useOnboardingTour } from "@/components/OnboardingTour";
@@ -143,7 +143,7 @@ export default function Dashboard() {
     refreshMission 
   } = useMissionProgress();
 
-  // Mission Intelligence (event-driven progress)
+  // Mission Intelligence (event-driven progress) - from global provider
   const {
     completedQuests: eventCompletedQuests,
     totalXP,
@@ -152,13 +152,7 @@ export default function Dashboard() {
     getNextAction,
     getRecentEvents,
     loading: intelligenceLoading,
-  } = useMissionIntelligence();
-
-  // Register emitEvent globally so other hooks can use it
-  useEffect(() => {
-    (window as any).__emitMissionEvent = emitEvent;
-    return () => { delete (window as any).__emitMissionEvent; };
-  }, [emitEvent]);
+  } = useMissionIntelligenceContext();
 
   // Merge completed quests from both old and new systems
   const mergedCompletedQuests = [...new Set([...completedQuests, ...eventCompletedQuests])];
