@@ -1,53 +1,53 @@
 
 
-# Transform Manual Path into an Interactive Course
+# Boost User Confidence in the Interactive Course
 
-## Overview
+## The Problem
 
-Replace the current checklist-style manual steps with a guided, step-by-step interactive course. Users progress through one step at a time with rich context, tips, and the ability to ask Mya for help at each step -- turning a wall of instructions into a focused learning experience.
+Right now, the course tells users **what** to do and **why**, but it doesn't reassure them they're on the right track. There's no social proof, no encouragement between steps, and no sense of "others have done this too." Users need emotional momentum, not just instructions.
 
----
+## What Changes
 
-## How It Works
+### 1. Motivational Micro-Messages After Each Step
 
-The manual tab and the manual column in the side-by-side view will gain a new "course mode" that presents steps one at a time instead of all at once.
+When a user clicks "Mark Complete & Continue," a brief animated encouragement appears before the next step slides in. These rotate through a curated list of confidence-building phrases:
 
-### Step-by-Step Flow
+- "Nice. You're ahead of 90% of people who never start."
+- "That's one less thing between you and your first customer."
+- "Momentum is building. Keep going."
+- "Most people quit before this step. Not you."
+- "This is exactly how $10K/month businesses get built."
 
-1. User sees only the **current step** prominently displayed, with a step counter (e.g., "Step 2 of 5")
-2. Each step shows:
-   - The step instruction (what to do)
-   - A short **"Why this matters"** explanation
-   - Relevant **tool links** for that specific step (e.g., link to Apollo.io only on the "Sign up for Apollo" step)
-   - A **"Stuck? Ask Mya"** button that sends a contextual help prompt
-3. Clicking **"Mark Complete and Continue"** checks off the step and advances to the next
-4. A **progress bar** at the top of each category shows overall completion
-5. Users can go back to review previous steps (shown as collapsed/completed)
-6. When all steps in a category are done, a completion card appears with a suggestion to move to the next category
+This is a 1-2 second toast-like message inside the card area (not a system toast), then it fades and reveals the next step.
 
-### Data Changes
+### 2. Confidence Indicators on Each Step Card
 
-The `capabilities` data structure gets additional fields per step:
+Add a small "trust signal" below the "Why this matters" section showing how this step connects to the bigger picture:
 
-- `why`: A short sentence explaining why this step matters (e.g., "Domain verification prevents your emails from landing in spam")
-- `helpPrompt`: A Mya command the user can send if stuck (e.g., "Help me set up email domain verification")
-- `tools`: Which tools from the category are relevant to this specific step
+- A one-line outcome statement per step: e.g., **"After this step, you'll have: A verified list of 50+ decision-makers"**
+- Styled as a subtle green-tinted row with a checkmark-circle icon
 
-### Category-Level Progress
+This shifts the framing from "task to complete" to "outcome to earn."
 
-Each category card shows:
-- A thin progress bar at the top
-- "Step X of Y" indicator
-- Overall course progress across all categories in a summary header (e.g., "12 of 33 steps completed")
+### 3. Milestone Encouragement Cards
 
----
+At key progress milestones (after completing 25%, 50%, 75% of all steps), inject a small encouragement card into the progress header area:
 
-## Visual Design
+- **25%** -- "You've built your foundation. Most solopreneurs never get this far."
+- **50%** -- "Halfway there. Your business infrastructure is taking shape."
+- **75%** -- "Almost done. You're in the top 5% of action-takers."
 
-- Current step: Full-size card with instruction, context, and action buttons
-- Completed steps: Collapsed single line with checkmark and strikethrough text
-- Future steps: Hidden (not shown until reached) to reduce overwhelm
-- Transition: Smooth animation when advancing between steps using framer-motion
+These appear as animated badges/cards near the overall progress bar.
+
+### 4. "You'll Have Built" Summary on Each Category
+
+Add a short outcome summary at the top of each category card showing the end result of completing all steps:
+
+- Lead Generation: "A pipeline of 50+ qualified prospects ready for outreach"
+- Outreach: "An automated email sequence that runs while you sleep"
+- Closing: "A payment system that gets you paid the same day you close"
+
+This gives users a clear picture of the tangible result before they start.
 
 ---
 
@@ -55,28 +55,40 @@ Each category card shows:
 
 ### Files Modified
 
-1. **`src/components/UnifiedSetupGuide.tsx`**
-   - Expand the `CapabilityArea` interface: each step becomes an object `{ text: string; why: string; helpPrompt: string; relevantTools?: string[] }` instead of a plain string
-   - Update the `capabilities` array with enriched step data for all 7 categories (33 total steps)
-   - Replace the step list rendering in both the "manual" tab and the "side-by-side" manual column with a new `CourseStepView` inline component
-   - Add a summary progress header at the top of the manual tab
+1. **`src/components/SetupGuide/CourseStepView.tsx`**
+   - Add a `CourseStep.outcome` field to the interface (what you'll have after this step)
+   - Add a `CourseStep.encouragement` optional field or use a shared encouragement pool
+   - Show the outcome line below "Why this matters" with a target/trophy icon
+   - Add an animated encouragement message state that briefly shows between step transitions
+   - Add category-level outcome summary prop and render it above the progress bar
 
-2. **`src/hooks/useManualProgress.ts`**
-   - Add a `getCurrentStep(capId, totalSteps)` function that returns the index of the first incomplete step (used to auto-focus the current step)
-   - Add a `getOverallProgress()` function that returns total completed / total steps across all categories
+2. **`src/components/UnifiedSetupGuide.tsx`**
+   - Add `outcome` field to every step in the `capabilities` data (33 steps)
+   - Add a `categoryOutcome` string to each capability
+   - Render milestone encouragement cards in the "Your Progress" header based on percentage thresholds (25/50/75%)
+   - Pass `categoryOutcome` to `CourseStepView`
 
-3. **New component: `src/components/SetupGuide/CourseStepView.tsx`**
-   - Receives: category data, current step index, toggle/complete callbacks
-   - Renders the focused single-step UI with progress bar, instruction card, and navigation
-   - Handles "Mark Complete and Continue" logic
-   - Renders completed steps as collapsed items above the current step
-   - Shows completion celebration when all steps are done
+### Data Additions Per Step
+
+Each of the 33 steps gets one new field:
+
+```text
+outcome: "A verified list of 50+ decision-makers"
+```
+
+Each of the 7 categories gets one new field:
+
+```text
+categoryOutcome: "A pipeline of qualified prospects ready for outreach"
+```
+
+### Animation Details
+
+- Encouragement message: `framer-motion` fade-in/out with 1.5s display time using `AnimatePresence`
+- Milestone cards: Scale-in animation matching the existing completion celebration style
+- Outcome line: Static, no animation needed
 
 ### No New Dependencies
 
-Uses existing components: Progress bar, Card, Badge, Button, Checkbox, and framer-motion (already installed).
-
-### localStorage
-
-Same `setup_guide_progress` key -- no migration needed. The boolean array format already supports step-by-step tracking.
+Uses existing framer-motion, lucide-react icons (Target, Trophy, Flame), and shadcn Badge/Card components.
 
