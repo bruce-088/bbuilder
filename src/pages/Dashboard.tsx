@@ -73,12 +73,9 @@ import ProgressIndicator from "@/components/ProgressIndicator";
 import { 
   CountdownTimer, 
   XPProgress, 
-  AchievementBadges, 
   MissionHQCard,
-  WhatsNextCard,
   ActivityFeed,
   MomentumCard,
-  DailyBriefing,
   TodaysTasks,
 } from "@/components/MissionControl";
 import { capabilities } from "@/components/UnifiedSetupGuide";
@@ -802,18 +799,6 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
-          {/* Daily Briefing - Top of Dashboard */}
-          {businessIdeas.length > 0 && (
-            <div className="mb-6">
-              <DailyBriefing
-                completedQuests={mergedCompletedQuests}
-                totalXP={mergedXP}
-                momentumCount={momentumCount}
-                nextAction={getNextAction()}
-              />
-            </div>
-          )}
-
           {/* Today's Tasks */}
           <TodaysTasks
             onNavigateToChat={async (prompt) => {
@@ -841,7 +826,7 @@ export default function Dashboard() {
                     <p className="text-muted-foreground text-sm">
                       {businessIdeas.length === 0 
                         ? "Your AI business coach. Let's build your $10K/month empire together."
-                        : "Create a fully functioning $10K/month empire and land your first customer in 14 days or less"
+                        : `${momentumCount > 0 ? `${momentumCount} actions today · ` : ''}${getNextAction()?.title ? `Next: ${getNextAction()?.title}` : 'Build your $10K/month empire'}`
                       }
                     </p>
                   </div>
@@ -857,6 +842,7 @@ export default function Dashboard() {
               ) : (
                 <>
                   <MissionHQCard
+                    // ... keep existing props
                     completedQuests={mergedCompletedQuests}
                     currentStage={currentStage}
                     onAction={() => {
@@ -907,12 +893,8 @@ export default function Dashboard() {
                         sale: steps.some(s => s.toLowerCase().includes('sale') || s.toLowerCase().includes('customer')),
                       };
                     })()}
+                    unlockedAchievements={unlockedAchievements}
                   />
-
-                  {/* Achievements - only show when user has progress */}
-                  {mergedCompletedQuests.length > 0 && (
-                    <AchievementBadges unlockedAchievements={unlockedAchievements} />
-                  )}
                 </>
               )}
             </div>
@@ -942,47 +924,21 @@ export default function Dashboard() {
                   <RevenueCard />
                 </>
               )}
-              <WhatsNextCard
-                completedQuests={mergedCompletedQuests}
-                currentStage={currentStage}
-                hasBusinessIdeas={businessIdeas.length > 0}
-                businessIdeas={businessIdeasWithProgress.map(idea => ({
-                  id: idea.id,
-                  business_name: idea.business_name,
-                  niche: idea.niche,
-                  completedSteps: idea.completedSteps || []
-                }))}
-                activeQuestId={activeQuestId}
-                onGenerateIdea={openIndustryDialog}
-                onViewIdea={() => {
-                  if (activeQuestId) {
-                    setSelectedIdeaId(activeQuestId);
-                  } else if (businessIdeas.length > 0) {
-                    setSelectedIdeaId(businessIdeas[0].id);
-                  }
-                }}
-                onStartChat={handleNewChat}
-                onSelectIdea={(ideaId) => {
-                  setActiveQuestId(ideaId);
-                  setSelectedIdeaId(ideaId);
-                  toast.success("Quest activated! Your progress is now tracked.");
-                }}
-              />
             </div>
           </div>
 
 
 
 
-          {/* Activity Feed */}
+          {/* Activity Feed - Collapsible */}
           {businessIdeas.length > 0 && (
             <div className="mb-8">
-              <ActivityFeed events={getRecentEvents(5)} compact />
+              <ActivityFeed events={getRecentEvents(5)} compact collapsible />
             </div>
           )}
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
             {[
               { label: "Add a Lead", icon: UserPlus, onClick: () => navigate("/leads"), color: "bg-primary/20", iconColor: "text-primary" },
               { label: "Log Revenue", icon: DollarSign, onClick: async () => {
@@ -996,8 +952,6 @@ export default function Dashboard() {
                 if (data) navigate(`/chat/${data.id}`, { state: { initialPrompt: "Draft a follow-up email for my warmest lead" } });
               }, color: "bg-accent/20", iconColor: "text-accent" },
               { label: "Check Pipeline", icon: BarChart3, onClick: () => navigate("/leads"), color: "bg-chart-4/20", iconColor: "text-chart-4" },
-              { label: "Chat with Mya", icon: MessageSquare, onClick: handleNewChat, color: "bg-primary/20", iconColor: "text-primary" },
-              { label: "Generate Idea", icon: Sparkles, onClick: openIndustryDialog, color: "bg-accent/20", iconColor: "text-accent" },
             ].map((action) => (
               <Card key={action.label} className="glass card-hover cursor-pointer group" onClick={action.onClick}>
                 <CardContent className="p-3 flex items-center gap-3">
