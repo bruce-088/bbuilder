@@ -42,11 +42,15 @@ export async function streamChat({
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
 
   try {
+    // Get the current user's session token for auth
+    const { data: { session } } = await supabase.auth.getSession();
+    const authToken = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
     const response = await fetch(url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({ messages, type, industry, n8nContext }),
     });
