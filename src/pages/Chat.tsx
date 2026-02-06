@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams, Navigate, useLocation } from "
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { streamChat, Message, addMemories, searchMemories, N8nContext } from "@/lib/ai";
+import { useCoworkMode } from "@/hooks/useCoworkMode";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -17,7 +18,7 @@ import {
   Loader2,
   User,
   Lightbulb,
-  Bookmark,
+  Globe,
   BookmarkCheck,
   Workflow,
   Wrench,
@@ -34,7 +35,8 @@ import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import SavePromptBanner from "@/components/SavePromptBanner";
 import PostSaveDialog from "@/components/PostSaveDialog";
-import { WorkflowContextPanel, VerifyFixButton, VoiceInputButton, AudioPlaybackButton } from "@/components/Chat";
+import { WorkflowContextPanel, VerifyFixButton, VoiceInputButton, AudioPlaybackButton, CoworkExecutionCard, CoworkBrowserPanel } from "@/components/Chat";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { useN8nWorkflowContext } from "@/hooks/useN8nWorkflowContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
@@ -47,6 +49,7 @@ interface ChatMessage {
   role: "user" | "assistant";
   content: string;
   savedAsIdea?: boolean;
+  coworkExecution?: import("@/hooks/useCoworkMode").CoworkExecution;
 }
 
 interface ChatNavigationState {
@@ -96,6 +99,25 @@ export default function Chat() {
 
   // n8n Workflow Context hook
   const workflowContext = useN8nWorkflowContext(id);
+
+  // Cowork mode hook
+  const cowork = useCoworkMode();
+  const [showBrowserPanel, setShowBrowserPanel] = useState(false);
+
+  // Sync cowork execution status back into chat messages
+  useEffect(() => {
+    if (!cowork.currentExecution) return;
+    cowork.syncBrowserbaseStatus();
+    
+    // Update the message that has this execution
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.coworkExecution?.id === cowork.currentExecution?.id
+          ? { ...m, coworkExecution: cowork.currentExecution }
+          : m
+      )
+    );
+  }, [cowork.currentExecution?.status, cowork.browserbaseStatus, cowork.currentActionIndex]);
 
   // Handle paste event for screenshots
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
@@ -570,6 +592,49 @@ export default function Chat() {
     setMessages((prev) => [...prev, userMessage]);
     await saveMessage("user", messageContent);
 
+    // ===== COWORK MODE ROUTING =====
+    if (cowork.isActive) {
+      setIsStreaming(true);
+
+      const n8nContextForCowork = workflowContext.getContextForAI();
+
+      const conversationHistory = messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map((m) => ({ role: m.role, content: m.content }));
+
+      const execution = await cowork.executeCoworkMessage(
+        userContent,
+        conversationHistory,
+        n8nContextForCowork ? {
+          workflowName: n8nContextForCowork.workflowName,
+          workflowId: n8nContextForCowork.workflowId,
+          nodes: n8nContextForCowork.nodes,
+        } : undefined
+      );
+
+      if (execution) {
+        // Show browser panel when executing
+        if (execution.status === "executing") {
+          setShowBrowserPanel(true);
+        }
+
+        // Add Mya's narration as an assistant message with the execution card attached
+        const assistantId = crypto.randomUUID();
+        const assistantMessage: ChatMessage = {
+          id: assistantId,
+          role: "assistant",
+          content: execution.narration,
+          coworkExecution: execution,
+        };
+        setMessages((prev) => [...prev, assistantMessage]);
+        await saveMessage("assistant", execution.narration);
+      }
+
+      setIsStreaming(false);
+      return;
+    }
+
+    // ===== NORMAL CHAT FLOW =====
     setIsStreaming(true);
 
     // Search for relevant memories
@@ -733,7 +798,7 @@ export default function Chat() {
                 <Button
                   variant={showN8nContext ? "secondary" : "ghost"}
                   size="sm"
-                  className="ml-auto gap-2"
+                  className="gap-2"
                   onClick={() => setShowN8nContext(!showN8nContext)}
                 >
                   <Workflow className="w-4 h-4" />
@@ -745,6 +810,27 @@ export default function Chat() {
               </TooltipContent>
             </Tooltip>
           )}
+
+          {/* Cowork Mode Toggle */}
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={cowork.isActive ? "default" : "ghost"}
+                size="sm"
+                className={`gap-2 ${!(showN8nContext || workflowContext.currentSnapshot) ? "ml-auto" : ""} ${cowork.isActive ? "bg-primary text-primary-foreground" : ""}`}
+                onClick={cowork.toggleCoworkMode}
+              >
+                <Globe className="w-4 h-4" />
+                <span className="hidden sm:inline">Cowork</span>
+                {cowork.isActive && (
+                  <span className="inline-flex h-2 w-2 rounded-full bg-green-400 animate-pulse" />
+                )}
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>{cowork.isActive ? "Disable browser control mode" : "Enable browser control — Mya will control your n8n instance"}</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
       </header>
 
@@ -770,8 +856,10 @@ export default function Chat() {
         )}
       </AnimatePresence>
 
-      {/* Messages */}
-      <main ref={mainRef} className="relative z-10 flex-1 overflow-y-auto">
+      {/* Messages + Browser Panel */}
+      <ResizablePanelGroup direction="horizontal" className="relative z-10 flex-1">
+        <ResizablePanel defaultSize={cowork.isActive && showBrowserPanel ? 60 : 100} minSize={40}>
+          <main ref={mainRef} className="h-full overflow-y-auto">
         <div className="container mx-auto max-w-5xl px-4 py-6">
           {loading ? (
             <div className="flex items-center justify-center h-64">
@@ -923,6 +1011,12 @@ export default function Chat() {
                         <p className="whitespace-pre-wrap">{message.content}</p>
                       )}
                     </div>
+                    {/* Cowork execution card */}
+                    {message.coworkExecution && (
+                      <div className="mt-2">
+                        <CoworkExecutionCard execution={message.coworkExecution} />
+                      </div>
+                    )}
                     {/* Audio playback button for Mya's responses */}
                     {message.role === "assistant" && message.content && !isStreaming && (
                       <div className="flex items-center gap-1">
@@ -1034,7 +1128,22 @@ export default function Chat() {
 
           <div ref={messagesEndRef} />
         </div>
-      </main>
+        </main>
+        </ResizablePanel>
+
+        {/* Browser Panel */}
+        {cowork.isActive && showBrowserPanel && (
+          <>
+            <ResizableHandle withHandle />
+            <ResizablePanel defaultSize={40} minSize={25} maxSize={60}>
+              <CoworkBrowserPanel
+                debugUrl={cowork.debugUrl}
+                onClose={() => setShowBrowserPanel(false)}
+              />
+            </ResizablePanel>
+          </>
+        )}
+      </ResizablePanelGroup>
 
       {/* Floating Toolbar */}
       <AnimatePresence>
