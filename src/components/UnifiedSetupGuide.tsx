@@ -59,6 +59,8 @@ interface BusinessIdeaData {
 interface UnifiedSetupGuideProps {
   trigger?: React.ReactNode;
   businessIdea?: BusinessIdeaData;
+  externalOpen?: boolean;
+  onExternalOpenChange?: (open: boolean) => void;
 }
 
 export interface CapabilityArea {
@@ -275,9 +277,20 @@ const QUICK_LAUNCH_PROMPT =
 export default function UnifiedSetupGuide({
   trigger,
   businessIdea,
+  externalOpen,
+  onExternalOpenChange,
 }: UnifiedSetupGuideProps) {
   const navigate = useNavigate();
-  const [open, setOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = externalOpen !== undefined;
+  const open = isControlled ? externalOpen : internalOpen;
+  const setOpen = (v: boolean) => {
+    if (isControlled) {
+      onExternalOpenChange?.(v);
+    } else {
+      setInternalOpen(v);
+    }
+  };
   const { toggleStep, markStepDone, getCompleted, isStepDone, getCurrentStep, getOverallProgress, resetProgress, hasAnyProgress } = useManualProgress(capabilities);
 
   const handleTryIt = (command: string) => {

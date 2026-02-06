@@ -84,6 +84,7 @@ import {
   UnifiedProgressCard,
 } from "@/components/MissionControl";
 import { capabilities } from "@/components/UnifiedSetupGuide";
+import UnifiedSetupGuide from "@/components/UnifiedSetupGuide";
 import { useMissionProgress } from "@/hooks/useMissionProgress";
 import { useMissionIntelligenceContext } from "@/contexts/MissionIntelligenceContext";
 import { useLeadManagement } from "@/hooks/useLeadManagement";
@@ -1645,6 +1646,12 @@ export default function Dashboard() {
         open={showHowToUse}
         onOpenChange={setShowHowToUse}
         onRestartTour={resetTour}
+      />
+
+      {/* Setup Guide Dialog */}
+      <UnifiedSetupGuide
+        externalOpen={showSetupGuide}
+        onExternalOpenChange={setShowSetupGuide}
       />
 
       {/* Onboarding Tour */}
