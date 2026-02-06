@@ -336,6 +336,102 @@ async function executeDelay(node: WorkflowNode, input: unknown): Promise<unknown
   return input;
 }
 
+// ── Database Query Executor ────────────────────────────────────
+async function executeDatabaseQuery(
+  node: WorkflowNode,
+  input: unknown,
+  supabase: ReturnType<typeof createClient>
+): Promise<unknown> {
+  const cfg = node.config ?? {};
+  let table = (cfg.table as string) || "";
+  const operation = (cfg.operation as string) || "select";
+  let filterColumn = (cfg.filter_column as string) || "";
+  let filterValue = (cfg.filter_value as string) || "";
+  const columns = (cfg.columns as string) || "*";
+
+  if (!table) throw new Error("Database Query node has no table configured");
+
+  // Template variable substitution
+  if (input && typeof input === "object") {
+    for (const [k, v] of Object.entries(input as Record<string, unknown>)) {
+      table = table.replace(`{{${k}}}`, String(v));
+      filterColumn = filterColumn.replace(`{{${k}}}`, String(v));
+      filterValue = filterValue.replace(`{{${k}}}`, String(v));
+    }
+  }
+
+  switch (operation) {
+    case "select": {
+      let query = supabase.from(table).select(columns);
+      if (filterColumn && filterValue) query = query.eq(filterColumn, filterValue);
+      const { data, error } = await query;
+      if (error) throw new Error(`DB select error: ${error.message}`);
+      return data;
+    }
+    case "insert": {
+      const row = (input && typeof input === "object") ? input : {};
+      const { data, error } = await supabase.from(table).insert(row as Record<string, unknown>).select();
+      if (error) throw new Error(`DB insert error: ${error.message}`);
+      return data;
+    }
+    case "update": {
+      if (!filterColumn || !filterValue) throw new Error("Update requires filter column and value");
+      const updates = (input && typeof input === "object") ? input : {};
+      const { data, error } = await supabase.from(table).update(updates as Record<string, unknown>).eq(filterColumn, filterValue).select();
+      if (error) throw new Error(`DB update error: ${error.message}`);
+      return data;
+    }
+    case "delete": {
+      if (!filterColumn || !filterValue) throw new Error("Delete requires filter column and value");
+      const { data, error } = await supabase.from(table).delete().eq(filterColumn, filterValue).select();
+      if (error) throw new Error(`DB delete error: ${error.message}`);
+      return data;
+    }
+    default:
+      throw new Error(`Unsupported DB operation: ${operation}`);
+  }
+}
+
+// ── Loop / Iterator Executor ──────────────────────────────────
+function executeLoop(node: WorkflowNode, input: unknown): unknown {
+  const cfg = node.config ?? {};
+  const arrayField = (cfg.array_field as string) || "items";
+
+  if (!input || typeof input !== "object") return [];
+  const arr = (input as Record<string, unknown>)[arrayField];
+  if (!Array.isArray(arr)) return [input];
+
+  // Output the array items — downstream nodes receive the collected array
+  return arr;
+}
+
+// ── Merge Executor ────────────────────────────────────────────
+function executeMerge(node: WorkflowNode, input: unknown, parentOutputs: unknown[]): unknown {
+  const strategy = (node.config?.strategy as string) || "combine";
+
+  switch (strategy) {
+    case "combine": {
+      const merged: Record<string, unknown> = {};
+      for (const po of parentOutputs) {
+        if (po && typeof po === "object" && !Array.isArray(po)) Object.assign(merged, po);
+      }
+      return merged;
+    }
+    case "wait_all":
+      return parentOutputs;
+    case "append": {
+      const result: unknown[] = [];
+      for (const po of parentOutputs) {
+        if (Array.isArray(po)) result.push(...po);
+        else result.push(po);
+      }
+      return result;
+    }
+    default:
+      return input;
+  }
+}
+
 async function executeEmailSend(node: WorkflowNode, input: unknown): Promise<unknown> {
   const cfg = node.config ?? {};
   const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
@@ -411,14 +507,14 @@ serve(async (req) => {
       const node = nodeMap.get(nodeId)!;
 
       const parents = parentMap.get(nodeId) ?? [];
+      const parentOutputs = parents.map((pid) => outputs.get(pid));
       let input: unknown;
       if (parents.length === 0) input = trigger_data ?? {};
-      else if (parents.length === 1) input = outputs.get(parents[0]);
+      else if (parents.length === 1) input = parentOutputs[0];
       else {
         const merged: Record<string, unknown> = {};
-        for (const pid of parents) {
-          const pOut = outputs.get(pid);
-          if (pOut && typeof pOut === "object") Object.assign(merged, pOut);
+        for (const po of parentOutputs) {
+          if (po && typeof po === "object") Object.assign(merged, po);
         }
         input = merged;
       }
@@ -464,6 +560,15 @@ serve(async (req) => {
             break;
           case "email_send":
             output = await executeEmailSend(node, input);
+            break;
+          case "database_query":
+            output = await executeDatabaseQuery(node, input, supabase);
+            break;
+          case "loop":
+            output = executeLoop(node, input);
+            break;
+          case "merge":
+            output = executeMerge(node, input, parentOutputs);
             break;
           default:
             output = input;
