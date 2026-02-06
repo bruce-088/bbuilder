@@ -37,12 +37,14 @@ import {
   Mic,
   Rocket,
   RotateCcw,
+  Flame,
+  Trophy,
 } from "lucide-react";
 import { Json } from "@/integrations/supabase/types";
 import { useManualProgress } from "@/hooks/useManualProgress";
 import CourseStepView, { type CourseStep } from "@/components/SetupGuide/CourseStepView";
 import { celebrateLevelUp } from "@/lib/confetti";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface BusinessIdeaData {
   id: string;
@@ -63,6 +65,7 @@ interface CapabilityArea {
   id: string;
   title: string;
   icon: React.ElementType;
+  categoryOutcome: string;
   manual: {
     tools: { name: string; url?: string }[];
     steps: CourseStep[];
@@ -80,6 +83,7 @@ const capabilities: CapabilityArea[] = [
     id: "lead-gen",
     title: "Lead Generation",
     icon: Users,
+    categoryOutcome: "A pipeline of 50+ qualified prospects ready for outreach",
     manual: {
       tools: [
         { name: "Apollo.io", url: "https://apollo.io" },
@@ -88,11 +92,11 @@ const capabilities: CapabilityArea[] = [
         { name: "Google Sheets" },
       ],
       steps: [
-        { text: "Sign up for Apollo.io or Hunter.io account", why: "These tools give you access to millions of verified business contacts so you can find decision-makers fast.", helpPrompt: "Help me choose between Apollo.io and Hunter.io for lead generation", relevantTools: ["Apollo.io", "Hunter.io"] },
-        { text: "Set up search filters for your target audience", why: "Precise filters ensure you only prospect people who match your ideal customer profile — saving hours of wasted outreach.", helpPrompt: "Help me define search filters for my target audience" },
-        { text: "Export leads to a spreadsheet", why: "A clean export gives you a working list you can sort, enrich, and prioritize before outreach.", helpPrompt: "What fields should I export for my lead spreadsheet?", relevantTools: ["Google Sheets"] },
-        { text: "Clean and deduplicate the data", why: "Duplicate or malformed data leads to embarrassing double-emails and wasted effort.", helpPrompt: "Help me clean and deduplicate my lead data" },
-        { text: "Import leads into your CRM", why: "Centralizing leads in one place lets you track every interaction and never lose a prospect.", helpPrompt: "How do I import leads into a CRM?" },
+        { text: "Sign up for Apollo.io or Hunter.io account", why: "These tools give you access to millions of verified business contacts so you can find decision-makers fast.", helpPrompt: "Help me choose between Apollo.io and Hunter.io for lead generation", relevantTools: ["Apollo.io", "Hunter.io"], outcome: "Access to millions of verified business contacts" },
+        { text: "Set up search filters for your target audience", why: "Precise filters ensure you only prospect people who match your ideal customer profile — saving hours of wasted outreach.", helpPrompt: "Help me define search filters for my target audience", outcome: "A laser-focused filter that surfaces only your ideal buyers" },
+        { text: "Export leads to a spreadsheet", why: "A clean export gives you a working list you can sort, enrich, and prioritize before outreach.", helpPrompt: "What fields should I export for my lead spreadsheet?", relevantTools: ["Google Sheets"], outcome: "A working list of 50+ decision-makers with contact info" },
+        { text: "Clean and deduplicate the data", why: "Duplicate or malformed data leads to embarrassing double-emails and wasted effort.", helpPrompt: "Help me clean and deduplicate my lead data", outcome: "A clean, verified prospect list with zero duplicates" },
+        { text: "Import leads into your CRM", why: "Centralizing leads in one place lets you track every interaction and never lose a prospect.", helpPrompt: "How do I import leads into a CRM?", outcome: "All your prospects in one place, ready for outreach" },
       ],
       estimatedTime: "2-4 hours",
     },
@@ -106,6 +110,7 @@ const capabilities: CapabilityArea[] = [
     id: "pipeline",
     title: "Pipeline Management",
     icon: Target,
+    categoryOutcome: "A fully configured CRM with stages that track every deal from lead to close",
     manual: {
       tools: [
         { name: "HubSpot CRM", url: "https://hubspot.com" },
@@ -114,11 +119,11 @@ const capabilities: CapabilityArea[] = [
         { name: "Spreadsheets" },
       ],
       steps: [
-        { text: "Set up a CRM account and configure stages", why: "Defined stages (Lead → Qualified → Proposal → Closed) give you a clear view of where every deal stands.", helpPrompt: "Help me set up CRM stages for my business", relevantTools: ["HubSpot CRM", "Close CRM"] },
-        { text: "Create custom fields for your business", why: "Custom fields let you capture the specific data points that matter for your niche.", helpPrompt: "What custom fields should I create in my CRM?" },
-        { text: "Build pipeline views and dashboards", why: "Visual dashboards show bottlenecks at a glance so you know where deals are stalling.", helpPrompt: "Help me design a pipeline dashboard" },
-        { text: "Train yourself on the CRM workflow", why: "Knowing your CRM inside out means you'll actually use it consistently instead of abandoning it.", helpPrompt: "Give me a quick CRM training plan" },
-        { text: "Manually move leads between stages", why: "Practicing the full flow ensures your process works before you start automating it.", helpPrompt: "How should I decide when to move a lead to the next stage?" },
+        { text: "Set up a CRM account and configure stages", why: "Defined stages (Lead → Qualified → Proposal → Closed) give you a clear view of where every deal stands.", helpPrompt: "Help me set up CRM stages for my business", relevantTools: ["HubSpot CRM", "Close CRM"], outcome: "A CRM with defined deal stages ready to use" },
+        { text: "Create custom fields for your business", why: "Custom fields let you capture the specific data points that matter for your niche.", helpPrompt: "What custom fields should I create in my CRM?", outcome: "Custom fields tailored to your exact business needs" },
+        { text: "Build pipeline views and dashboards", why: "Visual dashboards show bottlenecks at a glance so you know where deals are stalling.", helpPrompt: "Help me design a pipeline dashboard", outcome: "A visual dashboard showing your deal flow at a glance" },
+        { text: "Train yourself on the CRM workflow", why: "Knowing your CRM inside out means you'll actually use it consistently instead of abandoning it.", helpPrompt: "Give me a quick CRM training plan", outcome: "Confidence to manage your CRM without guessing" },
+        { text: "Manually move leads between stages", why: "Practicing the full flow ensures your process works before you start automating it.", helpPrompt: "How should I decide when to move a lead to the next stage?", outcome: "A tested, working sales process you can rely on" },
       ],
       estimatedTime: "3-5 hours",
     },
@@ -132,6 +137,7 @@ const capabilities: CapabilityArea[] = [
     id: "outreach",
     title: "Outreach & Follow-up",
     icon: Mail,
+    categoryOutcome: "An automated email sequence that runs while you sleep",
     manual: {
       tools: [
         { name: "SendGrid", url: "https://sendgrid.com" },
@@ -140,11 +146,11 @@ const capabilities: CapabilityArea[] = [
         { name: "Calendly", url: "https://calendly.com" },
       ],
       steps: [
-        { text: "Set up email sending tool with domain verification", why: "Domain verification prevents your emails from landing in spam and builds sender reputation.", helpPrompt: "Help me set up email domain verification", relevantTools: ["SendGrid", "Mailchimp"] },
-        { text: "Write email templates for each sequence step", why: "Pre-written templates ensure consistent messaging and save time on every send.", helpPrompt: "Help me write cold outreach email templates" },
-        { text: "Configure follow-up timing and triggers", why: "Automated timing ensures no lead goes cold because you forgot to follow up.", helpPrompt: "What's the best follow-up timing for cold outreach?" },
-        { text: "Set up calendar booking link", why: "A frictionless booking link converts interested prospects into actual meetings.", helpPrompt: "Help me set up a Calendly booking page", relevantTools: ["Calendly"] },
-        { text: "Connect tools together via Zapier or n8n", why: "Integration eliminates manual data entry between your email tool, CRM, and calendar.", helpPrompt: "How do I connect my outreach tools together?" },
+        { text: "Set up email sending tool with domain verification", why: "Domain verification prevents your emails from landing in spam and builds sender reputation.", helpPrompt: "Help me set up email domain verification", relevantTools: ["SendGrid", "Mailchimp"], outcome: "A verified sending domain that lands in inboxes, not spam" },
+        { text: "Write email templates for each sequence step", why: "Pre-written templates ensure consistent messaging and save time on every send.", helpPrompt: "Help me write cold outreach email templates", outcome: "A library of proven email templates ready to send" },
+        { text: "Configure follow-up timing and triggers", why: "Automated timing ensures no lead goes cold because you forgot to follow up.", helpPrompt: "What's the best follow-up timing for cold outreach?", outcome: "Automated follow-ups that never let a lead go cold" },
+        { text: "Set up calendar booking link", why: "A frictionless booking link converts interested prospects into actual meetings.", helpPrompt: "Help me set up a Calendly booking page", relevantTools: ["Calendly"], outcome: "A booking page that converts interest into meetings" },
+        { text: "Connect tools together via Zapier or n8n", why: "Integration eliminates manual data entry between your email tool, CRM, and calendar.", helpPrompt: "How do I connect my outreach tools together?", outcome: "A fully connected outreach system with zero manual data entry" },
       ],
       estimatedTime: "4-6 hours",
     },
@@ -158,6 +164,7 @@ const capabilities: CapabilityArea[] = [
     id: "qualification",
     title: "Qualification & Discovery",
     icon: Phone,
+    categoryOutcome: "A repeatable qualification process that filters out tire-kickers fast",
     manual: {
       tools: [
         { name: "Typeform", url: "https://typeform.com" },
@@ -166,11 +173,11 @@ const capabilities: CapabilityArea[] = [
         { name: "Google Docs" },
       ],
       steps: [
-        { text: "Create a qualification form or script", why: "A structured script ensures you ask the right questions and don't waste time on unqualified prospects.", helpPrompt: "Help me create a lead qualification script", relevantTools: ["Typeform"] },
-        { text: "Set up call recording tool", why: "Recordings let you review conversations for missed details and improve your pitch over time.", helpPrompt: "What call recording tool should I use?", relevantTools: ["Gong", "Fireflies.ai"] },
-        { text: "Build a scoring rubric", why: "Objective scoring removes gut-feel decisions and helps you prioritize the highest-value opportunities.", helpPrompt: "Help me build a lead scoring rubric" },
-        { text: "Document each call's notes manually", why: "Written notes ensure key details are captured before memory fades.", helpPrompt: "What should I include in my call notes?" },
-        { text: "Update CRM with call outcomes", why: "Keeping CRM data current means your pipeline view is always accurate.", helpPrompt: "How should I log call outcomes in my CRM?" },
+        { text: "Create a qualification form or script", why: "A structured script ensures you ask the right questions and don't waste time on unqualified prospects.", helpPrompt: "Help me create a lead qualification script", relevantTools: ["Typeform"], outcome: "A qualification script that separates buyers from browsers" },
+        { text: "Set up call recording tool", why: "Recordings let you review conversations for missed details and improve your pitch over time.", helpPrompt: "What call recording tool should I use?", relevantTools: ["Gong", "Fireflies.ai"], outcome: "Every call recorded and reviewable for coaching" },
+        { text: "Build a scoring rubric", why: "Objective scoring removes gut-feel decisions and helps you prioritize the highest-value opportunities.", helpPrompt: "Help me build a lead scoring rubric", outcome: "An objective scoring system to rank your hottest leads" },
+        { text: "Document each call's notes manually", why: "Written notes ensure key details are captured before memory fades.", helpPrompt: "What should I include in my call notes?", outcome: "Structured call notes that capture every important detail" },
+        { text: "Update CRM with call outcomes", why: "Keeping CRM data current means your pipeline view is always accurate.", helpPrompt: "How should I log call outcomes in my CRM?", outcome: "An always-accurate pipeline reflecting real conversations" },
       ],
       estimatedTime: "2-3 hours",
     },
@@ -184,6 +191,7 @@ const capabilities: CapabilityArea[] = [
     id: "closing",
     title: "Proposals & Closing",
     icon: DollarSign,
+    categoryOutcome: "A payment system that gets you paid the same day you close",
     manual: {
       tools: [
         { name: "PandaDoc", url: "https://pandadoc.com" },
@@ -192,11 +200,11 @@ const capabilities: CapabilityArea[] = [
         { name: "PayPal" },
       ],
       steps: [
-        { text: "Create proposal templates in PandaDoc", why: "Polished proposals increase close rates and save you from building documents from scratch each time.", helpPrompt: "Help me create a service proposal template", relevantTools: ["PandaDoc"] },
-        { text: "Set up Stripe or PayPal payment collection", why: "Easy payment collection reduces friction and gets you paid faster.", helpPrompt: "How do I set up Stripe for service payments?", relevantTools: ["Stripe"] },
-        { text: "Configure e-signature workflows", why: "Digital signatures eliminate printing/scanning delays and make closing instant.", helpPrompt: "Help me set up e-signatures for contracts", relevantTools: ["DocuSign"] },
-        { text: "Build invoice templates", why: "Professional invoices build trust and ensure you get paid on time.", helpPrompt: "What should I include in my invoice template?" },
-        { text: "Track payments manually in a spreadsheet", why: "Revenue tracking shows your real progress toward $10K/month.", helpPrompt: "Help me set up a payment tracking spreadsheet" },
+        { text: "Create proposal templates in PandaDoc", why: "Polished proposals increase close rates and save you from building documents from scratch each time.", helpPrompt: "Help me create a service proposal template", relevantTools: ["PandaDoc"], outcome: "Professional proposals you can send in under 5 minutes" },
+        { text: "Set up Stripe or PayPal payment collection", why: "Easy payment collection reduces friction and gets you paid faster.", helpPrompt: "How do I set up Stripe for service payments?", relevantTools: ["Stripe"], outcome: "A payment link that gets you paid instantly" },
+        { text: "Configure e-signature workflows", why: "Digital signatures eliminate printing/scanning delays and make closing instant.", helpPrompt: "Help me set up e-signatures for contracts", relevantTools: ["DocuSign"], outcome: "One-click contract signing for your clients" },
+        { text: "Build invoice templates", why: "Professional invoices build trust and ensure you get paid on time.", helpPrompt: "What should I include in my invoice template?", outcome: "Branded invoices that look professional and get paid on time" },
+        { text: "Track payments manually in a spreadsheet", why: "Revenue tracking shows your real progress toward $10K/month.", helpPrompt: "Help me set up a payment tracking spreadsheet", outcome: "Real-time visibility into your revenue growth" },
       ],
       estimatedTime: "3-5 hours",
     },
@@ -210,6 +218,7 @@ const capabilities: CapabilityArea[] = [
     id: "automation",
     title: "Automation & Workflows",
     icon: Zap,
+    categoryOutcome: "Automated workflows that run your business while you sleep",
     manual: {
       tools: [
         { name: "n8n", url: "https://n8n.io" },
@@ -217,12 +226,12 @@ const capabilities: CapabilityArea[] = [
         { name: "Make.com", url: "https://make.com" },
       ],
       steps: [
-        { text: "Install and configure n8n (self-hosted or cloud)", why: "n8n is the backbone of your automation — everything else plugs into it.", helpPrompt: "Help me choose between self-hosted and cloud n8n", relevantTools: ["n8n"] },
-        { text: "Learn the node-based workflow builder", why: "Understanding nodes and connections lets you build any automation you can imagine.", helpPrompt: "Give me a quick tutorial on n8n's workflow builder" },
-        { text: "Set up webhook endpoints", why: "Webhooks let external tools trigger your workflows automatically in real-time.", helpPrompt: "How do I set up webhook endpoints in n8n?" },
-        { text: "Configure credentials for each service", why: "Proper credential setup ensures your workflows can securely access all your tools.", helpPrompt: "Help me configure n8n credentials" },
-        { text: "Build and test each workflow manually", why: "Testing each workflow before going live prevents embarrassing errors with real data.", helpPrompt: "How do I test my n8n workflows?" },
-        { text: "Set up cron schedules for recurring tasks", why: "Scheduled workflows run without you — true automation that works while you sleep.", helpPrompt: "Help me set up cron schedules in n8n" },
+        { text: "Install and configure n8n (self-hosted or cloud)", why: "n8n is the backbone of your automation — everything else plugs into it.", helpPrompt: "Help me choose between self-hosted and cloud n8n", relevantTools: ["n8n"], outcome: "A running automation platform ready to build on" },
+        { text: "Learn the node-based workflow builder", why: "Understanding nodes and connections lets you build any automation you can imagine.", helpPrompt: "Give me a quick tutorial on n8n's workflow builder", outcome: "The skills to build any workflow you can imagine" },
+        { text: "Set up webhook endpoints", why: "Webhooks let external tools trigger your workflows automatically in real-time.", helpPrompt: "How do I set up webhook endpoints in n8n?", outcome: "Live webhook endpoints that trigger workflows instantly" },
+        { text: "Configure credentials for each service", why: "Proper credential setup ensures your workflows can securely access all your tools.", helpPrompt: "Help me configure n8n credentials", outcome: "Secure connections to all your business tools" },
+        { text: "Build and test each workflow manually", why: "Testing each workflow before going live prevents embarrassing errors with real data.", helpPrompt: "How do I test my n8n workflows?", outcome: "Battle-tested workflows you can trust with real data" },
+        { text: "Set up cron schedules for recurring tasks", why: "Scheduled workflows run without you — true automation that works while you sleep.", helpPrompt: "Help me set up cron schedules in n8n", outcome: "Recurring automations that run on autopilot" },
       ],
       estimatedTime: "5-10 hours",
     },
@@ -236,6 +245,7 @@ const capabilities: CapabilityArea[] = [
     id: "analytics",
     title: "Analytics & Intelligence",
     icon: BarChart3,
+    categoryOutcome: "A real-time dashboard showing exactly how your business is performing",
     manual: {
       tools: [
         { name: "Google Analytics", url: "https://analytics.google.com" },
@@ -243,11 +253,11 @@ const capabilities: CapabilityArea[] = [
         { name: "Metabase", url: "https://metabase.com" },
       ],
       steps: [
-        { text: "Set up analytics tracking on your site", why: "Tracking tells you where your visitors come from and what they do — the foundation of data-driven decisions.", helpPrompt: "Help me set up Google Analytics on my site", relevantTools: ["Google Analytics"] },
-        { text: "Build spreadsheet formulas for revenue tracking", why: "Revenue formulas give you instant visibility into MRR, growth rate, and trends.", helpPrompt: "Help me build revenue tracking formulas" },
-        { text: "Create dashboard visualizations", why: "Visual dashboards surface patterns that raw numbers hide.", helpPrompt: "What metrics should I put on my dashboard?", relevantTools: ["Metabase"] },
-        { text: "Manually compile reports each week", why: "Regular reporting creates accountability and highlights what's working (and what isn't).", helpPrompt: "Help me create a weekly business report template" },
-        { text: "Cross-reference data from multiple tools", why: "Connecting data from CRM, email, and analytics reveals your true conversion funnel.", helpPrompt: "How do I cross-reference data across my tools?" },
+        { text: "Set up analytics tracking on your site", why: "Tracking tells you where your visitors come from and what they do — the foundation of data-driven decisions.", helpPrompt: "Help me set up Google Analytics on my site", relevantTools: ["Google Analytics"], outcome: "Visitor tracking that shows you where your traffic comes from" },
+        { text: "Build spreadsheet formulas for revenue tracking", why: "Revenue formulas give you instant visibility into MRR, growth rate, and trends.", helpPrompt: "Help me build revenue tracking formulas", outcome: "Instant MRR and growth rate calculations" },
+        { text: "Create dashboard visualizations", why: "Visual dashboards surface patterns that raw numbers hide.", helpPrompt: "What metrics should I put on my dashboard?", relevantTools: ["Metabase"], outcome: "Visual dashboards that reveal trends at a glance" },
+        { text: "Manually compile reports each week", why: "Regular reporting creates accountability and highlights what's working (and what isn't).", helpPrompt: "Help me create a weekly business report template", outcome: "A weekly reporting habit that keeps you accountable" },
+        { text: "Cross-reference data from multiple tools", why: "Connecting data from CRM, email, and analytics reveals your true conversion funnel.", helpPrompt: "How do I cross-reference data across my tools?", outcome: "A complete picture of your conversion funnel" },
       ],
       estimatedTime: "3-5 hours",
     },
@@ -394,6 +404,7 @@ export default function UnifiedSetupGuide({
                               isStepDone={isStepDone}
                               onMarkComplete={markStepDone}
                               onAskMya={handleAskMya}
+                              categoryOutcome={cap.categoryOutcome}
                             />
                             {/* Bridge CTA */}
                             <button
@@ -559,6 +570,34 @@ export default function UnifiedSetupGuide({
                   <p className="text-xs text-muted-foreground">
                     Complete each step to build your business infrastructure. Take it one step at a time.
                   </p>
+
+                  {/* Milestone encouragement cards */}
+                  <AnimatePresence>
+                    {overall.total > 0 && (() => {
+                      const pct = (overall.completed / overall.total) * 100;
+                      const milestones = [
+                        { threshold: 25, icon: Flame, message: "You've built your foundation. Most solopreneurs never get this far." },
+                        { threshold: 50, icon: Target, message: "Halfway there. Your business infrastructure is taking shape." },
+                        { threshold: 75, icon: Trophy, message: "Almost done. You're in the top 5% of action-takers." },
+                      ];
+                      // Show the highest reached milestone
+                      const reached = milestones.filter(m => pct >= m.threshold).pop();
+                      if (!reached || pct >= 100) return null;
+                      return (
+                        <motion.div
+                          key={reached.threshold}
+                          initial={{ scale: 0.9, opacity: 0 }}
+                          animate={{ scale: 1, opacity: 1 }}
+                          exit={{ scale: 0.9, opacity: 0 }}
+                          transition={{ type: "spring", duration: 0.4 }}
+                          className="flex items-center gap-2 bg-primary/10 border border-primary/20 rounded-md p-2.5"
+                        >
+                          <reached.icon className="w-4 h-4 text-primary flex-shrink-0" />
+                          <p className="text-xs font-medium text-foreground">{reached.message}</p>
+                        </motion.div>
+                      );
+                    })()}
+                  </AnimatePresence>
                 </CardContent>
               </Card>
 
@@ -638,6 +677,7 @@ export default function UnifiedSetupGuide({
                         isStepDone={isStepDone}
                         onMarkComplete={markStepDone}
                         onAskMya={handleAskMya}
+                        categoryOutcome={cap.categoryOutcome}
                       />
                     </CardContent>
                   </Card>
