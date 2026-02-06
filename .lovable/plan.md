@@ -1,94 +1,115 @@
 
 
-# Boost User Confidence in the Interactive Course
+# Make Mya More Practical
 
 ## The Problem
 
-Right now, the course tells users **what** to do and **why**, but it doesn't reassure them they're on the right track. There's no social proof, no encouragement between steps, and no sense of "others have done this too." Users need emotional momentum, not just instructions.
+Right now, Mya has a lot of motivational framing (XP, quests, achievements, momentum flames) but the app could feel more practical for users who want to actually run a business, not play a game. Key gaps:
+
+1. **No quick access to key pages from the nav** -- Leads, Workflows, and the Setup Guide are buried or scattered
+2. **Dashboard is heavy on gamification, light on business metrics** -- XP and achievements dominate, but practical data like "leads in pipeline," "revenue this month," and "next follow-up due" are secondary
+3. **The Setup Guide steps are generic** -- they tell you to "Sign up for Apollo.io" but don't connect to anything inside the app (e.g., the built-in CRM, the built-in workflow builder)
+4. **No daily action items** -- the Daily Briefing is AI-generated text but doesn't link to specific actionable tasks with buttons
+5. **Chat is the main "doing" interface but there's no shortcut to common business actions** -- users have to know what to type
 
 ## What Changes
 
-### 1. Motivational Micro-Messages After Each Step
+### 1. Add a Persistent Navigation Sidebar (or Top Nav Links)
 
-When a user clicks "Mark Complete & Continue," a brief animated encouragement appears before the next step slides in. These rotate through a curated list of confidence-building phrases:
+Add direct links in the dashboard nav bar for the core business tools:
+- **Leads** (links to /leads)
+- **Workflows** (links to /workflows) -- already exists but only as a small button
+- **Chat with Mya** (links to new chat)
 
-- "Nice. You're ahead of 90% of people who never start."
-- "That's one less thing between you and your first customer."
-- "Momentum is building. Keep going."
-- "Most people quit before this step. Not you."
-- "This is exactly how $10K/month businesses get built."
+This makes the practical tools one click away instead of buried.
 
-This is a 1-2 second toast-like message inside the card area (not a system toast), then it fades and reveals the next step.
+**File**: `src/pages/Dashboard.tsx`
+- Add "Leads" button next to existing "Workflows" button in the nav bar (lines 770-783)
 
-### 2. Confidence Indicators on Each Step Card
+### 2. Add a "Quick Actions" Row with Business-Specific Shortcuts
 
-Add a small "trust signal" below the "Why this matters" section showing how this step connects to the bigger picture:
+Replace or augment the current Quick Actions grid (lines 980-1030) with practical, context-aware shortcuts:
+- **"Add a Lead"** -- opens the Add Lead dialog directly
+- **"Log Revenue"** -- navigates to chat with a pre-filled prompt
+- **"Send Follow-up"** -- navigates to chat with a pre-filled outreach prompt
+- **"Check Pipeline"** -- navigates to /leads
 
-- A one-line outcome statement per step: e.g., **"After this step, you'll have: A verified list of 50+ decision-makers"**
-- Styled as a subtle green-tinted row with a checkmark-circle icon
+These are the 4 most common actions a solopreneur takes daily.
 
-This shifts the framing from "task to complete" to "outcome to earn."
+**File**: `src/pages/Dashboard.tsx`
+- Modify the Quick Actions section (around line 980) to include these practical shortcuts
 
-### 3. Milestone Encouragement Cards
+### 3. Make Setup Guide Steps Reference Built-In Tools
 
-At key progress milestones (after completing 25%, 50%, 75% of all steps), inject a small encouragement card into the progress header area:
+Update the Interactive Course steps to reference the app's own capabilities instead of only external tools. For example:
+- "Import leads into your CRM" should say "Import leads into **Mya's Lead Tracker** (go to Leads page)" with a button that navigates to /leads
+- "Build and test each workflow" should reference the built-in Workflow Editor
 
-- **25%** -- "You've built your foundation. Most solopreneurs never get this far."
-- **50%** -- "Halfway there. Your business infrastructure is taking shape."
-- **75%** -- "Almost done. You're in the top 5% of action-takers."
+Add an `inAppAction` optional field to `CourseStep` that provides a route or callback, so steps can link directly to the relevant in-app feature.
 
-These appear as animated badges/cards near the overall progress bar.
+**Files**:
+- `src/components/SetupGuide/CourseStepView.tsx` -- add an optional `inAppAction` prop to render a "Do it now" button that navigates to the relevant page
+- `src/components/UnifiedSetupGuide.tsx` -- add `inAppAction` routes to relevant steps (e.g., `/leads` for CRM steps, `/workflows` for automation steps)
 
-### 4. "You'll Have Built" Summary on Each Category
+### 4. Add an Actionable "Today's Tasks" Card to the Dashboard
 
-Add a short outcome summary at the top of each category card showing the end result of completing all steps:
+Replace or supplement the Daily Briefing with a concrete task list showing:
+- Leads that need follow-up (last activity > 3 days ago)
+- Upcoming scheduled workflows
+- Uncompleted Setup Guide steps (the current one)
 
-- Lead Generation: "A pipeline of 50+ qualified prospects ready for outreach"
-- Outreach: "An automated email sequence that runs while you sleep"
-- Closing: "A payment system that gets you paid the same day you close"
+Each item has a direct action button ("Follow up", "View Workflow", "Do Step").
 
-This gives users a clear picture of the tangible result before they start.
+**Files**:
+- Create `src/components/MissionControl/TodaysTasks.tsx` -- a new card that queries leads needing follow-up and surfaces the next course step
+- `src/pages/Dashboard.tsx` -- render `TodaysTasks` above or alongside the Daily Briefing
+
+### 5. Add Quick-Prompt Chips to the Chat Input Area
+
+Below the chat input, show 3-4 contextual action chips based on the user's current state:
+- If they have no leads: "Add my first lead"
+- If they have leads but no workflows: "Create an outreach workflow"
+- If they have revenue: "How's my revenue this month?"
+- Default: "Give me a business summary"
+
+These make the chat feel practical rather than open-ended.
+
+**File**: `src/pages/Chat.tsx`
+- Add a row of clickable chips below the textarea that pre-fill and send common prompts
 
 ---
 
 ## Technical Details
 
+### Files Created
+1. `src/components/MissionControl/TodaysTasks.tsx` -- New component (~120 lines)
+   - Queries `leads` table for leads with no activity in 3+ days
+   - Shows the user's current Setup Guide step from `useManualProgress`
+   - Renders a compact card with up to 5 actionable items, each with a button
+
 ### Files Modified
+1. **`src/pages/Dashboard.tsx`**
+   - Add "Leads" nav button (line ~771)
+   - Import and render `TodaysTasks` component in the dashboard layout
+   - Update Quick Actions section with practical shortcuts (Add Lead, Log Revenue, Follow Up, Check Pipeline)
 
-1. **`src/components/SetupGuide/CourseStepView.tsx`**
-   - Add a `CourseStep.outcome` field to the interface (what you'll have after this step)
-   - Add a `CourseStep.encouragement` optional field or use a shared encouragement pool
-   - Show the outcome line below "Why this matters" with a target/trophy icon
-   - Add an animated encouragement message state that briefly shows between step transitions
-   - Add category-level outcome summary prop and render it above the progress bar
+2. **`src/components/SetupGuide/CourseStepView.tsx`**
+   - Add optional `inAppAction?: { label: string; route: string }` to `CourseStep` interface
+   - Render a "Do it in Mya" button when `inAppAction` is present, using `useNavigate`
 
-2. **`src/components/UnifiedSetupGuide.tsx`**
-   - Add `outcome` field to every step in the `capabilities` data (33 steps)
-   - Add a `categoryOutcome` string to each capability
-   - Render milestone encouragement cards in the "Your Progress" header based on percentage thresholds (25/50/75%)
-   - Pass `categoryOutcome` to `CourseStepView`
+3. **`src/components/UnifiedSetupGuide.tsx`**
+   - Add `inAppAction` to relevant steps:
+     - Lead Gen step 5 ("Import leads into your CRM") -> `{ label: "Open Lead Tracker", route: "/leads" }`
+     - Pipeline steps -> `{ label: "Open Lead Tracker", route: "/leads" }`
+     - Automation steps -> `{ label: "Open Workflow Builder", route: "/workflows" }`
+   
+4. **`src/pages/Chat.tsx`**
+   - Add a row of contextual quick-prompt chips below the input area
+   - Chips are conditionally rendered based on lead count, workflow count, and revenue data
 
-### Data Additions Per Step
-
-Each of the 33 steps gets one new field:
-
-```text
-outcome: "A verified list of 50+ decision-makers"
-```
-
-Each of the 7 categories gets one new field:
-
-```text
-categoryOutcome: "A pipeline of qualified prospects ready for outreach"
-```
-
-### Animation Details
-
-- Encouragement message: `framer-motion` fade-in/out with 1.5s display time using `AnimatePresence`
-- Milestone cards: Scale-in animation matching the existing completion celebration style
-- Outcome line: Static, no animation needed
+5. **`src/components/MissionControl/index.ts`**
+   - Export the new `TodaysTasks` component
 
 ### No New Dependencies
-
-Uses existing framer-motion, lucide-react icons (Target, Trophy, Flame), and shadcn Badge/Card components.
+All changes use existing UI components (Button, Card, Badge) and existing hooks (useLeadManagement, useManualProgress).
 
