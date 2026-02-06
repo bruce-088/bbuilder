@@ -36,6 +36,7 @@ import {
   Bot,
   Mic,
   Rocket,
+  RotateCcw,
 } from "lucide-react";
 import { Json } from "@/integrations/supabase/types";
 import { useManualProgress } from "@/hooks/useManualProgress";
@@ -307,7 +308,7 @@ export default function UnifiedSetupGuide({
 }: UnifiedSetupGuideProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const { toggleStep, getCompleted, isStepDone } = useManualProgress(capabilities);
+  const { toggleStep, getCompleted, isStepDone, resetProgress, hasAnyProgress } = useManualProgress(capabilities);
 
   const handleTryIt = (command: string) => {
     setOpen(false);
@@ -363,6 +364,19 @@ export default function UnifiedSetupGuide({
           <ScrollArea className="flex-1 min-h-0 mt-4 -mx-6 px-6 [&>[data-radix-scroll-area-viewport]]:max-h-[55vh]">
             {/* Side by Side */}
             <TabsContent value="side-by-side" className="mt-0">
+              {hasAnyProgress && (
+                <div className="flex justify-end mb-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetProgress}
+                    className="text-xs text-muted-foreground hover:text-destructive h-7 px-2"
+                  >
+                    <RotateCcw className="w-3 h-3 mr-1" />
+                    Reset Progress
+                  </Button>
+                </div>
+              )}
               <Accordion type="multiple" defaultValue={["lead-gen"]} className="space-y-2">
                 {capabilities.map((cap) => (
                   <AccordionItem

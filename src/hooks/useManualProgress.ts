@@ -44,5 +44,12 @@ export function useManualProgress(capabilities: { id: string; manual: { steps: s
     [progress]
   );
 
-  return { toggleStep, getCompleted, isStepDone };
+  const resetProgress = useCallback(() => {
+    setProgress({});
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+  }, []);
+
+  const hasAnyProgress = Object.values(progress).some(arr => arr.some(Boolean));
+
+  return { toggleStep, getCompleted, isStepDone, resetProgress, hasAnyProgress };
 }
