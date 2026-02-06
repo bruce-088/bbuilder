@@ -827,19 +827,6 @@ export default function Dashboard() {
             currentSetupStep="Continue your Setup Guide"
           />
 
-          {/* Unified Progress Card */}
-          {businessIdeas.length > 0 && (
-            <UnifiedProgressCard
-              completedMilestones={
-                businessIdeasWithProgress.find(i => i.id === activeQuestId)?.completedSteps ||
-                businessIdeasWithProgress[0]?.completedSteps ||
-                []
-              }
-              capabilities={capabilities}
-              onOpenSetupGuide={() => setShowSetupGuide(true)}
-            />
-          )}
-
           {/* Mission Control Header */}
           <div className="grid lg:grid-cols-3 gap-6 mb-8">
             {/* Welcome + Current Quest + Achievements */}
@@ -903,6 +890,17 @@ export default function Dashboard() {
                   {mergedCompletedQuests.length > 0 && (
                     <AchievementBadges unlockedAchievements={unlockedAchievements} />
                   )}
+
+                  {/* Unified Progress Card - fills left column gap */}
+                  <UnifiedProgressCard
+                    completedMilestones={
+                      businessIdeasWithProgress.find(i => i.id === activeQuestId)?.completedSteps ||
+                      businessIdeasWithProgress[0]?.completedSteps ||
+                      []
+                    }
+                    capabilities={capabilities}
+                    onOpenSetupGuide={() => setShowSetupGuide(true)}
+                  />
                 </>
               )}
             </div>
