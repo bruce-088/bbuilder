@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Play, Save, Loader2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { ScheduleConfig } from "./ScheduleConfig";
 
 interface WorkflowToolbarProps {
   name: string;
@@ -10,9 +11,13 @@ interface WorkflowToolbarProps {
   onRun: () => void;
   saving: boolean;
   running: boolean;
+  schedule?: { cron_expression: string; enabled: boolean } | null;
+  scheduleSaving?: boolean;
+  onScheduleSave?: (cron: string, enabled: boolean) => void;
+  onScheduleToggle?: () => void;
 }
 
-export function WorkflowToolbar({ name, onNameChange, onSave, onRun, saving, running }: WorkflowToolbarProps) {
+export function WorkflowToolbar({ name, onNameChange, onSave, onRun, saving, running, schedule, scheduleSaving, onScheduleSave, onScheduleToggle }: WorkflowToolbarProps) {
   const navigate = useNavigate();
 
   return (
@@ -28,6 +33,16 @@ export function WorkflowToolbar({ name, onNameChange, onSave, onRun, saving, run
       />
 
       <div className="flex-1" />
+
+      {onScheduleSave && onScheduleToggle && (
+        <ScheduleConfig
+          cronExpression={schedule?.cron_expression || "0 9 * * *"}
+          enabled={schedule?.enabled || false}
+          saving={scheduleSaving || false}
+          onSave={onScheduleSave}
+          onToggle={onScheduleToggle}
+        />
+      )}
 
       <Button variant="outline" size="sm" onClick={onSave} disabled={saving} className="gap-1.5">
         {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}

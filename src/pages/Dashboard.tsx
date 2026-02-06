@@ -82,6 +82,7 @@ import { useLeadManagement } from "@/hooks/useLeadManagement";
 import { LeadStatsCard } from "@/components/LeadCRM";
 import OnboardingTour, { useOnboardingTour } from "@/components/OnboardingTour";
 import { celebrateFirstIdea } from "@/lib/confetti";
+import { RevenueCard } from "@/components/RevenueCard";
 interface BusinessIdea {
   id: string;
   business_name: string;
@@ -888,6 +889,9 @@ export default function Dashboard() {
                   
                   {/* Lead Pipeline Stats */}
                   <LeadStatsCard stats={leadStats} loading={leadsLoading} />
+                  
+                  {/* Revenue Tracker */}
+                  <RevenueCard />
                 </>
               )}
               <WhatsNextCard
