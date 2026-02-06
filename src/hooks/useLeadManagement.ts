@@ -319,10 +319,12 @@ import type { Json } from "@/integrations/supabase/types";
      
      let totalValue = 0;
      
-     leads.forEach(lead => {
-       byStage[lead.stage]++;
-       totalValue += lead.estimated_value || 0;
-     });
+      leads.forEach(lead => {
+        if (byStage[lead.stage] !== undefined) {
+          byStage[lead.stage]++;
+        }
+        totalValue += lead.estimated_value || 0;
+      });
      
      const wonCount = byStage.won;
      const closedCount = wonCount + byStage.lost;
@@ -374,9 +376,14 @@ import type { Json } from "@/integrations/supabase/types";
        lost: [],
      };
      
-     filtered.forEach(lead => {
-       byStage[lead.stage].push(lead);
-     });
+      filtered.forEach(lead => {
+        if (byStage[lead.stage]) {
+          byStage[lead.stage].push(lead);
+        } else {
+          // Fallback: treat unknown stages as "captured"
+          byStage.captured.push(lead);
+        }
+      });
      
      return byStage;
    }, [getFilteredLeads]);
