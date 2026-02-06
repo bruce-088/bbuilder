@@ -6,4 +6,5 @@ export { default as AudioPlaybackButton } from "./AudioPlaybackButton";
 export { default as CoworkExecutionCard } from "./CoworkExecutionCard";
 export { default as CoworkBrowserPanel } from "./CoworkBrowserPanel";
 export { default as CopilotActionCard } from "./CopilotActionCard";
+export { default as VoiceModeOverlay } from "./VoiceModeOverlay";
 export type { FixStep } from "./FixChecklist";
