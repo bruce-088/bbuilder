@@ -845,6 +845,30 @@ export type Database = {
           },
         ]
       }
+      setup_guide_progress: {
+        Row: {
+          created_at: string
+          id: string
+          progress: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          progress?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          progress?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_ai_preferences: {
         Row: {
           claude_configured: boolean | null
