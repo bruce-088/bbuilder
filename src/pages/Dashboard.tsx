@@ -900,6 +900,7 @@ export default function Dashboard() {
                     }
                     capabilities={capabilities}
                     onOpenSetupGuide={() => setShowSetupGuide(true)}
+                    activeQuestName={businessIdeasWithProgress.find(i => i.id === activeQuestId)?.business_name}
                   />
                 </>
               )}
