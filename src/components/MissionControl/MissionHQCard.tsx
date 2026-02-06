@@ -1,8 +1,9 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Rocket, Target, Sparkles } from "lucide-react";
+import { Rocket, Target, Sparkles, Trophy } from "lucide-react";
 import CurrentQuestCard from "./CurrentQuestCard";
 import UnifiedProgressCard from "./UnifiedProgressCard";
 import QuestList from "./QuestList";
+import AchievementBadges from "./AchievementBadges";
 import type { CapabilityArea } from "@/components/UnifiedSetupGuide";
 
 interface BusinessIdeaProgress {
@@ -35,6 +36,8 @@ interface MissionHQCardProps {
     outreach: boolean;
     sale: boolean;
   };
+  // AchievementBadges props
+  unlockedAchievements?: string[];
 }
 
 export default function MissionHQCard({
@@ -51,6 +54,7 @@ export default function MissionHQCard({
   activeQuestName,
   onQuestAction,
   activeQuestMilestones,
+  unlockedAchievements = [],
 }: MissionHQCardProps) {
   return (
     <div className="space-y-0">
@@ -77,6 +81,10 @@ export default function MissionHQCard({
             <TabsTrigger value="questline" className="gap-1.5">
               <Sparkles className="w-3.5 h-3.5" />
               Quest Line
+            </TabsTrigger>
+            <TabsTrigger value="achievements" className="gap-1.5">
+              <Trophy className="w-3.5 h-3.5" />
+              Badges
             </TabsTrigger>
           </TabsList>
         </div>
@@ -111,6 +119,10 @@ export default function MissionHQCard({
             activeQuestName={activeQuestName}
             activeQuestMilestones={activeQuestMilestones}
           />
+        </TabsContent>
+
+        <TabsContent value="achievements" className="mt-0">
+          <AchievementBadges unlockedAchievements={unlockedAchievements} />
         </TabsContent>
       </Tabs>
     </div>
