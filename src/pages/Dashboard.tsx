@@ -52,7 +52,7 @@ import {
   Search,
   HelpCircle,
   Rocket,
-  Trophy,
+  
   Eye,
   Workflow,
   Users,
@@ -74,14 +74,12 @@ import {
   CountdownTimer, 
   XPProgress, 
   AchievementBadges, 
-  CurrentQuestCard,
-  QuestList,
+  MissionHQCard,
   WhatsNextCard,
   ActivityFeed,
   MomentumCard,
   DailyBriefing,
   TodaysTasks,
-  UnifiedProgressCard,
 } from "@/components/MissionControl";
 import { capabilities } from "@/components/UnifiedSetupGuide";
 import UnifiedSetupGuide from "@/components/UnifiedSetupGuide";
@@ -138,7 +136,7 @@ export default function Dashboard() {
   const [conversationSearch, setConversationSearch] = useState("");
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
-  const [showQuestList, setShowQuestList] = useState(false);
+  
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const editIdeaInputRef = useRef<HTMLInputElement>(null);
@@ -858,12 +856,10 @@ export default function Dashboard() {
                 />
               ) : (
                 <>
-                  {/* Current Quest Card */}
-                  <CurrentQuestCard 
+                  <MissionHQCard
                     completedQuests={mergedCompletedQuests}
                     currentStage={currentStage}
                     onAction={() => {
-                      // Navigate based on current quest
                       const currentQuest = mergedCompletedQuests.length === 0 ? 'generate_idea' : 
                         mergedCompletedQuests.includes('generate_idea') && !mergedCompletedQuests.includes('save_idea') ? 'save_idea' :
                         mergedCompletedQuests.includes('save_idea') && !mergedCompletedQuests.includes('review_checklist') ? 'review_checklist' :
@@ -884,15 +880,6 @@ export default function Dashboard() {
                       setActiveQuestId(ideaId);
                       toast.success("Quest activated!");
                     }}
-                  />
-
-                  {/* Achievements - only show when user has progress */}
-                  {mergedCompletedQuests.length > 0 && (
-                    <AchievementBadges unlockedAchievements={unlockedAchievements} />
-                  )}
-
-                  {/* Unified Progress Card - fills left column gap */}
-                  <UnifiedProgressCard
                     completedMilestones={
                       businessIdeasWithProgress.find(i => i.id === activeQuestId)?.completedSteps ||
                       businessIdeasWithProgress[0]?.completedSteps ||
@@ -901,7 +888,31 @@ export default function Dashboard() {
                     capabilities={capabilities}
                     onOpenSetupGuide={() => setShowSetupGuide(true)}
                     activeQuestName={businessIdeasWithProgress.find(i => i.id === activeQuestId)?.business_name}
+                    onQuestAction={(questId) => {
+                      if (questId === 'generate_idea') openIndustryDialog();
+                      else if (questId === 'save_idea') openIndustryDialog();
+                      else if (questId === 'review_checklist' && businessIdeas.length > 0) {
+                        setSelectedIdeaId(businessIdeas[0].id);
+                      }
+                    }}
+                    activeQuestMilestones={(() => {
+                      const activeIdea = businessIdeasWithProgress.find(i => i.id === activeQuestId);
+                      if (!activeIdea) return undefined;
+                      const steps = activeIdea.completedSteps || [];
+                      return {
+                        validation: steps.some(s => s.toLowerCase().includes('validation') || s.toLowerCase().includes('validate')),
+                        landing: steps.some(s => s.toLowerCase().includes('landing') || s.toLowerCase().includes('website')),
+                        offer: steps.some(s => s.toLowerCase().includes('offer') || s.toLowerCase().includes('pricing')),
+                        outreach: steps.some(s => s.toLowerCase().includes('outreach') || s.toLowerCase().includes('prospect')),
+                        sale: steps.some(s => s.toLowerCase().includes('sale') || s.toLowerCase().includes('customer')),
+                      };
+                    })()}
                   />
+
+                  {/* Achievements - only show when user has progress */}
+                  {mergedCompletedQuests.length > 0 && (
+                    <AchievementBadges unlockedAchievements={unlockedAchievements} />
+                  )}
                 </>
               )}
             </div>
@@ -960,52 +971,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Quest List Toggle */}
-          <div className="mb-6">
-            <Button 
-              variant="outline" 
-              onClick={() => setShowQuestList(!showQuestList)}
-              className="gap-2"
-            >
-              <Trophy className="w-4 h-4" />
-              {showQuestList ? "Hide Quest Line" : "View Full Quest Line"}
-            </Button>
-          </div>
-          
-          {showQuestList && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              className="mb-8"
-            >
-              <QuestList 
-                completedQuests={mergedCompletedQuests}
-                currentStage={currentStage}
-                onQuestAction={(questId) => {
-                  if (questId === 'generate_idea') openIndustryDialog();
-                  else if (questId === 'save_idea') openIndustryDialog();
-                  else if (questId === 'review_checklist' && businessIdeas.length > 0) {
-                    setSelectedIdeaId(businessIdeas[0].id);
-                  }
-                }}
-                activeQuestId={activeQuestId}
-                activeQuestName={businessIdeasWithProgress.find(i => i.id === activeQuestId)?.business_name}
-                activeQuestMilestones={(() => {
-                  const activeIdea = businessIdeasWithProgress.find(i => i.id === activeQuestId);
-                  if (!activeIdea) return undefined;
-                  const steps = activeIdea.completedSteps || [];
-                  return {
-                    validation: steps.some(s => s.toLowerCase().includes('validation') || s.toLowerCase().includes('validate')),
-                    landing: steps.some(s => s.toLowerCase().includes('landing') || s.toLowerCase().includes('website')),
-                    offer: steps.some(s => s.toLowerCase().includes('offer') || s.toLowerCase().includes('pricing')),
-                    outreach: steps.some(s => s.toLowerCase().includes('outreach') || s.toLowerCase().includes('prospect')),
-                    sale: steps.some(s => s.toLowerCase().includes('sale') || s.toLowerCase().includes('customer')),
-                  };
-                })()}
-              />
-            </motion.div>
-          )}
+
+
 
           {/* Activity Feed */}
           {businessIdeas.length > 0 && (
