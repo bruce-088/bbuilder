@@ -3,7 +3,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { X } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { X, Wrench, Brain, FileJson } from "lucide-react";
 import { NODE_TYPE_CONFIG, type WorkflowNode } from "./types";
 
 interface NodeInspectorProps {
@@ -13,6 +14,7 @@ interface NodeInspectorProps {
 }
 
 const AI_MODELS = [
+  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash" },
   { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
   { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
   { value: "openai/gpt-5-mini", label: "GPT-5 Mini" },
@@ -50,7 +52,7 @@ export function NodeInspector({ node, onUpdate, onClose }: NodeInspectorProps) {
           <>
             <div className="space-y-1.5">
               <Label className="text-xs">Model</Label>
-              <Select value={node.ai_model || "google/gemini-2.5-flash"} onValueChange={(v) => onUpdate(node.id, { ai_model: v })}>
+              <Select value={node.ai_model || "google/gemini-3-flash-preview"} onValueChange={(v) => onUpdate(node.id, { ai_model: v })}>
                 <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {AI_MODELS.map((m) => (
@@ -64,7 +66,7 @@ export function NodeInspector({ node, onUpdate, onClose }: NodeInspectorProps) {
               <Textarea
                 value={node.ai_prompt || ""}
                 onChange={(e) => onUpdate(node.id, { ai_prompt: e.target.value })}
-                rows={6}
+                rows={5}
                 className="text-sm resize-none"
                 placeholder="You are a lead scoring expert..."
               />
@@ -77,6 +79,71 @@ export function NodeInspector({ node, onUpdate, onClose }: NodeInspectorProps) {
                 onChange={(e) => updateConfig("temperature", parseFloat(e.target.value))}
                 className="h-8 text-sm"
               />
+            </div>
+
+            {/* ── Tool Calling ── */}
+            <div className="border-t border-border pt-3 mt-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
+                <Label className="text-xs font-semibold">Tool Calling</Label>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">Enable autonomous tool use</span>
+                <Switch
+                  checked={node.config.tool_calling_enabled === true}
+                  onCheckedChange={(v) => updateConfig("tool_calling_enabled", v)}
+                />
+              </div>
+              {node.config.tool_calling_enabled === true && (
+                <p className="text-[10px] text-muted-foreground mt-1.5">
+                  Agent can call HTTP requests, run code, and search data mid-reasoning.
+                </p>
+              )}
+            </div>
+
+            {/* ── Multi-Turn Reasoning ── */}
+            <div className="border-t border-border pt-3 mt-1">
+              <div className="flex items-center gap-2 mb-2">
+                <Brain className="h-3.5 w-3.5 text-muted-foreground" />
+                <Label className="text-xs font-semibold">Multi-Turn Reasoning</Label>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-xs text-muted-foreground">Max iterations</Label>
+                <Input
+                  type="number" min={1} max={10} step={1}
+                  value={(node.config.max_iterations as number) ?? 3}
+                  onChange={(e) => updateConfig("max_iterations", parseInt(e.target.value))}
+                  className="h-8 text-sm"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  How many reasoning loops the agent can perform (1–10).
+                </p>
+              </div>
+            </div>
+
+            {/* ── Structured Output ── */}
+            <div className="border-t border-border pt-3 mt-1">
+              <div className="flex items-center gap-2 mb-2">
+                <FileJson className="h-3.5 w-3.5 text-muted-foreground" />
+                <Label className="text-xs font-semibold">Structured Output</Label>
+              </div>
+              <Textarea
+                value={(node.config.output_schema as string) || ""}
+                onChange={(e) => updateConfig("output_schema", e.target.value)}
+                rows={4}
+                className="text-xs font-mono resize-none"
+                placeholder={`{
+  "type": "object",
+  "properties": {
+    "score": { "type": "number" },
+    "reason": { "type": "string" }
+  },
+  "required": ["score", "reason"]
+}`}
+              />
+              <p className="text-[10px] text-muted-foreground mt-1">
+                JSON Schema to enforce structured output. Leave empty for free-form.
+              </p>
             </div>
           </>
         )}
