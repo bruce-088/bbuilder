@@ -138,6 +138,17 @@ export function useAutomationRun(): UseAutomationRunReturn {
         const hasErrors = data.results?.some((r: PhaseResult) => r.status === "error");
         const hasWarnings = data.results?.some((r: PhaseResult) => r.status === "warning");
 
+        // Emit mission events for quest progression
+        if (!hasErrors) {
+          const emitEvent = (window as any).__emitMissionEvent;
+          if (typeof emitEvent === 'function') {
+            emitEvent('automation_completed', { businessIdeaId, aiProvider, phases: data.results?.length });
+            if (data.results?.some((r: PhaseResult) => r.phase === 'deploy' && r.status === 'success')) {
+              emitEvent('workflow_deployed', { businessIdeaId, aiProvider });
+            }
+          }
+        }
+
         toast({
           title: hasErrors
             ? "Automation completed with errors"
