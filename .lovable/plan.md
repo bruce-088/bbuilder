@@ -1,53 +1,53 @@
 
 
-# Improve Ease of Use for Both Paths in the Setup Guide
+# Transform Manual Path into an Interactive Course
 
-## What Changes
+## Overview
 
-Enhance the Unified Setup Guide to reduce friction for both the Manual and Mya paths, making each more actionable and less overwhelming.
-
----
-
-## 1. Mya Path: "Do It All For Me" Quick Launch
-
-**Problem**: Users see 7 categories with 3 commands each (21 options) -- too many choices.
-
-**Solution**: Add a single "Quick Launch" button at the top of the Mya tab that sends a bundled starter prompt like *"Set up my business: add 3 sample leads, create a follow-up workflow, and give me a business summary"*. One tap, full demo.
-
-- Appears as a highlighted hero card above the per-category sections
-- Clicking it navigates to chat with the bundled prompt pre-filled and auto-sent
+Replace the current checklist-style manual steps with a guided, step-by-step interactive course. Users progress through one step at a time with rich context, tips, and the ability to ask Mya for help at each step -- turning a wall of instructions into a focused learning experience.
 
 ---
 
-## 2. Mya Path: Voice Mode Hint
+## How It Works
 
-**Problem**: Users with the new Voice Mode don't know they can long-press mic instead of typing commands.
+The manual tab and the manual column in the side-by-side view will gain a new "course mode" that presents steps one at a time instead of all at once.
 
-**Solution**: Add a small banner/tip in the Mya tab: "You can also long-press the mic button to talk to Mya hands-free" with a microphone icon.
+### Step-by-Step Flow
+
+1. User sees only the **current step** prominently displayed, with a step counter (e.g., "Step 2 of 5")
+2. Each step shows:
+   - The step instruction (what to do)
+   - A short **"Why this matters"** explanation
+   - Relevant **tool links** for that specific step (e.g., link to Apollo.io only on the "Sign up for Apollo" step)
+   - A **"Stuck? Ask Mya"** button that sends a contextual help prompt
+3. Clicking **"Mark Complete and Continue"** checks off the step and advances to the next
+4. A **progress bar** at the top of each category shows overall completion
+5. Users can go back to review previous steps (shown as collapsed/completed)
+6. When all steps in a category are done, a completion card appears with a suggestion to move to the next category
+
+### Data Changes
+
+The `capabilities` data structure gets additional fields per step:
+
+- `why`: A short sentence explaining why this step matters (e.g., "Domain verification prevents your emails from landing in spam")
+- `helpPrompt`: A Mya command the user can send if stuck (e.g., "Help me set up email domain verification")
+- `tools`: Which tools from the category are relevant to this specific step
+
+### Category-Level Progress
+
+Each category card shows:
+- A thin progress bar at the top
+- "Step X of Y" indicator
+- Overall course progress across all categories in a summary header (e.g., "12 of 33 steps completed")
 
 ---
 
-## 3. Manual Path: Checklist with Local Progress
+## Visual Design
 
-**Problem**: Manual steps are read-only text -- users can't track what they've done.
-
-**Solution**: Add interactive checkboxes next to each manual step, persisted in `localStorage`. A small progress indicator (e.g., "3/5 done") appears on each category's accordion trigger so users see progress at a glance without expanding.
-
----
-
-## 4. Manual Path: "Ask Mya to Help" Nudge
-
-**Problem**: Users on the manual path don't realize Mya can shortcut specific steps.
-
-**Solution**: After each manual step list, add a subtle CTA: "Or skip the rest -- just tell Mya:" followed by the equivalent Mya command button. This bridges paths without being pushy.
-
----
-
-## 5. Side-by-Side: Auto-Expand First Item
-
-**Problem**: All accordion items start collapsed -- users see a wall of titles and have to click to discover content.
-
-**Solution**: Default-expand the first accordion item ("Lead Generation") so users immediately see the comparison format.
+- Current step: Full-size card with instruction, context, and action buttons
+- Completed steps: Collapsed single line with checkmark and strikethrough text
+- Future steps: Hidden (not shown until reached) to reduce overwhelm
+- Transition: Smooth animation when advancing between steps using framer-motion
 
 ---
 
@@ -56,18 +56,27 @@ Enhance the Unified Setup Guide to reduce friction for both the Manual and Mya p
 ### Files Modified
 
 1. **`src/components/UnifiedSetupGuide.tsx`**
-   - Add `quickLaunchPrompt` constant and hero card in the Mya tab
-   - Add Voice Mode tip component
-   - Add checkbox state using `useState` + `localStorage` persistence for manual steps
-   - Add progress counts on accordion triggers
-   - Add "Or tell Mya" bridge CTA after manual steps
-   - Set `defaultValue={["lead-gen"]}` on the side-by-side Accordion
+   - Expand the `CapabilityArea` interface: each step becomes an object `{ text: string; why: string; helpPrompt: string; relevantTools?: string[] }` instead of a plain string
+   - Update the `capabilities` array with enriched step data for all 7 categories (33 total steps)
+   - Replace the step list rendering in both the "manual" tab and the "side-by-side" manual column with a new `CourseStepView` inline component
+   - Add a summary progress header at the top of the manual tab
 
-### State Management
+2. **`src/hooks/useManualProgress.ts`**
+   - Add a `getCurrentStep(capId, totalSteps)` function that returns the index of the first incomplete step (used to auto-focus the current step)
+   - Add a `getOverallProgress()` function that returns total completed / total steps across all categories
 
-- Manual step completion: `localStorage` key `setup_guide_progress` storing a `Record<string, boolean[]>` (capability ID to step completion array)
-- No database changes needed -- this is lightweight local UI state
+3. **New component: `src/components/SetupGuide/CourseStepView.tsx`**
+   - Receives: category data, current step index, toggle/complete callbacks
+   - Renders the focused single-step UI with progress bar, instruction card, and navigation
+   - Handles "Mark Complete and Continue" logic
+   - Renders completed steps as collapsed items above the current step
+   - Shows completion celebration when all steps are done
 
 ### No New Dependencies
 
-All changes use existing components (Badge, Button, Checkbox from radix) and localStorage.
+Uses existing components: Progress bar, Card, Badge, Button, Checkbox, and framer-motion (already installed).
+
+### localStorage
+
+Same `setup_guide_progress` key -- no migration needed. The boolean array format already supports step-by-step tracking.
+
