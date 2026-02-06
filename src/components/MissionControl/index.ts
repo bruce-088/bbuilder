@@ -8,4 +8,5 @@ export { default as QuestPromptDialog } from './QuestPromptDialog';
 export { default as ActivityFeed } from './ActivityFeed';
 export { default as MomentumCard } from './MomentumCard';
 export { default as DailyBriefing } from './DailyBriefing';
+export { default as TodaysTasks } from './TodaysTasks';
 export * from './types';

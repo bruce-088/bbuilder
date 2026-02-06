@@ -1,10 +1,11 @@
 import { motion, AnimatePresence } from "framer-motion";
-import { Check, ChevronDown, ChevronUp, HelpCircle, ArrowRight, ExternalLink, PartyPopper, Target } from "lucide-react";
+import { Check, ChevronDown, ChevronUp, HelpCircle, ArrowRight, ExternalLink, PartyPopper, Target, Navigation } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { celebrateMilestone } from "@/lib/confetti";
 
 const ENCOURAGEMENTS = [
@@ -24,6 +25,7 @@ export interface CourseStep {
   helpPrompt: string;
   relevantTools?: string[];
   outcome?: string;
+  inAppAction?: { label: string; route: string };
 }
 
 interface CourseStepViewProps {
@@ -49,6 +51,7 @@ export default function CourseStepView({
   onAskMya,
   categoryOutcome,
 }: CourseStepViewProps) {
+  const navigate = useNavigate();
   const [showCompleted, setShowCompleted] = useState(false);
   const [encouragement, setEncouragement] = useState<string | null>(null);
   const completedCount = steps.filter((_, i) => isStepDone(capId, i)).length;
@@ -232,7 +235,7 @@ export default function CourseStepView({
                   )}
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       size="sm"
                       onClick={() => handleComplete(currentStepIndex)}
@@ -242,6 +245,17 @@ export default function CourseStepView({
                       Mark Complete & Continue
                       <ArrowRight className="w-3.5 h-3.5" />
                     </Button>
+                    {currentStep.inAppAction && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => navigate(currentStep.inAppAction!.route)}
+                        className="gap-1.5 text-xs"
+                      >
+                        <Navigation className="w-3.5 h-3.5" />
+                        {currentStep.inAppAction.label}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
