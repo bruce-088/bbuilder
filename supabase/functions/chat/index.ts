@@ -127,7 +127,233 @@ const COPILOT_TOOLS = [
       },
     },
   },
+  // ─── NEW TOOLS ───
+  {
+    type: "function",
+    function: {
+      name: "log_revenue",
+      description: "Record a revenue entry / payment. Use when the user says they made money, received a payment, closed a deal, got paid, or logged income.",
+      parameters: {
+        type: "object",
+        properties: {
+          amount: { type: "number", description: "Revenue amount in dollars" },
+          source: { type: "string", description: "Revenue source (e.g. 'client work', 'subscription', 'freelance')" },
+          is_recurring: { type: "boolean", description: "Whether this is recurring revenue (MRR)" },
+          lead_name: { type: "string", description: "Name of the lead/client this revenue came from (will be matched)" },
+          notes: { type: "string", description: "Optional notes about the revenue" },
+        },
+        required: ["amount", "source"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_revenue_stats",
+      description: "Show revenue statistics: MRR, monthly revenue, total revenue, progress toward $10K/month goal, and breakdown by source. Use when user asks about revenue, income, earnings, or money.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "update_lead",
+      description: "Update an existing lead's details (email, phone, company, tags, estimated value, etc). Use when user wants to change or update info on a lead.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_name: { type: "string", description: "Name of the lead to update (partial match)" },
+          lead_id: { type: "string", description: "Exact lead ID if known" },
+          email: { type: "string" },
+          phone: { type: "string" },
+          company: { type: "string" },
+          estimated_value: { type: "number" },
+          tags: { type: "array", items: { type: "string" } },
+        },
+        required: [],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "move_lead_stage",
+      description: "Move a lead to a different pipeline stage. Use when the user says to move, advance, promote, or change a lead's stage.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_name: { type: "string", description: "Name of the lead (partial match)" },
+          lead_id: { type: "string", description: "Exact lead ID if known" },
+          new_stage: { type: "string", description: "New pipeline stage", enum: ["captured", "qualified", "outreach", "nurturing", "won", "lost"] },
+        },
+        required: ["new_stage"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "log_lead_activity",
+      description: "Log a note, call, email, or meeting on a lead's timeline. Use when the user says they called, emailed, met with, or want to note something about a lead.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_name: { type: "string", description: "Name of the lead (partial match)" },
+          lead_id: { type: "string", description: "Exact lead ID if known" },
+          activity_type: { type: "string", enum: ["note", "call", "email", "meeting", "task"], description: "Type of activity" },
+          content: { type: "string", description: "Description of the activity" },
+        },
+        required: ["activity_type", "content"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_lead",
+      description: "Delete/remove a lead from the pipeline. Use when user wants to remove, delete, or clean up a lead.",
+      parameters: {
+        type: "object",
+        properties: {
+          lead_name: { type: "string", description: "Name of the lead to delete (partial match)" },
+          lead_id: { type: "string", description: "Exact lead ID" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "schedule_workflow",
+      description: "Set a cron schedule on a workflow so it runs automatically. Use when the user wants to schedule, automate timing, or set a recurring run for a workflow.",
+      parameters: {
+        type: "object",
+        properties: {
+          workflow_name: { type: "string", description: "Name of the workflow (partial match)" },
+          workflow_id: { type: "string", description: "Exact workflow ID" },
+          schedule: { type: "string", description: "Human-readable schedule like 'every day at 9am', 'every hour', 'weekdays at 8am', 'every 5 minutes'" },
+          enabled: { type: "boolean", description: "Whether the schedule should be enabled (default true)" },
+        },
+        required: ["schedule"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "delete_workflow",
+      description: "Delete/remove a workflow. Use when the user wants to remove or delete one of their workflows.",
+      parameters: {
+        type: "object",
+        properties: {
+          workflow_name: { type: "string", description: "Name of the workflow to delete (partial match)" },
+          workflow_id: { type: "string", description: "Exact workflow ID" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_pipeline_stats",
+      description: "Show pipeline analytics: total leads, leads by stage, conversion rate, total pipeline value, and top prospects. Use when the user asks about pipeline health, stats, or analytics.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_business_summary",
+      description: "Retrieve the user's saved business idea details (name, niche, target audience, strategy). Use when the user asks about their business, what idea they saved, or needs a reminder of their plan.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
 ];
+
+// ─── Helper: find lead by name or ID ───
+async function findLead(
+  args: Record<string, unknown>,
+  userId: string,
+  supabaseAdmin: ReturnType<typeof createClient>
+) {
+  if (args.lead_id) {
+    const { data } = await supabaseAdmin
+      .from("lead_contacts").select("*").eq("id", args.lead_id).eq("user_id", userId).single();
+    return data;
+  }
+  if (args.lead_name) {
+    const { data } = await supabaseAdmin
+      .from("lead_contacts").select("*").eq("user_id", userId)
+      .ilike("name", `%${args.lead_name}%`).limit(1);
+    return data?.[0] || null;
+  }
+  return null;
+}
+
+// ─── Helper: find workflow by name or ID ───
+async function findWorkflow(
+  args: Record<string, unknown>,
+  userId: string,
+  supabaseAdmin: ReturnType<typeof createClient>
+) {
+  if (args.workflow_id) {
+    const { data } = await supabaseAdmin
+      .from("workflows").select("*").eq("id", args.workflow_id).eq("user_id", userId).single();
+    return data;
+  }
+  if (args.workflow_name) {
+    const { data } = await supabaseAdmin
+      .from("workflows").select("*").eq("user_id", userId)
+      .ilike("name", `%${args.workflow_name}%`).limit(1);
+    return data?.[0] || null;
+  }
+  return null;
+}
+
+// ─── Helper: schedule string to cron ───
+function scheduleToCron(schedule: string): string {
+  const s = schedule.toLowerCase().trim();
+  if (s.includes("every minute")) return "* * * * *";
+  if (s.includes("every 5 min")) return "*/5 * * * *";
+  if (s.includes("every 15 min")) return "*/15 * * * *";
+  if (s.includes("every 30 min")) return "*/30 * * * *";
+  if (s.includes("every hour") || s.includes("hourly")) return "0 * * * *";
+  
+  // Parse "at Xam/pm" patterns
+  const timeMatch = s.match(/(\d{1,2})\s*(am|pm)/i);
+  let hour = 9;
+  if (timeMatch) {
+    hour = parseInt(timeMatch[1]);
+    if (timeMatch[2].toLowerCase() === "pm" && hour !== 12) hour += 12;
+    if (timeMatch[2].toLowerCase() === "am" && hour === 12) hour = 0;
+  }
+
+  if (s.includes("weekday")) return `0 ${hour} * * 1-5`;
+  if (s.includes("weekly") || s.includes("every week")) return `0 ${hour} * * 1`;
+  if (s.includes("daily") || s.includes("every day") || s.includes("every morning") || s.includes("every evening")) return `0 ${hour} * * *`;
+  
+  // Default: daily at extracted hour or 9am
+  return `0 ${hour} * * *`;
+}
 
 // ─── Tool Execution ───
 async function executeTool(
@@ -139,7 +365,6 @@ async function executeTool(
   try {
     switch (toolName) {
       case "create_workflow": {
-        // Create the workflow
         const { data: workflow, error: wfError } = await supabaseAdmin
           .from("workflows")
           .insert({
@@ -153,7 +378,6 @@ async function executeTool(
 
         if (wfError) throw wfError;
 
-        // Add nodes if provided
         const nodes = (args.nodes as Array<{ type: string; name: string; config?: Record<string, unknown> }>) || [];
         if (nodes.length > 0) {
           const nodeInserts = nodes.map((n, i) => ({
@@ -197,7 +421,6 @@ async function executeTool(
 
         if (leadError) throw leadError;
 
-        // Log the activity
         await supabaseAdmin.from("lead_activities").insert({
           user_id: userId,
           lead_id: lead.id,
@@ -209,7 +432,6 @@ async function executeTool(
       }
 
       case "trigger_workflow": {
-        // Find the workflow
         let query = supabaseAdmin
           .from("workflows")
           .select("id, name, is_active")
@@ -229,7 +451,6 @@ async function executeTool(
 
         const wf = workflows[0];
 
-        // Create an execution record
         const { data: execution, error: execError } = await supabaseAdmin
           .from("workflow_executions")
           .insert({
@@ -284,6 +505,238 @@ async function executeTool(
         return { success: true, data: { workflows, total: workflows?.length || 0 } };
       }
 
+      // ─── NEW TOOLS ───
+
+      case "log_revenue": {
+        // Optionally match lead by name
+        let leadId: string | null = null;
+        if (args.lead_name) {
+          const lead = await findLead({ lead_name: args.lead_name }, userId, supabaseAdmin);
+          if (lead) leadId = lead.id;
+        }
+
+        const { data, error } = await supabaseAdmin
+          .from("revenue_entries")
+          .insert({
+            user_id: userId,
+            amount: args.amount as number,
+            source: (args.source as string) || "manual",
+            is_recurring: (args.is_recurring as boolean) || false,
+            lead_id: leadId,
+            notes: (args.notes as string) || null,
+          })
+          .select("id, amount, source, is_recurring")
+          .single();
+
+        if (error) throw error;
+        return { success: true, data };
+      }
+
+      case "get_revenue_stats": {
+        const { data: entries, error } = await supabaseAdmin
+          .from("revenue_entries")
+          .select("amount, source, is_recurring, entry_date")
+          .eq("user_id", userId);
+
+        if (error) throw error;
+
+        const now = new Date();
+        const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+        const monthlyEntries = (entries || []).filter((e: any) => e.entry_date?.startsWith(thisMonth));
+        const monthlyRevenue = monthlyEntries.reduce((s: number, e: any) => s + Number(e.amount), 0);
+        const totalRevenue = (entries || []).reduce((s: number, e: any) => s + Number(e.amount), 0);
+        const mrr = (entries || []).filter((e: any) => e.is_recurring).reduce((s: number, e: any) => s + Number(e.amount), 0);
+
+        const bySource: Record<string, number> = {};
+        for (const e of entries || []) {
+          bySource[(e as any).source] = (bySource[(e as any).source] || 0) + Number((e as any).amount);
+        }
+
+        const goal = 10000;
+        return {
+          success: true,
+          data: {
+            monthly_revenue: monthlyRevenue,
+            total_revenue: totalRevenue,
+            mrr,
+            revenue_by_source: bySource,
+            goal,
+            progress_percent: Math.min(Math.round((monthlyRevenue / goal) * 100), 100),
+            entry_count: entries?.length || 0,
+          },
+        };
+      }
+
+      case "update_lead": {
+        const lead = await findLead(args, userId, supabaseAdmin);
+        if (!lead) return { success: false, error: "Lead not found" };
+
+        const updates: Record<string, unknown> = {};
+        if (args.email !== undefined) updates.email = args.email;
+        if (args.phone !== undefined) updates.phone = args.phone;
+        if (args.company !== undefined) updates.company = args.company;
+        if (args.estimated_value !== undefined) updates.estimated_value = args.estimated_value;
+        if (args.tags !== undefined) updates.tags = args.tags;
+
+        if (Object.keys(updates).length === 0) {
+          return { success: false, error: "No fields to update" };
+        }
+
+        const { error } = await supabaseAdmin
+          .from("lead_contacts").update(updates).eq("id", lead.id);
+        if (error) throw error;
+
+        await supabaseAdmin.from("lead_activities").insert({
+          user_id: userId,
+          lead_id: lead.id,
+          activity_type: "note",
+          content: `Updated: ${Object.keys(updates).join(", ")}`,
+        });
+
+        return { success: true, data: { lead_id: lead.id, name: lead.name, updated_fields: Object.keys(updates) } };
+      }
+
+      case "move_lead_stage": {
+        const lead = await findLead(args, userId, supabaseAdmin);
+        if (!lead) return { success: false, error: "Lead not found" };
+
+        const oldStage = lead.stage;
+        const newStage = args.new_stage as string;
+
+        const { error } = await supabaseAdmin
+          .from("lead_contacts").update({ stage: newStage }).eq("id", lead.id);
+        if (error) throw error;
+
+        await supabaseAdmin.from("lead_activities").insert({
+          user_id: userId,
+          lead_id: lead.id,
+          activity_type: "stage_change",
+          content: `Moved from ${oldStage} to ${newStage}`,
+          metadata: { old_stage: oldStage, new_stage: newStage },
+        });
+
+        return { success: true, data: { lead_id: lead.id, name: lead.name, old_stage: oldStage, new_stage: newStage } };
+      }
+
+      case "log_lead_activity": {
+        const lead = await findLead(args, userId, supabaseAdmin);
+        if (!lead) return { success: false, error: "Lead not found" };
+
+        const { data, error } = await supabaseAdmin
+          .from("lead_activities")
+          .insert({
+            user_id: userId,
+            lead_id: lead.id,
+            activity_type: args.activity_type as string,
+            content: args.content as string,
+          })
+          .select("id, activity_type, content")
+          .single();
+
+        if (error) throw error;
+        return { success: true, data: { ...data, lead_name: lead.name } };
+      }
+
+      case "delete_lead": {
+        const lead = await findLead(args, userId, supabaseAdmin);
+        if (!lead) return { success: false, error: "Lead not found" };
+
+        // Delete activities first, then lead
+        await supabaseAdmin.from("lead_activities").delete().eq("lead_id", lead.id);
+        const { error } = await supabaseAdmin.from("lead_contacts").delete().eq("id", lead.id);
+        if (error) throw error;
+
+        return { success: true, data: { deleted_name: lead.name, deleted_id: lead.id } };
+      }
+
+      case "schedule_workflow": {
+        const wf = await findWorkflow(args, userId, supabaseAdmin);
+        if (!wf) return { success: false, error: "Workflow not found" };
+
+        const cronExpr = scheduleToCron(args.schedule as string);
+        const enabled = args.enabled !== false;
+
+        // Upsert schedule
+        const { data: existing } = await supabaseAdmin
+          .from("workflow_schedules").select("id").eq("workflow_id", wf.id).maybeSingle();
+
+        if (existing) {
+          await supabaseAdmin.from("workflow_schedules")
+            .update({ cron_expression: cronExpr, enabled }).eq("id", existing.id);
+        } else {
+          await supabaseAdmin.from("workflow_schedules")
+            .insert({ workflow_id: wf.id, user_id: userId, cron_expression: cronExpr, enabled });
+        }
+
+        return {
+          success: true,
+          data: { workflow_name: wf.name, cron: cronExpr, schedule_human: args.schedule, enabled },
+        };
+      }
+
+      case "delete_workflow": {
+        const wf = await findWorkflow(args, userId, supabaseAdmin);
+        if (!wf) return { success: false, error: "Workflow not found" };
+
+        // Clean up related data
+        await supabaseAdmin.from("workflow_schedules").delete().eq("workflow_id", wf.id);
+        await supabaseAdmin.from("workflow_edges").delete().eq("workflow_id", wf.id);
+        await supabaseAdmin.from("workflow_nodes").delete().eq("workflow_id", wf.id);
+        const { error } = await supabaseAdmin.from("workflows").delete().eq("id", wf.id);
+        if (error) throw error;
+
+        return { success: true, data: { deleted_name: wf.name, deleted_id: wf.id } };
+      }
+
+      case "get_pipeline_stats": {
+        const { data: leads, error } = await supabaseAdmin
+          .from("lead_contacts")
+          .select("id, stage, estimated_value, name")
+          .eq("user_id", userId);
+
+        if (error) throw error;
+
+        const total = leads?.length || 0;
+        const byStage: Record<string, number> = {};
+        let totalValue = 0;
+        for (const l of leads || []) {
+          byStage[l.stage] = (byStage[l.stage] || 0) + 1;
+          totalValue += Number(l.estimated_value || 0);
+        }
+
+        const wonCount = byStage["won"] || 0;
+        const conversionRate = total > 0 ? Math.round((wonCount / total) * 100) : 0;
+
+        // Top 3 prospects by value
+        const topProspects = (leads || [])
+          .filter((l: any) => l.stage !== "won" && l.stage !== "lost")
+          .sort((a: any, b: any) => Number(b.estimated_value || 0) - Number(a.estimated_value || 0))
+          .slice(0, 3)
+          .map((l: any) => ({ name: l.name, value: Number(l.estimated_value || 0), stage: l.stage }));
+
+        return {
+          success: true,
+          data: { total_leads: total, leads_by_stage: byStage, pipeline_value: totalValue, conversion_rate: conversionRate, top_prospects: topProspects },
+        };
+      }
+
+      case "get_business_summary": {
+        const { data: ideas, error } = await supabaseAdmin
+          .from("business_ideas")
+          .select("id, business_name, niche, target_audience, value_proposition, service_offering, revenue_math, is_favorite")
+          .eq("user_id", userId)
+          .order("is_favorite", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(3);
+
+        if (error) throw error;
+        if (!ideas || ideas.length === 0) {
+          return { success: true, data: { message: "No business ideas saved yet. Let's brainstorm one!" } };
+        }
+
+        return { success: true, data: { ideas, primary: ideas[0] } };
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -308,10 +761,29 @@ CRITICAL RULE — ALWAYS USE TOOLS:
 You MUST call your tools whenever the user's intent matches a tool's purpose. NEVER describe what you "would" do or explain steps — just DO IT by calling the tool. If a user mentions a person, company, or deal → call add_lead. If they ask to build an automation → call create_workflow. If they ask about their pipeline → call list_leads. If they want to run something → call trigger_workflow.
 
 COPILOT CAPABILITIES (ALWAYS use tools, never just describe):
-- **Create workflows**: User describes any automation → CALL create_workflow immediately
-- **Add leads**: User mentions ANY person, prospect, or contact → CALL add_lead immediately
-- **Trigger workflows**: User wants to run/test anything → CALL trigger_workflow immediately
-- **List leads/workflows**: User asks about pipeline or automations → CALL list_leads or list_workflows immediately
+
+**Workflows & Automation:**
+- Create workflows → create_workflow
+- Trigger/run workflows → trigger_workflow
+- List workflows → list_workflows
+- Schedule workflows (cron) → schedule_workflow
+- Delete workflows → delete_workflow
+
+**Lead/CRM Management:**
+- Add leads → add_lead
+- List leads → list_leads
+- Update lead info → update_lead
+- Move lead stage → move_lead_stage
+- Log activity on lead → log_lead_activity
+- Delete leads → delete_lead
+
+**Revenue & Analytics:**
+- Log revenue/payments → log_revenue
+- Get revenue stats → get_revenue_stats
+- Get pipeline stats → get_pipeline_stats
+
+**Business Intelligence:**
+- Recall business idea → get_business_summary
 
 EXAMPLES (you MUST call the tool, not describe):
 - "Set up a lead follow-up automation" → CALL create_workflow
@@ -320,6 +792,16 @@ EXAMPLES (you MUST call the tool, not describe):
 - "How many leads do I have?" → CALL list_leads
 - "What automations do I have?" → CALL list_workflows
 - "I just talked to Sarah from Acme Corp, she's interested" → CALL add_lead with name="Sarah", company="Acme Corp"
+- "I just made $500 from a client" → CALL log_revenue with amount=500
+- "Move Sarah to qualified" → CALL move_lead_stage with lead_name="Sarah", new_stage="qualified"
+- "How's my revenue looking?" → CALL get_revenue_stats
+- "Schedule my follow-up workflow to run daily at 9am" → CALL schedule_workflow
+- "What's my pipeline looking like?" → CALL get_pipeline_stats
+- "Log a call with John about the proposal" → CALL log_lead_activity with lead_name="John", activity_type="call"
+- "Remove the old test lead" → CALL delete_lead
+- "Update Sarah's email to sarah@acme.com" → CALL update_lead with lead_name="Sarah", email="sarah@acme.com"
+- "Delete the webhook automation" → CALL delete_workflow
+- "What was my business idea again?" → CALL get_business_summary
 
 NEVER respond with "I can help you with that" or "Here's how to do it" — just CALL THE TOOL and then summarize the result in a friendly, celebratory way.
 
@@ -364,7 +846,6 @@ serve(async (req) => {
       );
     }
 
-    // Auth check
     const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
@@ -376,7 +857,6 @@ serve(async (req) => {
       );
     }
 
-    // Admin client for tool execution (bypasses RLS)
     const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
 
     const rawBody = await req.json();
@@ -396,7 +876,6 @@ serve(async (req) => {
 
     console.log(`Processing ${type || 'chat'} request with ${messages?.length || 0} messages, user: ${user.id}`);
 
-    // Build enhanced system prompt with n8n context
     let enhancedSystemPrompt = SYSTEM_PROMPT;
     if (n8nContext) {
       const contextParts = [];
@@ -410,19 +889,17 @@ serve(async (req) => {
       }
     }
 
-    // Build request body
     const requestBody: Record<string, unknown> = {
       model: "google/gemini-2.5-pro",
       messages: [
         { role: "system", content: enhancedSystemPrompt },
         ...(messages || []),
       ],
-      stream: false, // First call is non-streaming to handle tool calls
+      stream: false,
       tools: COPILOT_TOOLS,
       tool_choice: "auto",
     };
 
-    // For business idea generation
     if (type === "generate_ideas") {
       const industryContext = industry && industry !== "any"
         ? `specifically in the **${industry.replace(/-/g, ' ').toUpperCase()}** industry.`
@@ -433,7 +910,6 @@ serve(async (req) => {
         { role: "user", content: `${GENERATE_IDEAS_PROMPT}\n\nFocus ${industryContext}` },
         ...(messages || []),
       ];
-      // No tools for idea generation - just stream directly
       delete requestBody.tools;
       delete requestBody.tool_choice;
       requestBody.stream = true;
@@ -457,13 +933,11 @@ serve(async (req) => {
       throw new Error("No response from AI");
     }
 
-    // Check if AI wants to call tools
     const toolCalls = choice.message?.tool_calls;
 
     if (toolCalls && toolCalls.length > 0) {
       console.log(`AI requested ${toolCalls.length} tool call(s)`);
 
-      // Execute each tool call
       const toolResults: Array<{ tool_call_id: string; name: string; result: unknown }> = [];
 
       for (const tc of toolCalls) {
@@ -475,10 +949,9 @@ serve(async (req) => {
         toolResults.push({ tool_call_id: tc.id, name: fnName, result });
       }
 
-      // Build follow-up messages with tool results
       const followUpMessages = [
         ...(requestBody.messages as Array<{ role: string; content: string }>),
-        choice.message, // assistant message with tool_calls
+        choice.message,
         ...toolResults.map((tr) => ({
           role: "tool",
           tool_call_id: tr.tool_call_id,
@@ -486,7 +959,6 @@ serve(async (req) => {
         })),
       ];
 
-      // Second call: stream the final response with tool results context
       const streamBody = {
         model: "google/gemini-2.5-pro",
         messages: followUpMessages,
@@ -496,7 +968,6 @@ serve(async (req) => {
       const streamResponse = await callAIGateway(LOVABLE_API_KEY, streamBody);
       if (!streamResponse.ok) return handleAIError(streamResponse);
 
-      // Prepend tool result markers to the stream so the frontend can show action cards
       const toolMarkers = toolResults
         .map((tr) => `data: ${JSON.stringify({ choices: [{ delta: { content: `\n[TOOL_RESULT:${tr.name}:${JSON.stringify(tr.result)}]\n` } }] })}\n\n`)
         .join("");
@@ -524,18 +995,10 @@ serve(async (req) => {
     }
 
     // No tool calls - stream the response directly
-    // Re-request with streaming enabled
-    requestBody.stream = true;
-    delete requestBody.tools;
-    delete requestBody.tool_choice;
-
-    // Rebuild with the content from the non-streaming response to avoid double-calling
-    // Instead, create an SSE stream from the existing response
     const content = choice.message?.content || "";
     const encoder = new TextEncoder();
     const syntheticStream = new ReadableStream({
       start(controller) {
-        // Send content as a single SSE event
         const sseData = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\ndata: [DONE]\n\n`;
         controller.enqueue(encoder.encode(sseData));
         controller.close();
