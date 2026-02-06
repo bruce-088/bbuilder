@@ -14,6 +14,8 @@ import ExportPrompt from "./pages/ExportPrompt";
 import ExportComputerUsePrompt from "./pages/ExportComputerUsePrompt";
 import NotFound from "./pages/NotFound";
 import Leads from "./pages/Leads";
+import Workflows from "./pages/Workflows";
+import WorkflowEditor from "./pages/WorkflowEditor";
 
 const queryClient = new QueryClient();
 
@@ -34,6 +36,8 @@ const App = () => (
               <Route path="/export-prompt" element={<ExportPrompt />} />
               <Route path="/export-computer-use-prompt" element={<ExportComputerUsePrompt />} />
               <Route path="/leads" element={<Leads />} />
+              <Route path="/workflows" element={<Workflows />} />
+              <Route path="/workflows/:id" element={<WorkflowEditor />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>
