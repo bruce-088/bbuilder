@@ -57,11 +57,11 @@ const steps = [
   {
     icon: Settings,
     title: "4. Unlock Your Superpowers",
-    description: "Each plan comes with implementation guides and automation workflows. It's like having a team working for you—on autopilot!",
+    description: "Choose your path: set things up manually with external tools, or just tell Mya what you need in chat. The Setup Guide shows both options side-by-side.",
     tips: [
-      "The automation guide walks you through everything",
-      "n8n workflows do the heavy lifting for you",
-      "Export prompts to use with any AI tool"
+      "Manual Path: Use the guide to connect 20+ external tools yourself",
+      "Mya Path: Just chat — Mya handles leads, revenue, workflows & analytics",
+      "Most users save 20+ hours by letting Mya do the heavy lifting"
     ]
   },
   {

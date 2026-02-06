@@ -59,6 +59,7 @@ import { generateBusinessPlanBundle } from "@/lib/bundleGenerator";
 import FixDiagnosisDialog from "./FixDiagnosisDialog";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
 import BusinessIdeaMasterPromptDialog from "./BusinessIdeaMasterPromptDialog";
+import UnifiedSetupGuide from "./UnifiedSetupGuide";
 import { AutomationEngine } from "./AutomationEngine";
 import { Json } from "@/integrations/supabase/types";
 import { toast } from "sonner";
@@ -1192,7 +1193,7 @@ export default function BusinessIdeaDialog({
                   View Original Conversation
                 </Button>
               )}
-              <N8nAutomationGuideDialog
+              <UnifiedSetupGuide
                 businessIdea={{
                   id: idea.id,
                   businessName: idea.business_name,
@@ -1205,7 +1206,7 @@ export default function BusinessIdeaDialog({
                 trigger={
                   <Button variant="outline" className="w-full gap-2">
                     <Zap className="w-4 h-4" />
-                    Manual Setup Guide
+                    Setup Guide
                   </Button>
                 }
               />

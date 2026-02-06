@@ -31,7 +31,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
-import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
+import UnifiedSetupGuide from "@/components/UnifiedSetupGuide";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import SavePromptBanner from "@/components/SavePromptBanner";
 import PostSaveDialog from "@/components/PostSaveDialog";
@@ -1228,11 +1228,11 @@ export default function Chat() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <div>
-                          <ImplementationGuideDialog
+                          <UnifiedSetupGuide
                             trigger={
                               <Button className="h-10 px-3 gap-2 shadow-lg bg-background border border-border/50 hover:bg-accent hover:border-primary/50 transition-all">
                                 <Wrench className="w-4 h-4" />
-                                <span className="hidden sm:inline">Impl. Guide</span>
+                                <span className="hidden sm:inline">Setup Guide</span>
                               </Button>
                             }
                             businessIdea={{
@@ -1248,7 +1248,7 @@ export default function Chat() {
                         </div>
                       </TooltipTrigger>
                       <TooltipContent side="left">
-                        <p>Step-by-step implementation guide</p>
+                        <p>Setup guide: Manual vs Mya paths</p>
                       </TooltipContent>
                     </Tooltip>
                   </motion.div>
