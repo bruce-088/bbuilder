@@ -9,4 +9,5 @@ export { default as ActivityFeed } from './ActivityFeed';
 export { default as MomentumCard } from './MomentumCard';
 export { default as DailyBriefing } from './DailyBriefing';
 export { default as TodaysTasks } from './TodaysTasks';
+export { default as UnifiedProgressCard } from './UnifiedProgressCard';
 export * from './types';

@@ -61,7 +61,7 @@ interface UnifiedSetupGuideProps {
   businessIdea?: BusinessIdeaData;
 }
 
-interface CapabilityArea {
+export interface CapabilityArea {
   id: string;
   title: string;
   icon: React.ElementType;
@@ -78,7 +78,7 @@ interface CapabilityArea {
   };
 }
 
-const capabilities: CapabilityArea[] = [
+export const capabilities: CapabilityArea[] = [
   {
     id: "lead-gen",
     title: "Lead Generation",
