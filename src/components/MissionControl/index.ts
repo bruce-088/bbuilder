@@ -10,4 +10,5 @@ export { default as MomentumCard } from './MomentumCard';
 export { default as DailyBriefing } from './DailyBriefing';
 export { default as TodaysTasks } from './TodaysTasks';
 export { default as UnifiedProgressCard } from './UnifiedProgressCard';
+export { default as MissionHQCard } from './MissionHQCard';
 export * from './types';
