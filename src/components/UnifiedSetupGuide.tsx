@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Dialog,
@@ -41,6 +41,8 @@ import {
 import { Json } from "@/integrations/supabase/types";
 import { useManualProgress } from "@/hooks/useManualProgress";
 import CourseStepView, { type CourseStep } from "@/components/SetupGuide/CourseStepView";
+import { celebrateLevelUp } from "@/lib/confetti";
+import { motion } from "framer-motion";
 
 interface BusinessIdeaData {
   id: string;
@@ -292,7 +294,15 @@ export default function UnifiedSetupGuide({
   const totalManualHours = "23-41";
   const totalManualTools = 20;
   const overall = getOverallProgress();
+  const allComplete = overall.completed === overall.total && overall.total > 0;
+  const [celebrated, setCelebrated] = useState(false);
 
+  useEffect(() => {
+    if (allComplete && !celebrated) {
+      celebrateLevelUp();
+      setCelebrated(true);
+    }
+  }, [allComplete, celebrated]);
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
@@ -551,6 +561,52 @@ export default function UnifiedSetupGuide({
                   </p>
                 </CardContent>
               </Card>
+
+              {/* All-complete celebration */}
+              {allComplete && (
+                <motion.div
+                  initial={{ scale: 0.9, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ type: "spring", duration: 0.5 }}
+                >
+                  <Card className="border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 shadow-lg">
+                    <CardContent className="p-6 text-center space-y-3">
+                      <div className="text-4xl">🏆</div>
+                      <h3 className="text-lg font-bold">Course Complete!</h3>
+                      <p className="text-sm text-muted-foreground">
+                        You've completed all {overall.total} steps across every category. Your business infrastructure is fully set up.
+                      </p>
+                      <div className="grid grid-cols-3 gap-3 pt-2">
+                        <div className="bg-background/60 rounded-lg p-2">
+                          <p className="text-xl font-bold text-primary">{capabilities.length}</p>
+                          <p className="text-[10px] text-muted-foreground">Categories</p>
+                        </div>
+                        <div className="bg-background/60 rounded-lg p-2">
+                          <p className="text-xl font-bold text-primary">{overall.total}</p>
+                          <p className="text-[10px] text-muted-foreground">Steps Done</p>
+                        </div>
+                        <div className="bg-background/60 rounded-lg p-2">
+                          <p className="text-xl font-bold text-primary">100%</p>
+                          <p className="text-[10px] text-muted-foreground">Complete</p>
+                        </div>
+                      </div>
+                      <div className="pt-2 space-y-2">
+                        <p className="text-xs font-medium text-foreground">What's Next?</p>
+                        <div className="flex gap-2 justify-center">
+                          <Button size="sm" onClick={handleQuickLaunch} className="gap-1.5">
+                            <Rocket className="w-3.5 h-3.5" />
+                            Launch with Mya
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={() => { setOpen(false); navigate("/dashboard"); }}>
+                            <BarChart3 className="w-3.5 h-3.5 mr-1.5" />
+                            Dashboard
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </motion.div>
+              )}
 
               {capabilities.map((cap) => {
                 const capCompleted = getCompleted(cap.id, cap.manual.steps.length);
