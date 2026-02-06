@@ -1,78 +1,95 @@
 
 
-# Unified Setup Guide: Manual Path vs Mya Path
+# Voice-First Mode for Mya
 
 ## Overview
 
-Replace the current fragmented guide system with a unified "Setup Guide" that clearly presents two paths for every business capability: the **Manual Path** (configure external tools yourself) and the **Mya Path** (just tell Mya in chat). This makes it immediately clear that Mya can handle most things users would otherwise need 20+ external apps for.
+Add a hands-free "Voice Mode" to the chat where users tap one button to start a continuous voice conversation with Mya. They speak naturally, Mya transcribes in real-time using ElevenLabs Scribe, auto-sends the message, executes business tools, and speaks the response back -- all without touching the keyboard.
 
-## Current Problem
+## Current State
 
-The app has three separate guides (How to Use, Implementation Guide, n8n Automation Guide) that only describe the manual approach. Users don't realize they can skip most of it by just chatting with Mya. The guides also don't reflect Mya's new 13-tool capabilities.
+- **VoiceInputButton**: Uses browser Web Speech API, only fills the text input (user must still click Send)
+- **AudioPlaybackButton**: Plays TTS for individual messages (manual click per message)
+- **useVoiceChat hook**: Has TTS playback and MediaRecorder code but doesn't connect STT-to-send-to-TTS in a loop
+- **Edge functions**: `elevenlabs-stt` (token endpoint) and `elevenlabs-tts` exist and are ready
+- **Missing secret**: `ELEVENLABS_API_KEY` is NOT configured -- voice mode needs a graceful fallback to Web Speech API
 
-## Design: Side-by-Side Capability Map
+## How Voice Mode Works
 
-The new guide organizes capabilities into **7 business areas**, each showing what you'd need to do manually vs what Mya handles for you:
-
-| Business Area | Manual Path (External Tools) | Mya Path (Just Chat) |
-|---|---|---|
-| **Lead Generation** | Apollo, Hunter, LinkedIn, Google Sheets | "Add a lead named..." / "Find prospects in..." |
-| **Pipeline Management** | HubSpot, Close CRM, spreadsheets | "Move Sarah to qualified" / "What's my pipeline?" |
-| **Outreach & Follow-up** | SendGrid, Gmail sequences, Calendly | "Create a follow-up workflow" / "Schedule outreach daily" |
-| **Qualification** | Typeform, Gong, Fireflies | "Log a call with John" / "Score my leads" |
-| **Proposals & Closing** | PandaDoc, DocuSign, Stripe | "Log revenue from client" / "I just closed $2000" |
-| **Automation & Workflows** | n8n manual setup, webhook config | "Create a webhook automation" / "Schedule it for 9am" |
-| **Analytics & Intelligence** | Dashboards, spreadsheet formulas | "How's my revenue?" / "What's my conversion rate?" |
-
-## UI Structure
-
-A new **UnifiedSetupGuide** dialog with:
-
-1. **Header** explaining the two paths
-2. **Toggle/Tabs** to view "Full Manual Guide" vs "Quick Start with Mya" vs "Side-by-Side"
-3. **7 capability cards**, each with:
-   - Manual column: Tools needed, setup steps, estimated time
-   - Mya column: Example chat commands, what Mya does automatically, "Try it now" button that navigates to chat
-4. **Progress tracking** carried over from the existing implementation guide
+1. User taps the **microphone button** (hold or toggle) in the chat footer
+2. A **Voice Mode overlay** appears with a pulsing waveform animation and status text
+3. **STT** transcribes speech in real-time (ElevenLabs Scribe if API key available, otherwise Web Speech API fallback)
+4. On silence/commit, the transcript is **auto-sent** to Mya as a chat message
+5. Mya processes the message (including tool calls like `log_revenue`, `move_lead_stage`, etc.)
+6. Mya's response is **auto-spoken** via ElevenLabs TTS (or skipped if no API key)
+7. After TTS finishes, the mic **re-opens automatically** for the next command (continuous conversation loop)
+8. User taps the stop button or says "stop" / "goodbye" to exit voice mode
 
 ## Technical Changes
 
-### 1. New Component: `src/components/UnifiedSetupGuide.tsx`
+### 1. New Component: `src/components/Chat/VoiceModeOverlay.tsx`
 
-A new dialog component that:
-- Accepts `businessIdea` prop (same as existing guides)
-- Displays 7 capability areas in an accordion
-- Each area has two columns: Manual vs Mya
-- Manual column pulls content from existing `ImplementationGuideDialog` sections (tools, setup steps)
-- Mya column shows example prompts mapped to Mya's 13 tools
-- Includes "Try it" buttons that navigate to `/chat` with pre-filled messages
-- Retains checkbox progress tracking from the existing guide
+A full-screen overlay that appears during voice mode:
+- Mya avatar with pulsing ring animation (listening vs speaking states)
+- Live transcript text below avatar
+- Status indicator: "Listening...", "Processing...", "Mya is speaking..."
+- Waveform/pulse animation using framer-motion
+- Close/stop button
+- Tool result cards rendered inline (reuses `CopilotActionCard`)
 
-### 2. Update `src/components/BusinessIdeaDialog.tsx`
+### 2. New Hook: `src/hooks/useVoiceMode.ts`
 
-- Replace the separate "Implementation Guide" and "n8n Automation Guide" buttons with a single "Setup Guide" button that opens the new unified component
-- Keep both old components available as imports (no deletion) for backward compatibility
+Orchestrates the full voice loop:
+- **State machine**: `idle` -> `listening` -> `processing` -> `speaking` -> `listening` (loop)
+- **STT integration**: Tries ElevenLabs Scribe first (via `elevenlabs-stt` token endpoint), falls back to Web Speech API
+- **Auto-send**: When transcript is committed, calls the same `handleSend` logic from Chat.tsx
+- **Auto-TTS**: When assistant response is complete, plays it via `elevenlabs-tts`
+- **Re-listen**: After TTS playback ends, automatically re-starts STT
+- **Exit commands**: Detects "stop", "goodbye", "exit" to end voice mode
+- **Graceful degradation**: If ElevenLabs API key is missing, uses Web Speech API for STT and skips TTS (text-only responses shown in overlay)
 
 ### 3. Update `src/pages/Chat.tsx`
 
-- Replace the Implementation Guide button in the chat toolbar with the new unified guide button
+- Add `voiceModeActive` state
+- Long-press or dedicated toggle on the mic button activates voice mode
+- When voice mode is active, render `VoiceModeOverlay` on top of the chat
+- Pass `handleSend`-equivalent function to voice mode so transcripts go through the same copilot tool pipeline
+- Messages sent/received during voice mode appear in the normal chat history too
 
-### 4. Update `src/components/HowToUseDialog.tsx`
+### 4. Update `src/components/Chat/VoiceInputButton.tsx`
 
-- Add a brief mention of the two paths in the overview steps
-- Step 4 ("Unlock Your Superpowers") updated to mention both manual and Mya paths
+- Add `onLongPress` or `onDoubleClick` prop to trigger voice mode (distinct from single-tap which fills input)
+- Visual indicator when voice mode is available
 
-## What Stays the Same
+### 5. Secret Check
 
-- The old `ImplementationGuideDialog` and `N8nAutomationGuideDialog` files are kept (not deleted) for any deep-dive reference
-- Progress tracking storage format stays compatible
-- All existing navigation and routing unchanged
+- `ELEVENLABS_API_KEY` is not currently configured
+- Voice mode will work without it using Web Speech API fallback for STT (no TTS playback)
+- If the user wants full ElevenLabs voice quality, we'll prompt them to add the secret
 
-## Mya Tool-to-Capability Mapping (used in guide content)
+## Voice Mode States (Visual)
 
-- **Lead Generation**: `add_lead`, `list_leads`, `get_pipeline_stats`
-- **Pipeline Management**: `update_lead`, `move_lead_stage`, `delete_lead`
-- **Activity Tracking**: `log_lead_activity`
-- **Automation**: `create_workflow`, `trigger_workflow`, `schedule_workflow`, `delete_workflow`, `list_workflows`
-- **Revenue**: `log_revenue`, `get_revenue_stats`
-- **Intelligence**: `get_pipeline_stats`, `get_business_summary`
+| State | Avatar Animation | Status Text | Mic |
+|-------|-----------------|-------------|-----|
+| Listening | Green pulsing ring | "Listening..." + live transcript | Active |
+| Processing | Amber spinning | "Thinking..." | Off |
+| Speaking | Blue wave animation | "Mya is speaking..." | Off |
+| Paused | Dim ring | "Tap to continue" | Off |
+
+## Exit Conditions
+
+- User taps the X / stop button
+- User says "stop", "goodbye", "that's all", or "exit"
+- User navigates away from the chat page
+- Browser tab loses focus (optional -- can pause instead)
+
+## No Database Changes
+
+Voice mode is entirely client-side UI. All messages still flow through the existing chat pipeline and are saved normally.
+
+## Dependencies
+
+- `@elevenlabs/react` (already installed) -- `useScribe` hook for realtime STT
+- `framer-motion` (already installed) -- animations
+- Existing `elevenlabs-stt` and `elevenlabs-tts` edge functions
+
