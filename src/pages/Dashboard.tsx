@@ -81,7 +81,9 @@ import {
   MomentumCard,
   DailyBriefing,
   TodaysTasks,
+  UnifiedProgressCard,
 } from "@/components/MissionControl";
+import { capabilities } from "@/components/UnifiedSetupGuide";
 import { useMissionProgress } from "@/hooks/useMissionProgress";
 import { useMissionIntelligenceContext } from "@/contexts/MissionIntelligenceContext";
 import { useLeadManagement } from "@/hooks/useLeadManagement";
@@ -823,6 +825,19 @@ export default function Dashboard() {
             onOpenSetupGuide={() => setShowSetupGuide(true)}
             currentSetupStep="Continue your Setup Guide"
           />
+
+          {/* Unified Progress Card */}
+          {businessIdeas.length > 0 && (
+            <UnifiedProgressCard
+              completedMilestones={
+                businessIdeasWithProgress.find(i => i.id === activeQuestId)?.completedSteps ||
+                businessIdeasWithProgress[0]?.completedSteps ||
+                []
+              }
+              capabilities={capabilities}
+              onOpenSetupGuide={() => setShowSetupGuide(true)}
+            />
+          )}
 
           {/* Mission Control Header */}
           <div className="grid lg:grid-cols-3 gap-6 mb-8">
