@@ -943,7 +943,7 @@ export default function Chat() {
                     }}
                     onKeyDown={handleKeyDown}
                     onPaste={handlePaste}
-                    placeholder="I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"
+                    placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"}
                     className="resize-none min-h-[48px] max-h-[200px]"
                     disabled={isStreaming}
                   />
@@ -1406,7 +1406,7 @@ export default function Chat() {
                 }}
                 onKeyDown={handleKeyDown}
                 onPaste={handlePaste}
-                placeholder="I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"
+                placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"}
                 className="resize-none min-h-[48px] max-h-[200px]"
                 disabled={isStreaming}
               />
