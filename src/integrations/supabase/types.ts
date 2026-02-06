@@ -542,6 +542,36 @@ export type Database = {
           },
         ]
       }
+      mission_events: {
+        Row: {
+          created_at: string
+          event_data: Json | null
+          event_type: string
+          id: string
+          quest_unlocked: string | null
+          user_id: string
+          xp_awarded: number
+        }
+        Insert: {
+          created_at?: string
+          event_data?: Json | null
+          event_type: string
+          id?: string
+          quest_unlocked?: string | null
+          user_id: string
+          xp_awarded?: number
+        }
+        Update: {
+          created_at?: string
+          event_data?: Json | null
+          event_type?: string
+          id?: string
+          quest_unlocked?: string | null
+          user_id?: string
+          xp_awarded?: number
+        }
+        Relationships: []
+      }
       n8n_deployment_requests: {
         Row: {
           business_idea_id: string | null

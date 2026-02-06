@@ -123,13 +123,21 @@ import type { Json } from "@/integrations/supabase/types";
  
        if (error) throw error;
        
-       const newLead = data as Lead;
-       setLeads(prev => [newLead, ...prev]);
-       
-       // Create initial activity
-       await addActivity(newLead.id, "note", "Lead created");
-       
-       toast.success("Lead created successfully");
+        const newLead = data as Lead;
+        setLeads(prev => [newLead, ...prev]);
+        
+        // Create initial activity
+        await addActivity(newLead.id, "note", "Lead created");
+        
+        // Emit mission event for lead capture
+        if ((window as any).__emitMissionEvent) {
+          (window as any).__emitMissionEvent('lead_captured', { 
+            name: newLead.name, 
+            leadId: newLead.id 
+          });
+        }
+        
+        toast.success("Lead created successfully");
        return newLead;
      } catch (error) {
        console.error("Error creating lead:", error);
@@ -193,13 +201,38 @@ import type { Json } from "@/integrations/supabase/types";
          l.id === id ? { ...l, stage: newStage, last_contact_at: new Date().toISOString() } : l
        ));
        
-       // Log the stage change
-       await addActivity(id, "stage_change", `Stage changed from ${oldStage} to ${newStage}`, {
-         from: oldStage,
-         to: newStage,
-       });
-       
-       toast.success(`Lead moved to ${newStage}`);
+        // Log the stage change
+        await addActivity(id, "stage_change", `Stage changed from ${oldStage} to ${newStage}`, {
+          from: oldStage,
+          to: newStage,
+        });
+        
+        // Emit mission events for stage changes
+        if ((window as any).__emitMissionEvent) {
+          (window as any).__emitMissionEvent('stage_changed', { 
+            leadId: id, 
+            from: oldStage, 
+            to: newStage,
+            name: lead.name,
+          });
+          
+          if (newStage === 'won') {
+            (window as any).__emitMissionEvent('lead_won', { 
+              name: lead.name, 
+              leadId: id,
+              value: lead.estimated_value,
+            });
+          }
+          
+          if (newStage === 'outreach') {
+            (window as any).__emitMissionEvent('outreach_started', { 
+              name: lead.name, 
+              leadId: id,
+            });
+          }
+        }
+        
+        toast.success(`Lead moved to ${newStage}`);
        return true;
      } catch (error) {
        console.error("Error changing stage:", error);

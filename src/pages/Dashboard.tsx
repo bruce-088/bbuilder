@@ -70,9 +70,13 @@ import {
   AchievementBadges, 
   CurrentQuestCard,
   QuestList,
-  WhatsNextCard 
+  WhatsNextCard,
+  ActivityFeed,
+  MomentumCard,
+  DailyBriefing,
 } from "@/components/MissionControl";
 import { useMissionProgress } from "@/hooks/useMissionProgress";
+import { useMissionIntelligence } from "@/hooks/useMissionIntelligence";
 import { useLeadManagement } from "@/hooks/useLeadManagement";
 import { LeadStatsCard } from "@/components/LeadCRM";
 import OnboardingTour, { useOnboardingTour } from "@/components/OnboardingTour";
@@ -138,6 +142,27 @@ export default function Dashboard() {
     setActiveQuestId,
     refreshMission 
   } = useMissionProgress();
+
+  // Mission Intelligence (event-driven progress)
+  const {
+    completedQuests: eventCompletedQuests,
+    totalXP,
+    momentumCount,
+    emitEvent,
+    getNextAction,
+    getRecentEvents,
+    loading: intelligenceLoading,
+  } = useMissionIntelligence();
+
+  // Register emitEvent globally so other hooks can use it
+  useEffect(() => {
+    (window as any).__emitMissionEvent = emitEvent;
+    return () => { delete (window as any).__emitMissionEvent; };
+  }, [emitEvent]);
+
+  // Merge completed quests from both old and new systems
+  const mergedCompletedQuests = [...new Set([...completedQuests, ...eventCompletedQuests])];
+  const mergedXP = Math.max(xpEarned, totalXP);
 
   // Onboarding tour
   const { showTour, completeTour, skipTour, resetTour } = useOnboardingTour();
@@ -765,6 +790,18 @@ export default function Dashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4 }}
         >
+          {/* Daily Briefing - Top of Dashboard */}
+          {businessIdeas.length > 0 && (
+            <div className="mb-6">
+              <DailyBriefing
+                completedQuests={mergedCompletedQuests}
+                totalXP={mergedXP}
+                momentumCount={momentumCount}
+                nextAction={getNextAction()}
+              />
+            </div>
+          )}
+
           {/* Mission Control Header */}
           <div className="grid lg:grid-cols-3 gap-6 mb-8">
             {/* Welcome + Current Quest + Achievements */}
@@ -798,13 +835,13 @@ export default function Dashboard() {
                 <>
                   {/* Current Quest Card */}
                   <CurrentQuestCard 
-                    completedQuests={completedQuests}
+                    completedQuests={mergedCompletedQuests}
                     currentStage={currentStage}
                     onAction={() => {
                       // Navigate based on current quest
-                      const currentQuest = completedQuests.length === 0 ? 'generate_idea' : 
-                        completedQuests.includes('generate_idea') && !completedQuests.includes('save_idea') ? 'save_idea' :
-                        completedQuests.includes('save_idea') && !completedQuests.includes('review_checklist') ? 'review_checklist' :
+                      const currentQuest = mergedCompletedQuests.length === 0 ? 'generate_idea' : 
+                        mergedCompletedQuests.includes('generate_idea') && !mergedCompletedQuests.includes('save_idea') ? 'save_idea' :
+                        mergedCompletedQuests.includes('save_idea') && !mergedCompletedQuests.includes('review_checklist') ? 'review_checklist' :
                         'generate_idea';
                       
                       if (currentQuest === 'generate_idea' || currentQuest === 'save_idea') {
@@ -825,7 +862,7 @@ export default function Dashboard() {
                   />
 
                   {/* Achievements - only show when user has progress */}
-                  {completedQuests.length > 0 && (
+                  {mergedCompletedQuests.length > 0 && (
                     <AchievementBadges unlockedAchievements={unlockedAchievements} />
                   )}
                 </>
@@ -843,16 +880,19 @@ export default function Dashboard() {
                       label="to First Customer Goal"
                     />
                   )}
-                  {completedQuests.length > 0 && (
-                    <XPProgress currentXP={xpEarned} />
-                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    {mergedCompletedQuests.length > 0 && (
+                      <XPProgress currentXP={mergedXP} />
+                    )}
+                    <MomentumCard count={momentumCount} />
+                  </div>
                   
                   {/* Lead Pipeline Stats */}
                   <LeadStatsCard stats={leadStats} loading={leadsLoading} />
                 </>
               )}
               <WhatsNextCard
-                completedQuests={completedQuests}
+                completedQuests={mergedCompletedQuests}
                 currentStage={currentStage}
                 hasBusinessIdeas={businessIdeas.length > 0}
                 businessIdeas={businessIdeasWithProgress.map(idea => ({
@@ -900,7 +940,7 @@ export default function Dashboard() {
               className="mb-8"
             >
               <QuestList 
-                completedQuests={completedQuests}
+                completedQuests={mergedCompletedQuests}
                 currentStage={currentStage}
                 onQuestAction={(questId) => {
                   if (questId === 'generate_idea') openIndustryDialog();
@@ -925,6 +965,13 @@ export default function Dashboard() {
                 })()}
               />
             </motion.div>
+          )}
+
+          {/* Activity Feed */}
+          {businessIdeas.length > 0 && (
+            <div className="mb-8">
+              <ActivityFeed events={getRecentEvents(5)} compact />
+            </div>
           )}
 
           {/* Quick Actions - More Compact */}
