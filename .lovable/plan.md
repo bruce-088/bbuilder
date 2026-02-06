@@ -1,51 +1,86 @@
 
 
-# Fix: Node Connection (Edge Drawing) Not Working
+# Add Database Query, Loop/Iterator, and Merge Nodes
 
-## Root Cause
+## Overview
+Add three new node types to the visual workflow engine, expanding the automation capabilities for more complex patterns like querying your database, iterating over lists, and merging parallel branches.
 
-The current connection mechanism requires:
-1. `mousedown` on the output handle (right circle) -- sets `connectingFrom` state
-2. `mouseup` **exactly** on the input handle (left circle) of another node -- creates the edge
+---
 
-**Two problems make this fail:**
-- The 16px input handle is too small a drop target, and the mouseup consistently lands on other elements (canvas, root div) instead
-- There is zero visual feedback during the drag -- no temporary line following the cursor, so the user has no idea if they're "connecting"
+## New Node Types
 
-## Solution
+### 1. Database Query
+- Query your project's database directly from a workflow
+- Configurable table name, operation (SELECT, INSERT, UPDATE, DELETE), filters, and column selection
+- Supports template variables from upstream nodes (e.g., `{{email}}`)
 
-### 1. Add a temporary "connecting line" that follows the cursor while dragging
+### 2. Loop / Iterator
+- Takes an array input and executes downstream nodes once per item
+- Configurable input field (which key in the data holds the array)
+- Collects all iteration results into a single output array
 
-When the user starts dragging from an output handle, render a dashed SVG line from the source node to the current mouse position. This gives clear visual feedback.
+### 3. Merge
+- Combines inputs from multiple parent branches into one object
+- Configurable merge strategy: "combine" (merge all keys), "wait all" (wait for all parents), or "append" (concatenate arrays)
 
-### 2. Use a canvas-level mouseup listener to detect the drop target
+---
 
-Instead of relying on the mouseup landing on the tiny input handle, detect the nearest input handle within a radius (e.g., 30px) when the mouse is released anywhere on the canvas. This makes connections much easier to complete.
+## What Changes
 
-### 3. Increase handle hit areas
+### A. Node Type Definitions (`types.ts`)
+- Add `database_query`, `loop`, and `merge` to the `NodeType` union
+- Add their entries in `NODE_TYPE_CONFIG` with label, icon, color, description, and default config
 
-Make the visible handles slightly larger and add an invisible larger hit area around them.
+### B. Node Palette (`NodePalette.tsx`)
+- Add `database_query` under a new **"Data"** category
+- Add `loop` and `merge` under the **"Logic"** category
 
-## Technical Changes
+### C. Node Inspector (`NodeInspector.tsx`)
+- **Database Query**: Fields for table name, operation (SELECT/INSERT/UPDATE/DELETE), filter column, filter value, and select columns
+- **Loop**: Field for the array input key name
+- **Merge**: Dropdown for merge strategy (combine / wait all / append)
 
-### File: `src/hooks/useWorkflowBuilder.ts`
-- Add `connectingMousePos` state to track cursor position during a connection drag
+### D. Workflow Executor (edge function)
+- **`executeDatabaseQuery`**: Uses the Supabase service-role client to run the configured query against the project database. Supports SELECT with filters, INSERT, UPDATE, and DELETE.
+- **`executeLoop`**: Extracts the array from input, runs the remaining downstream subgraph for each item (simplified: collects items into an output array for the next node).
+- **`executeMerge`**: Already partially handled by the existing multi-parent merge logic; the new implementation adds configurable strategies (combine objects, wait for all, or append arrays).
 
-### File: `src/components/WorkflowBuilder/Canvas.tsx`
-- Track mouse position during connection drag and pass it to EdgeRenderer
-- On mouseup anywhere on the canvas, check if cursor is near any node's input handle (within 30px snap radius)
-- If near a valid input handle, complete the connection
-- Clear `connectingFrom` state on mouseup regardless
+### E. Node Renderer
+- No changes needed -- it already renders any node type dynamically from `NODE_TYPE_CONFIG`.
 
-### File: `src/components/WorkflowBuilder/EdgeRenderer.tsx`
-- Accept optional `connectingFrom` (source node ID) and `mousePos` props
-- When both are present, render a dashed line from the source node's output to the current mouse position
+---
 
-### File: `src/components/WorkflowBuilder/NodeRenderer.tsx`
-- Increase handle size from `w-4 h-4` to `w-5 h-5` for easier targeting
-- Keep the `onMouseUp` on input handles as a fallback
+## Technical Details
 
-### File: `src/pages/WorkflowEditor.tsx`
-- Pass `connectingFrom` and mouse position state through to Canvas
-- Update `handleConnectEnd` to work with the new proximity-based detection
+### New type definitions
+```text
+NodeType union additions:
+  'database_query' | 'loop' | 'merge'
+```
+
+### NODE_TYPE_CONFIG entries
+```text
+database_query:
+  icon: "🗄️", color: hsl(220, 70%, 50%)
+  defaultConfig: { table: '', operation: 'select', filters: {}, columns: '*' }
+
+loop:
+  icon: "🔁", color: hsl(310, 60%, 55%)
+  defaultConfig: { array_field: 'items', collect_results: true }
+
+merge:
+  icon: "🔗", color: hsl(30, 80%, 50%)
+  defaultConfig: { strategy: 'combine' }
+```
+
+### Edge function executor additions
+- `executeDatabaseQuery(node, input)` -- builds and runs a Supabase query using the service-role client
+- `executeLoop(node, input)` -- splits array input into individual items, outputs them as an array (downstream nodes process the collected array)
+- `executeMerge(node, input)` -- applies the selected merge strategy to combine multi-parent inputs
+
+### Files modified
+1. `src/components/WorkflowBuilder/types.ts` -- add 3 node types + configs
+2. `src/components/WorkflowBuilder/NodePalette.tsx` -- add new category and node entries
+3. `src/components/WorkflowBuilder/NodeInspector.tsx` -- add config panels for each new type
+4. `supabase/functions/workflow-executor/index.ts` -- add 3 executor functions + switch cases
 
