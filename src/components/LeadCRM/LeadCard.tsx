@@ -136,18 +136,18 @@
          </div>
  
          {/* Tags */}
-         {lead.tags.length > 0 && (
-           <div className="flex flex-wrap gap-1 pt-1">
-             {lead.tags.slice(0, 3).map((tag) => (
-               <Badge key={tag} variant="outline" className="text-[10px] px-1 py-0">
-                 {tag}
-               </Badge>
-             ))}
-             {lead.tags.length > 3 && (
-               <Badge variant="outline" className="text-[10px] px-1 py-0">
-                 +{lead.tags.length - 3}
-               </Badge>
-             )}
+          {lead.tags && lead.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1 pt-1">
+              {lead.tags.slice(0, 3).map((tag) => (
+                <Badge key={tag} variant="outline" className="text-[10px] px-1 py-0">
+                  {tag}
+                </Badge>
+              ))}
+              {lead.tags.length > 3 && (
+                <Badge variant="outline" className="text-[10px] px-1 py-0">
+                  +{lead.tags.length - 3}
+                </Badge>
+              )}
            </div>
          )}
        </CardContent>
