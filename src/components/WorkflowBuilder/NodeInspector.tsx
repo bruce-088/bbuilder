@@ -4,11 +4,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { X, Wrench, Brain, FileJson } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { X, Wrench, Brain, FileJson, Activity, Clock, ArrowDownUp } from "lucide-react";
 import { NODE_TYPE_CONFIG, type WorkflowNode } from "./types";
+import type { NodeExecutionLog } from "@/hooks/useWorkflowExecution";
 
 interface NodeInspectorProps {
   node: WorkflowNode;
+  executionLog?: NodeExecutionLog | null;
   onUpdate: (id: string, updates: Partial<WorkflowNode>) => void;
   onClose: () => void;
 }
@@ -21,7 +24,7 @@ const AI_MODELS = [
   { value: "openai/gpt-5", label: "GPT-5" },
 ];
 
-export function NodeInspector({ node, onUpdate, onClose }: NodeInspectorProps) {
+export function NodeInspector({ node, executionLog, onUpdate, onClose }: NodeInspectorProps) {
   const cfg = NODE_TYPE_CONFIG[node.type];
 
   const updateConfig = (key: string, value: unknown) => {
@@ -315,6 +318,71 @@ export function NodeInspector({ node, onUpdate, onClose }: NodeInspectorProps) {
               </SelectContent>
             </Select>
             <p className="text-[10px] text-muted-foreground">How to merge inputs from multiple branches</p>
+          </div>
+        )}
+
+        {/* ── Execution Data ── */}
+        {executionLog && executionLog.status !== "idle" && (
+          <div className="border-t border-border pt-3 mt-3 space-y-3">
+            <div className="flex items-center gap-2">
+              <Activity className="h-3.5 w-3.5 text-muted-foreground" />
+              <Label className="text-xs font-semibold">Execution Data</Label>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                executionLog.status === "completed" ? "bg-green-500/20 text-green-400" :
+                executionLog.status === "running" ? "bg-blue-500/20 text-blue-400" :
+                executionLog.status === "failed" ? "bg-destructive/20 text-destructive" :
+                "bg-yellow-500/20 text-yellow-400"
+              }`}>
+                {executionLog.status}
+              </span>
+            </div>
+
+            {/* Timing */}
+            {executionLog.started_at && (
+              <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                <Clock className="h-3 w-3" />
+                {executionLog.completed_at
+                  ? `${Math.round(new Date(executionLog.completed_at).getTime() - new Date(executionLog.started_at).getTime())}ms`
+                  : "Running..."}
+              </div>
+            )}
+
+            {/* Error */}
+            {executionLog.error && (
+              <div className="bg-destructive/10 border border-destructive/20 rounded-md p-2">
+                <p className="text-[10px] text-destructive font-mono break-all">{executionLog.error}</p>
+              </div>
+            )}
+
+            {/* Input Data */}
+            {executionLog.input_data != null && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <ArrowDownUp className="h-3 w-3 text-muted-foreground" />
+                  <Label className="text-[10px] text-muted-foreground">Input</Label>
+                </div>
+                <ScrollArea className="max-h-32">
+                  <pre className="text-[10px] font-mono bg-muted/30 rounded-md p-2 whitespace-pre-wrap break-all">
+                    {JSON.stringify(executionLog.input_data, null, 2)}
+                  </pre>
+                </ScrollArea>
+              </div>
+            )}
+
+            {/* Output Data */}
+            {executionLog.output_data != null && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <ArrowDownUp className="h-3 w-3 text-green-500" />
+                  <Label className="text-[10px] text-muted-foreground">Output</Label>
+                </div>
+                <ScrollArea className="max-h-32">
+                  <pre className="text-[10px] font-mono bg-muted/30 rounded-md p-2 whitespace-pre-wrap break-all">
+                    {JSON.stringify(executionLog.output_data, null, 2)}
+                  </pre>
+                </ScrollArea>
+              </div>
+            )}
           </div>
         )}
       </div>
