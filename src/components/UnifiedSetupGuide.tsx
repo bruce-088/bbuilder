@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Progress } from "@/components/ui/progress";
 import {
   Users,
   Target,
@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { Json } from "@/integrations/supabase/types";
 import { useManualProgress } from "@/hooks/useManualProgress";
+import CourseStepView, { type CourseStep } from "@/components/SetupGuide/CourseStepView";
 
 interface BusinessIdeaData {
   id: string;
@@ -62,7 +63,7 @@ interface CapabilityArea {
   icon: React.ElementType;
   manual: {
     tools: { name: string; url?: string }[];
-    steps: string[];
+    steps: CourseStep[];
     estimatedTime: string;
   };
   mya: {
@@ -85,23 +86,18 @@ const capabilities: CapabilityArea[] = [
         { name: "Google Sheets" },
       ],
       steps: [
-        "Sign up for Apollo.io or Hunter.io account",
-        "Set up search filters for your target audience",
-        "Export leads to a spreadsheet",
-        "Clean and deduplicate the data",
-        "Import leads into your CRM",
+        { text: "Sign up for Apollo.io or Hunter.io account", why: "These tools give you access to millions of verified business contacts so you can find decision-makers fast.", helpPrompt: "Help me choose between Apollo.io and Hunter.io for lead generation", relevantTools: ["Apollo.io", "Hunter.io"] },
+        { text: "Set up search filters for your target audience", why: "Precise filters ensure you only prospect people who match your ideal customer profile — saving hours of wasted outreach.", helpPrompt: "Help me define search filters for my target audience" },
+        { text: "Export leads to a spreadsheet", why: "A clean export gives you a working list you can sort, enrich, and prioritize before outreach.", helpPrompt: "What fields should I export for my lead spreadsheet?", relevantTools: ["Google Sheets"] },
+        { text: "Clean and deduplicate the data", why: "Duplicate or malformed data leads to embarrassing double-emails and wasted effort.", helpPrompt: "Help me clean and deduplicate my lead data" },
+        { text: "Import leads into your CRM", why: "Centralizing leads in one place lets you track every interaction and never lose a prospect.", helpPrompt: "How do I import leads into a CRM?" },
       ],
       estimatedTime: "2-4 hours",
     },
     mya: {
-      commands: [
-        '"Add a lead named Sarah from Acme Corp"',
-        '"Show me all my leads"',
-        '"What does my pipeline look like?"',
-      ],
+      commands: ['"Add a lead named Sarah from Acme Corp"', '"Show me all my leads"', '"What does my pipeline look like?"'],
       tools: ["add_lead", "list_leads", "get_pipeline_stats"],
-      description:
-        "Mya adds leads directly to your CRM, tracks them through stages, and gives you instant pipeline analytics.",
+      description: "Mya adds leads directly to your CRM, tracks them through stages, and gives you instant pipeline analytics.",
     },
   },
   {
@@ -116,23 +112,18 @@ const capabilities: CapabilityArea[] = [
         { name: "Spreadsheets" },
       ],
       steps: [
-        "Set up a CRM account and configure stages",
-        "Create custom fields for your business",
-        "Build pipeline views and dashboards",
-        "Train yourself on the CRM workflow",
-        "Manually move leads between stages",
+        { text: "Set up a CRM account and configure stages", why: "Defined stages (Lead → Qualified → Proposal → Closed) give you a clear view of where every deal stands.", helpPrompt: "Help me set up CRM stages for my business", relevantTools: ["HubSpot CRM", "Close CRM"] },
+        { text: "Create custom fields for your business", why: "Custom fields let you capture the specific data points that matter for your niche.", helpPrompt: "What custom fields should I create in my CRM?" },
+        { text: "Build pipeline views and dashboards", why: "Visual dashboards show bottlenecks at a glance so you know where deals are stalling.", helpPrompt: "Help me design a pipeline dashboard" },
+        { text: "Train yourself on the CRM workflow", why: "Knowing your CRM inside out means you'll actually use it consistently instead of abandoning it.", helpPrompt: "Give me a quick CRM training plan" },
+        { text: "Manually move leads between stages", why: "Practicing the full flow ensures your process works before you start automating it.", helpPrompt: "How should I decide when to move a lead to the next stage?" },
       ],
       estimatedTime: "3-5 hours",
     },
     mya: {
-      commands: [
-        '"Move Sarah to qualified"',
-        '"Update John\'s email to john@company.com"',
-        '"Delete the old test lead"',
-      ],
+      commands: ['"Move Sarah to qualified"', '"Update John\'s email to john@company.com"', '"Delete the old test lead"'],
       tools: ["update_lead", "move_lead_stage", "delete_lead"],
-      description:
-        "Just tell Mya what changed. She moves leads through stages, updates fields, and logs every activity automatically.",
+      description: "Just tell Mya what changed. She moves leads through stages, updates fields, and logs every activity automatically.",
     },
   },
   {
@@ -147,23 +138,18 @@ const capabilities: CapabilityArea[] = [
         { name: "Calendly", url: "https://calendly.com" },
       ],
       steps: [
-        "Set up email sending tool with domain verification",
-        "Write email templates for each sequence step",
-        "Configure follow-up timing and triggers",
-        "Set up calendar booking link",
-        "Connect tools together via Zapier or n8n",
+        { text: "Set up email sending tool with domain verification", why: "Domain verification prevents your emails from landing in spam and builds sender reputation.", helpPrompt: "Help me set up email domain verification", relevantTools: ["SendGrid", "Mailchimp"] },
+        { text: "Write email templates for each sequence step", why: "Pre-written templates ensure consistent messaging and save time on every send.", helpPrompt: "Help me write cold outreach email templates" },
+        { text: "Configure follow-up timing and triggers", why: "Automated timing ensures no lead goes cold because you forgot to follow up.", helpPrompt: "What's the best follow-up timing for cold outreach?" },
+        { text: "Set up calendar booking link", why: "A frictionless booking link converts interested prospects into actual meetings.", helpPrompt: "Help me set up a Calendly booking page", relevantTools: ["Calendly"] },
+        { text: "Connect tools together via Zapier or n8n", why: "Integration eliminates manual data entry between your email tool, CRM, and calendar.", helpPrompt: "How do I connect my outreach tools together?" },
       ],
       estimatedTime: "4-6 hours",
     },
     mya: {
-      commands: [
-        '"Create a follow-up workflow for cold leads"',
-        '"Schedule my outreach to run daily at 9am"',
-        '"List my active workflows"',
-      ],
+      commands: ['"Create a follow-up workflow for cold leads"', '"Schedule my outreach to run daily at 9am"', '"List my active workflows"'],
       tools: ["create_workflow", "schedule_workflow", "list_workflows"],
-      description:
-        "Mya creates automated outreach workflows and schedules them—no email tool setup needed.",
+      description: "Mya creates automated outreach workflows and schedules them—no email tool setup needed.",
     },
   },
   {
@@ -178,23 +164,18 @@ const capabilities: CapabilityArea[] = [
         { name: "Google Docs" },
       ],
       steps: [
-        "Create a qualification form or script",
-        "Set up call recording tool",
-        "Build a scoring rubric",
-        "Document each call's notes manually",
-        "Update CRM with call outcomes",
+        { text: "Create a qualification form or script", why: "A structured script ensures you ask the right questions and don't waste time on unqualified prospects.", helpPrompt: "Help me create a lead qualification script", relevantTools: ["Typeform"] },
+        { text: "Set up call recording tool", why: "Recordings let you review conversations for missed details and improve your pitch over time.", helpPrompt: "What call recording tool should I use?", relevantTools: ["Gong", "Fireflies.ai"] },
+        { text: "Build a scoring rubric", why: "Objective scoring removes gut-feel decisions and helps you prioritize the highest-value opportunities.", helpPrompt: "Help me build a lead scoring rubric" },
+        { text: "Document each call's notes manually", why: "Written notes ensure key details are captured before memory fades.", helpPrompt: "What should I include in my call notes?" },
+        { text: "Update CRM with call outcomes", why: "Keeping CRM data current means your pipeline view is always accurate.", helpPrompt: "How should I log call outcomes in my CRM?" },
       ],
       estimatedTime: "2-3 hours",
     },
     mya: {
-      commands: [
-        '"Log a call with John about the proposal"',
-        '"Add a note: Sarah loves our pricing"',
-        '"What activities have happened with this lead?"',
-      ],
+      commands: ['"Log a call with John about the proposal"', '"Add a note: Sarah loves our pricing"', '"What activities have happened with this lead?"'],
       tools: ["log_lead_activity"],
-      description:
-        "Tell Mya about calls, meetings, and notes. She logs everything to the lead's timeline automatically.",
+      description: "Tell Mya about calls, meetings, and notes. She logs everything to the lead's timeline automatically.",
     },
   },
   {
@@ -209,23 +190,18 @@ const capabilities: CapabilityArea[] = [
         { name: "PayPal" },
       ],
       steps: [
-        "Create proposal templates in PandaDoc",
-        "Set up Stripe or PayPal payment collection",
-        "Configure e-signature workflows",
-        "Build invoice templates",
-        "Track payments manually in a spreadsheet",
+        { text: "Create proposal templates in PandaDoc", why: "Polished proposals increase close rates and save you from building documents from scratch each time.", helpPrompt: "Help me create a service proposal template", relevantTools: ["PandaDoc"] },
+        { text: "Set up Stripe or PayPal payment collection", why: "Easy payment collection reduces friction and gets you paid faster.", helpPrompt: "How do I set up Stripe for service payments?", relevantTools: ["Stripe"] },
+        { text: "Configure e-signature workflows", why: "Digital signatures eliminate printing/scanning delays and make closing instant.", helpPrompt: "Help me set up e-signatures for contracts", relevantTools: ["DocuSign"] },
+        { text: "Build invoice templates", why: "Professional invoices build trust and ensure you get paid on time.", helpPrompt: "What should I include in my invoice template?" },
+        { text: "Track payments manually in a spreadsheet", why: "Revenue tracking shows your real progress toward $10K/month.", helpPrompt: "Help me set up a payment tracking spreadsheet" },
       ],
       estimatedTime: "3-5 hours",
     },
     mya: {
-      commands: [
-        '"I just closed $2000 from Acme Corp"',
-        '"Log revenue of $500 from freelancing"',
-        '"How\'s my revenue looking?"',
-      ],
+      commands: ['"I just closed $2000 from Acme Corp"', '"Log revenue of $500 from freelancing"', '"How\'s my revenue looking?"'],
       tools: ["log_revenue", "get_revenue_stats"],
-      description:
-        "Mya tracks every dollar—MRR, monthly totals, goal progress toward $10K/month. Just tell her when you get paid.",
+      description: "Mya tracks every dollar—MRR, monthly totals, goal progress toward $10K/month. Just tell her when you get paid.",
     },
   },
   {
@@ -239,31 +215,19 @@ const capabilities: CapabilityArea[] = [
         { name: "Make.com", url: "https://make.com" },
       ],
       steps: [
-        "Install and configure n8n (self-hosted or cloud)",
-        "Learn the node-based workflow builder",
-        "Set up webhook endpoints",
-        "Configure credentials for each service",
-        "Build and test each workflow manually",
-        "Set up cron schedules for recurring tasks",
+        { text: "Install and configure n8n (self-hosted or cloud)", why: "n8n is the backbone of your automation — everything else plugs into it.", helpPrompt: "Help me choose between self-hosted and cloud n8n", relevantTools: ["n8n"] },
+        { text: "Learn the node-based workflow builder", why: "Understanding nodes and connections lets you build any automation you can imagine.", helpPrompt: "Give me a quick tutorial on n8n's workflow builder" },
+        { text: "Set up webhook endpoints", why: "Webhooks let external tools trigger your workflows automatically in real-time.", helpPrompt: "How do I set up webhook endpoints in n8n?" },
+        { text: "Configure credentials for each service", why: "Proper credential setup ensures your workflows can securely access all your tools.", helpPrompt: "Help me configure n8n credentials" },
+        { text: "Build and test each workflow manually", why: "Testing each workflow before going live prevents embarrassing errors with real data.", helpPrompt: "How do I test my n8n workflows?" },
+        { text: "Set up cron schedules for recurring tasks", why: "Scheduled workflows run without you — true automation that works while you sleep.", helpPrompt: "Help me set up cron schedules in n8n" },
       ],
       estimatedTime: "5-10 hours",
     },
     mya: {
-      commands: [
-        '"Create a webhook automation for new leads"',
-        '"Schedule it for every weekday at 9am"',
-        '"Trigger my outreach workflow"',
-        '"Delete the old test workflow"',
-      ],
-      tools: [
-        "create_workflow",
-        "trigger_workflow",
-        "schedule_workflow",
-        "delete_workflow",
-        "list_workflows",
-      ],
-      description:
-        "Mya builds, schedules, triggers, and manages workflows entirely through conversation. No manual config needed.",
+      commands: ['"Create a webhook automation for new leads"', '"Schedule it for every weekday at 9am"', '"Trigger my outreach workflow"', '"Delete the old test workflow"'],
+      tools: ["create_workflow", "trigger_workflow", "schedule_workflow", "delete_workflow", "list_workflows"],
+      description: "Mya builds, schedules, triggers, and manages workflows entirely through conversation. No manual config needed.",
     },
   },
   {
@@ -277,24 +241,18 @@ const capabilities: CapabilityArea[] = [
         { name: "Metabase", url: "https://metabase.com" },
       ],
       steps: [
-        "Set up analytics tracking on your site",
-        "Build spreadsheet formulas for revenue tracking",
-        "Create dashboard visualizations",
-        "Manually compile reports each week",
-        "Cross-reference data from multiple tools",
+        { text: "Set up analytics tracking on your site", why: "Tracking tells you where your visitors come from and what they do — the foundation of data-driven decisions.", helpPrompt: "Help me set up Google Analytics on my site", relevantTools: ["Google Analytics"] },
+        { text: "Build spreadsheet formulas for revenue tracking", why: "Revenue formulas give you instant visibility into MRR, growth rate, and trends.", helpPrompt: "Help me build revenue tracking formulas" },
+        { text: "Create dashboard visualizations", why: "Visual dashboards surface patterns that raw numbers hide.", helpPrompt: "What metrics should I put on my dashboard?", relevantTools: ["Metabase"] },
+        { text: "Manually compile reports each week", why: "Regular reporting creates accountability and highlights what's working (and what isn't).", helpPrompt: "Help me create a weekly business report template" },
+        { text: "Cross-reference data from multiple tools", why: "Connecting data from CRM, email, and analytics reveals your true conversion funnel.", helpPrompt: "How do I cross-reference data across my tools?" },
       ],
       estimatedTime: "3-5 hours",
     },
     mya: {
-      commands: [
-        '"How\'s my revenue this month?"',
-        '"What\'s my conversion rate?"',
-        '"Give me a business summary"',
-        '"What\'s my pipeline value?"',
-      ],
+      commands: ['"How\'s my revenue this month?"', '"What\'s my conversion rate?"', '"Give me a business summary"', '"What\'s my pipeline value?"'],
       tools: ["get_revenue_stats", "get_pipeline_stats", "get_business_summary"],
-      description:
-        "Ask Mya anything about your business performance. She calculates stats in real-time from your actual data.",
+      description: "Ask Mya anything about your business performance. She calculates stats in real-time from your actual data.",
     },
   },
 ];
@@ -308,12 +266,19 @@ export default function UnifiedSetupGuide({
 }: UnifiedSetupGuideProps) {
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
-  const { toggleStep, getCompleted, isStepDone, resetProgress, hasAnyProgress } = useManualProgress(capabilities);
+  const { toggleStep, markStepDone, getCompleted, isStepDone, getCurrentStep, getOverallProgress, resetProgress, hasAnyProgress } = useManualProgress(capabilities);
 
   const handleTryIt = (command: string) => {
     setOpen(false);
     navigate("/chat/new", {
       state: { initialPrompt: command.replace(/"/g, "") },
+    });
+  };
+
+  const handleAskMya = (prompt: string) => {
+    setOpen(false);
+    navigate("/chat/new", {
+      state: { initialPrompt: prompt },
     });
   };
 
@@ -326,6 +291,7 @@ export default function UnifiedSetupGuide({
 
   const totalManualHours = "23-41";
   const totalManualTools = 20;
+  const overall = getOverallProgress();
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -357,7 +323,7 @@ export default function UnifiedSetupGuide({
               Quick Start with Mya
             </TabsTrigger>
             <TabsTrigger value="manual" className="flex-1">
-              Full Manual Guide
+              Interactive Course
             </TabsTrigger>
           </TabsList>
 
@@ -397,7 +363,7 @@ export default function UnifiedSetupGuide({
                     </AccordionTrigger>
                     <AccordionContent>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-2">
-                        {/* Manual Column */}
+                        {/* Manual Column — Course View */}
                         <Card className="bg-secondary/30 border-border/30">
                           <CardContent className="p-3 space-y-3">
                             <div className="flex items-center justify-between">
@@ -409,64 +375,24 @@ export default function UnifiedSetupGuide({
                                 {cap.manual.estimatedTime}
                               </Badge>
                             </div>
-                            <div className="space-y-1">
-                              <p className="text-xs text-muted-foreground font-medium">
-                                Tools needed:
-                              </p>
-                              <div className="flex flex-wrap gap-1">
-                                {cap.manual.tools.map((tool) => (
-                                  <Badge
-                                    key={tool.name}
-                                    variant="outline"
-                                    className="text-xs cursor-default"
-                                  >
-                                    {tool.url ? (
-                                      <a
-                                        href={tool.url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-1 hover:text-primary"
-                                      >
-                                        {tool.name}
-                                        <ExternalLink className="w-2.5 h-2.5" />
-                                      </a>
-                                    ) : (
-                                      tool.name
-                                    )}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-xs text-muted-foreground font-medium">
-                                Steps:
-                              </p>
-                              <ol className="space-y-1.5">
-                                {cap.manual.steps.map((step, i) => (
-                                  <li
-                                    key={i}
-                                    className="text-xs text-muted-foreground flex items-start gap-2"
-                                  >
-                                    <Checkbox
-                                      checked={isStepDone(cap.id, i)}
-                                      onCheckedChange={() => toggleStep(cap.id, i, cap.manual.steps.length)}
-                                      className="mt-0.5 h-3.5 w-3.5"
-                                    />
-                                    <span className={isStepDone(cap.id, i) ? "line-through opacity-50" : ""}>
-                                      {step}
-                                    </span>
-                                  </li>
-                                ))}
-                              </ol>
-                              {/* Bridge CTA */}
-                              <button
-                                onClick={() => handleTryIt(cap.mya.commands[0])}
-                                className="mt-2 w-full text-left text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 transition-colors"
-                              >
-                                <Bot className="w-3 h-3" />
-                                <span>Or skip the rest — tell Mya: <em className="text-primary">{cap.mya.commands[0]}</em></span>
-                              </button>
-                            </div>
+                            <CourseStepView
+                              capId={cap.id}
+                              title={cap.title}
+                              steps={cap.manual.steps}
+                              tools={cap.manual.tools}
+                              currentStepIndex={getCurrentStep(cap.id, cap.manual.steps.length)}
+                              isStepDone={isStepDone}
+                              onMarkComplete={markStepDone}
+                              onAskMya={handleAskMya}
+                            />
+                            {/* Bridge CTA */}
+                            <button
+                              onClick={() => handleTryIt(cap.mya.commands[0])}
+                              className="mt-2 w-full text-left text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 transition-colors"
+                            >
+                              <Bot className="w-3 h-3" />
+                              <span>Or skip the rest — tell Mya: <em className="text-primary">{cap.mya.commands[0]}</em></span>
+                            </button>
                           </CardContent>
                         </Card>
 
@@ -593,102 +519,74 @@ export default function UnifiedSetupGuide({
               ))}
             </TabsContent>
 
-            {/* Manual Only */}
+            {/* Interactive Course */}
             <TabsContent value="manual" className="mt-0 space-y-3">
+              {/* Overall progress header */}
               <Card className="bg-secondary/30 border-border/30">
-                <CardContent className="p-4">
-                  <p className="text-sm text-muted-foreground">
-                    The manual path requires setting up {totalManualTools}+
-                    external tools with an estimated {totalManualHours} hours of
-                    configuration. Each section below lists the tools, accounts,
-                    and steps needed.
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium">
+                      Your Progress
+                    </p>
+                    <div className="flex items-center gap-2">
+                      {hasAnyProgress && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={resetProgress}
+                          className="text-xs text-muted-foreground hover:text-destructive h-7 px-2"
+                        >
+                          <RotateCcw className="w-3 h-3 mr-1" />
+                          Reset
+                        </Button>
+                      )}
+                      <Badge variant="secondary" className="text-xs">
+                        {overall.completed} of {overall.total} steps
+                      </Badge>
+                    </div>
+                  </div>
+                  <Progress value={overall.total > 0 ? (overall.completed / overall.total) * 100 : 0} className="h-2" />
+                  <p className="text-xs text-muted-foreground">
+                    Complete each step to build your business infrastructure. Take it one step at a time.
                   </p>
                 </CardContent>
               </Card>
 
-              {capabilities.map((cap) => (
-                <Card key={cap.id} className="glass">
-                  <CardContent className="p-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <div className="flex items-center gap-2">
-                        <cap.icon className="w-4 h-4 text-primary" />
-                        <span className="font-medium text-sm">{cap.title}</span>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        <Clock className="w-3 h-3 mr-1" />
-                        {cap.manual.estimatedTime}
-                      </Badge>
-                    </div>
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-xs text-muted-foreground font-medium mb-1.5">
-                          Tools needed:
-                        </p>
-                        <div className="flex flex-wrap gap-1.5">
-                          {cap.manual.tools.map((tool) => (
-                            <Badge
-                              key={tool.name}
-                              variant="outline"
-                              className="text-xs"
-                            >
-                              {tool.url ? (
-                                <a
-                                  href={tool.url}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-1 hover:text-primary"
-                                >
-                                  {tool.name}
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </a>
-                              ) : (
-                                tool.name
-                              )}
-                            </Badge>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="flex items-center justify-between mb-1.5">
-                          <p className="text-xs text-muted-foreground font-medium">
-                            Setup steps:
-                          </p>
-                          {getCompleted(cap.id, cap.manual.steps.length) > 0 && (
-                            <Badge variant="secondary" className="text-xs">
-                              {getCompleted(cap.id, cap.manual.steps.length)}/{cap.manual.steps.length}
-                            </Badge>
+              {capabilities.map((cap) => {
+                const capCompleted = getCompleted(cap.id, cap.manual.steps.length);
+                const capTotal = cap.manual.steps.length;
+                const capDone = capCompleted === capTotal;
+
+                return (
+                  <Card key={cap.id} className={capDone ? "border-primary/30 bg-primary/5" : "glass"}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <cap.icon className="w-4 h-4 text-primary" />
+                          <span className="font-medium text-sm">{cap.title}</span>
+                          {capDone && (
+                            <Badge className="text-xs bg-primary/20 text-primary border-0">Complete</Badge>
                           )}
                         </div>
-                        <ol className="space-y-2">
-                          {cap.manual.steps.map((step, i) => (
-                            <li
-                              key={i}
-                              className="text-sm text-muted-foreground flex items-start gap-2"
-                            >
-                              <Checkbox
-                                checked={isStepDone(cap.id, i)}
-                                onCheckedChange={() => toggleStep(cap.id, i, cap.manual.steps.length)}
-                                className="mt-0.5"
-                              />
-                              <span className={isStepDone(cap.id, i) ? "line-through opacity-50" : ""}>
-                                {step}
-                              </span>
-                            </li>
-                          ))}
-                        </ol>
-                        {/* Bridge CTA */}
-                        <button
-                          onClick={() => handleTryIt(cap.mya.commands[0])}
-                          className="mt-3 w-full text-left text-xs text-muted-foreground hover:text-primary flex items-center gap-1.5 transition-colors"
-                        >
-                          <Bot className="w-3 h-3" />
-                          <span>Or skip the rest — tell Mya: <em className="text-primary">{cap.mya.commands[0]}</em></span>
-                        </button>
+                        <Badge variant="secondary" className="text-xs">
+                          <Clock className="w-3 h-3 mr-1" />
+                          {cap.manual.estimatedTime}
+                        </Badge>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      <CourseStepView
+                        capId={cap.id}
+                        title={cap.title}
+                        steps={cap.manual.steps}
+                        tools={cap.manual.tools}
+                        currentStepIndex={getCurrentStep(cap.id, cap.manual.steps.length)}
+                        isStepDone={isStepDone}
+                        onMarkComplete={markStepDone}
+                        onAskMya={handleAskMya}
+                      />
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </TabsContent>
           </ScrollArea>
         </Tabs>
