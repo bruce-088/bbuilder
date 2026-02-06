@@ -6,7 +6,8 @@ interface NodePaletteProps {
 
 const categories = [
   { label: "Triggers", types: ["webhook_trigger", "schedule_trigger"] as NodeType[] },
-  { label: "Logic", types: ["ai_agent", "filter", "code", "transform"] as NodeType[] },
+  { label: "Logic", types: ["ai_agent", "filter", "code", "transform", "loop", "merge"] as NodeType[] },
+  { label: "Data", types: ["database_query"] as NodeType[] },
   { label: "Actions", types: ["http_request", "email_send", "delay"] as NodeType[] },
 ];
 

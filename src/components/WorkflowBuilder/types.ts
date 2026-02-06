@@ -7,7 +7,10 @@ export type NodeType =
   | 'filter'
   | 'code'
   | 'delay'
-  | 'transform';
+  | 'transform'
+  | 'database_query'
+  | 'loop'
+  | 'merge';
 
 export interface WorkflowNode {
   id: string;
@@ -114,5 +117,26 @@ export const NODE_TYPE_CONFIG: Record<NodeType, {
     color: 'hsl(170, 60%, 45%)',
     description: 'Reshapes data between nodes',
     defaultConfig: { mappings: [] },
+  },
+  database_query: {
+    label: 'Database Query',
+    icon: '🗄️',
+    color: 'hsl(220, 70%, 50%)',
+    description: 'Query your project database',
+    defaultConfig: { table: '', operation: 'select', filters: {}, columns: '*' },
+  },
+  loop: {
+    label: 'Loop / Iterator',
+    icon: '🔁',
+    color: 'hsl(310, 60%, 55%)',
+    description: 'Iterate over an array of items',
+    defaultConfig: { array_field: 'items', collect_results: true },
+  },
+  merge: {
+    label: 'Merge',
+    icon: '🔗',
+    color: 'hsl(30, 80%, 50%)',
+    description: 'Combine inputs from multiple branches',
+    defaultConfig: { strategy: 'combine' },
   },
 };

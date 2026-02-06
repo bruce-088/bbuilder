@@ -257,6 +257,66 @@ export function NodeInspector({ node, onUpdate, onClose }: NodeInspectorProps) {
             </Select>
           </div>
         )}
+
+        {/* Database Query config */}
+        {node.type === "database_query" && (
+          <>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Table Name</Label>
+              <Input value={(node.config.table as string) || ""} onChange={(e) => updateConfig("table", e.target.value)} className="h-8 text-sm" placeholder="lead_contacts" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Operation</Label>
+              <Select value={(node.config.operation as string) || "select"} onValueChange={(v) => updateConfig("operation", v)}>
+                <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {["select", "insert", "update", "delete"].map((op) => (
+                    <SelectItem key={op} value={op}>{op.toUpperCase()}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Filter Column</Label>
+              <Input value={(node.config.filter_column as string) || ""} onChange={(e) => updateConfig("filter_column", e.target.value)} className="h-8 text-sm" placeholder="email" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Filter Value</Label>
+              <Input value={(node.config.filter_value as string) || ""} onChange={(e) => updateConfig("filter_value", e.target.value)} className="h-8 text-sm" placeholder="{{email}}" />
+              <p className="text-[10px] text-muted-foreground">Use {"{{field}}"} for upstream data</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Columns</Label>
+              <Input value={(node.config.columns as string) || "*"} onChange={(e) => updateConfig("columns", e.target.value)} className="h-8 text-sm" placeholder="*" />
+              <p className="text-[10px] text-muted-foreground">Comma-separated or * for all</p>
+            </div>
+          </>
+        )}
+
+        {/* Loop config */}
+        {node.type === "loop" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Array Field</Label>
+            <Input value={(node.config.array_field as string) || "items"} onChange={(e) => updateConfig("array_field", e.target.value)} className="h-8 text-sm" placeholder="items" />
+            <p className="text-[10px] text-muted-foreground">Key in upstream data that holds the array</p>
+          </div>
+        )}
+
+        {/* Merge config */}
+        {node.type === "merge" && (
+          <div className="space-y-1.5">
+            <Label className="text-xs">Merge Strategy</Label>
+            <Select value={(node.config.strategy as string) || "combine"} onValueChange={(v) => updateConfig("strategy", v)}>
+              <SelectTrigger className="h-8 text-sm"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="combine">Combine (merge keys)</SelectItem>
+                <SelectItem value="wait_all">Wait All (collect array)</SelectItem>
+                <SelectItem value="append">Append (concatenate)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground">How to merge inputs from multiple branches</p>
+          </div>
+        )}
       </div>
     </div>
   );
