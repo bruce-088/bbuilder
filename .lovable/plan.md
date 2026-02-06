@@ -1,61 +1,57 @@
 
 
-# Combine Current Quest, Your Progress, and Quest Line into One Unified Card
+# Declutter the Dashboard
 
-## Overview
+## Current State
 
-The three components -- **Current Quest**, **Your Progress**, and **Quest Line** -- all track the same active quest and milestones but are scattered across the dashboard. This plan merges them into a single tabbed card called **"Mission HQ"** that lives in the left column, reducing redundancy and giving users one place to manage their quest journey.
+The dashboard currently shows **13 distinct sections** stacked vertically, which creates significant scroll depth and visual overload:
 
-## Design
+1. Daily Briefing (banner)
+2. Today's Tasks
+3. Mission HQ (tabbed card -- Quest / Progress / Quest Line)
+4. Achievement Badges
+5. Countdown Timer (right column)
+6. XP Progress + Momentum Card (right column)
+7. Lead Stats Card (right column)
+8. Revenue Card (right column)
+9. What's Next Card (right column)
+10. Activity Feed (full width)
+11. Quick Actions (6-button grid)
+12. Conversations list
+13. Business Plans list
 
-The unified card uses tabs to organize the three views:
+## Proposed Reductions (5 changes)
 
-```text
-+--------------------------------------------------+
-| Mission HQ                    [Quest | Progress | Quest Line] |
-| Tracking: The LNKDN Architect                                |
-+--------------------------------------------------+
-| (Tab content changes based on selection)          |
-|                                                   |
-| QUEST tab: Active quest milestones + Continue btn |
-| PROGRESS tab: Milestones checklist + Setup Guide  |
-| QUEST LINE tab: Full staged quest list            |
-+--------------------------------------------------+
-```
+### 1. Remove "What's Next Card" -- it duplicates Mission HQ
+The What's Next card shows the next recommended action, but the Quest tab inside Mission HQ already does this with more detail. Removing it frees up significant right-column space.
 
-- **Quest tab** (default): The current `CurrentQuestCard` content -- active quest milestones, idea switcher, continue/start buttons
-- **Progress tab**: The `UnifiedProgressCard` content -- milestone checklist, setup guide progress bars, combined progress bar
-- **Quest Line tab**: The `QuestList` content -- all stages with quests, milestone overlays, prompt generators
+### 2. Fold Achievement Badges into Mission HQ as a 4th tab
+Instead of a separate card below Mission HQ, add an "Achievements" tab alongside Quest / Progress / Quest Line. This keeps it accessible but hidden by default.
+
+### 3. Collapse Activity Feed into an expandable section
+Replace the always-visible activity feed with a compact "Recent Activity" row that expands on click. Default state: collapsed, showing just "3 recent events" as a single line.
+
+### 4. Reduce Quick Actions from 6 to 4 buttons
+Remove "Chat with Mya" (already accessible from nav or new-chat button) and "Generate Idea" (already in Mission HQ Quest tab). Keep the 4 business-focused actions: Add a Lead, Log Revenue, Send Follow-up, Check Pipeline.
+
+### 5. Merge Daily Briefing into the welcome header
+Instead of a separate banner, show the briefing summary (next action + momentum) as a subtitle line under the "Mission: First Customer" heading. This eliminates an entire section.
 
 ## Technical Changes
 
-### 1. Create `src/components/MissionControl/MissionHQCard.tsx` (new file)
-- A wrapper component using Radix Tabs (`@radix-ui/react-tabs`, already installed)
-- Shared header showing "Mission HQ" title + active quest name subtitle
-- Three tab panels rendering the existing component internals
-- Accepts all props currently spread across the three components
-- Keeps the "Open Setup Guide" button accessible in the Progress tab
+### Files to modify:
 
-### 2. Update `src/pages/Dashboard.tsx`
-- Replace the separate `CurrentQuestCard`, `UnifiedProgressCard`, and the toggle button + `QuestList` section with a single `<MissionHQCard />` component
-- Pass all existing props (completedQuests, currentStage, activeQuestId, businessIdeas, capabilities, etc.) to the new component
-- Remove the `showQuestList` state variable and its toggle button since the Quest Line is now a tab
-- Remove the standalone "View Full Quest Line" button section
-
-### 3. No changes to existing sub-components
-- `CurrentQuestCard`, `UnifiedProgressCard`, and `QuestList` remain as-is internally
-- `MissionHQCard` imports and renders them within tab panels
-- This keeps the refactor low-risk and reversible
-
-### 4. Remove `AchievementBadges` from between the cards
-- Move `AchievementBadges` to render below the new `MissionHQCard` in the left column so it stays visible without being sandwiched between merged sections
-
-## Summary of File Changes
-
-| File | Action |
+| File | Change |
 |------|--------|
-| `src/components/MissionControl/MissionHQCard.tsx` | Create -- tabbed wrapper |
-| `src/components/MissionControl/index.ts` | Update -- export new component |
-| `src/pages/Dashboard.tsx` | Update -- replace 3 sections with 1 component, remove `showQuestList` state |
+| `src/components/MissionControl/MissionHQCard.tsx` | Add 4th "Achievements" tab rendering `AchievementBadges` |
+| `src/pages/Dashboard.tsx` | Remove `WhatsNextCard`, remove standalone `AchievementBadges`, collapse `ActivityFeed`, reduce Quick Actions to 4, inline `DailyBriefing` data into header |
+| `src/components/MissionControl/ActivityFeed.tsx` | Add a `collapsible` prop that defaults to collapsed state with a "Show activity" toggle |
 
-No new dependencies, database changes, or edge function updates needed.
+### No files to delete
+All existing components remain intact -- they're just repositioned or hidden behind toggles/tabs.
+
+### No new dependencies or database changes needed.
+
+## Result
+The dashboard shrinks from 13 sections to roughly 8 visible sections, with achievements and activity tucked behind tabs/toggles. The right column loses one card, and the top area loses two full-width sections.
+
