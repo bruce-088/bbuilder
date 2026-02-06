@@ -56,3 +56,6 @@ verify_jwt = false
 
 [functions.daily-briefing]
 verify_jwt = false
+
+[functions.cowork-interpret]
+verify_jwt = false
