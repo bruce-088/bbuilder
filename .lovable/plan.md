@@ -1,86 +1,113 @@
 
+# Make Mya the Most Powerful AI Business System
 
-# Add Database Query, Loop/Iterator, and Merge Nodes
-
-## Overview
-Add three new node types to the visual workflow engine, expanding the automation capabilities for more complex patterns like querying your database, iterating over lists, and merging parallel branches.
-
----
-
-## New Node Types
-
-### 1. Database Query
-- Query your project's database directly from a workflow
-- Configurable table name, operation (SELECT, INSERT, UPDATE, DELETE), filters, and column selection
-- Supports template variables from upstream nodes (e.g., `{{email}}`)
-
-### 2. Loop / Iterator
-- Takes an array input and executes downstream nodes once per item
-- Configurable input field (which key in the data holds the array)
-- Collects all iteration results into a single output array
-
-### 3. Merge
-- Combines inputs from multiple parent branches into one object
-- Configurable merge strategy: "combine" (merge all keys), "wait all" (wait for all parents), or "append" (concatenate arrays)
+## Vision
+Transform Mya from a business plan generator with workflow tools into an **autonomous AI business operating system** that actively drives revenue, acquires customers, and scales operations -- making the $10K/month goal feel inevitable.
 
 ---
 
-## What Changes
+## The 5 Power Upgrades (Priority Order)
 
-### A. Node Type Definitions (`types.ts`)
-- Add `database_query`, `loop`, and `merge` to the `NodeType` union
-- Add their entries in `NODE_TYPE_CONFIG` with label, icon, color, description, and default config
+### 1. Autonomous Workflow Scheduler (Workflows Run Themselves)
+Right now workflows only execute when manually triggered. The system needs **scheduled and event-driven execution** so automations run 24/7 without user intervention.
 
-### B. Node Palette (`NodePalette.tsx`)
-- Add `database_query` under a new **"Data"** category
-- Add `loop` and `merge` under the **"Logic"** category
+**What changes:**
+- Add a `workflow_schedules` table storing cron expressions per workflow
+- Create a `workflow-scheduler` edge function invoked by a Supabase cron job (pg_cron) every minute, checking which workflows are due and invoking `workflow-executor`
+- Support event triggers: when a lead is added, when a mission event fires, or when a webhook hits -- automatically invoke the right workflow
+- Add schedule configuration UI in the WorkflowToolbar (cron picker, enable/disable toggle)
 
-### C. Node Inspector (`NodeInspector.tsx`)
-- **Database Query**: Fields for table name, operation (SELECT/INSERT/UPDATE/DELETE), filter column, filter value, and select columns
-- **Loop**: Field for the array input key name
-- **Merge**: Dropdown for merge strategy (combine / wait all / append)
-
-### D. Workflow Executor (edge function)
-- **`executeDatabaseQuery`**: Uses the Supabase service-role client to run the configured query against the project database. Supports SELECT with filters, INSERT, UPDATE, and DELETE.
-- **`executeLoop`**: Extracts the array from input, runs the remaining downstream subgraph for each item (simplified: collects items into an output array for the next node).
-- **`executeMerge`**: Already partially handled by the existing multi-parent merge logic; the new implementation adds configurable strategies (combine objects, wait for all, or append arrays).
-
-### E. Node Renderer
-- No changes needed -- it already renders any node type dynamically from `NODE_TYPE_CONFIG`.
+**Why it matters:** Automations that don't run automatically aren't automations. This is the single biggest gap.
 
 ---
 
-## Technical Details
+### 2. Realtime Execution Overlay (See Your Workflows Think)
+Users can't see what's happening when a workflow runs. Adding a live execution overlay makes the system feel alive and debuggable.
 
-### New type definitions
-```text
-NodeType union additions:
-  'database_query' | 'loop' | 'merge'
-```
+**What changes:**
+- Nodes on the canvas change color in real-time based on execution status (idle/running/success/error) using the existing Supabase Realtime subscription in `useWorkflowExecution`
+- Clicking a completed node in the inspector shows its input/output data and execution time
+- A live execution log panel slides up from the bottom during runs
+- A "replay" mode lets users step through a past execution visually
 
-### NODE_TYPE_CONFIG entries
-```text
-database_query:
-  icon: "🗄️", color: hsl(220, 70%, 50%)
-  defaultConfig: { table: '', operation: 'select', filters: {}, columns: '*' }
+**Why it matters:** Visibility builds trust. Users who can see their AI agents working are far more likely to rely on and expand them.
 
-loop:
-  icon: "🔁", color: hsl(310, 60%, 55%)
-  defaultConfig: { array_field: 'items', collect_results: true }
+---
 
-merge:
-  icon: "🔗", color: hsl(30, 80%, 50%)
-  defaultConfig: { strategy: 'combine' }
-```
+### 3. AI Business Copilot Mode (Mya Acts, Not Just Advises)
+Currently Mya chats and generates plans. The copilot upgrade gives Mya the ability to **take actions** directly: create workflows, add leads, trigger automations, update quest progress -- all from the chat.
 
-### Edge function executor additions
-- `executeDatabaseQuery(node, input)` -- builds and runs a Supabase query using the service-role client
-- `executeLoop(node, input)` -- splits array input into individual items, outputs them as an array (downstream nodes process the collected array)
-- `executeMerge(node, input)` -- applies the selected merge strategy to combine multi-parent inputs
+**What changes:**
+- Upgrade the `chat` edge function with tool-calling capabilities (using the Lovable AI gateway's tool calling)
+- Define tools: `create_workflow`, `add_lead`, `run_workflow`, `update_quest`, `query_database`, `send_email`
+- When Mya calls a tool, the frontend renders an inline action card showing what was done
+- Example: "Hey Mya, set up a lead capture workflow for my coaching business" -- Mya creates the workflow, adds nodes, and returns a link to the editor
 
-### Files modified
-1. `src/components/WorkflowBuilder/types.ts` -- add 3 node types + configs
-2. `src/components/WorkflowBuilder/NodePalette.tsx` -- add new category and node entries
-3. `src/components/WorkflowBuilder/NodeInspector.tsx` -- add config panels for each new type
-4. `supabase/functions/workflow-executor/index.ts` -- add 3 executor functions + switch cases
+**Why it matters:** The gap between advice and action is where most users drop off. Eliminating it makes Mya 10x more valuable.
 
+---
+
+### 4. Revenue Intelligence Dashboard (Track Real Money)
+The system tracks quests and XP but not actual revenue. Adding revenue tracking closes the loop on the $10K/month mission.
+
+**What changes:**
+- Create a `revenue_entries` table (amount, source, lead_id, date, recurring flag)
+- Build a Revenue Dashboard card on the main dashboard with: monthly revenue chart, MRR calculation, revenue by source, projected runway to $10K
+- Integrate with Lead CRM: when a lead moves to "Won", prompt for deal value
+- Auto-update mission progress and achievements when revenue milestones are hit ($1, $100, $1K, $5K, $10K)
+- Add a revenue goal tracker with a visual thermometer showing progress to $10K/month
+
+**Why it matters:** Revenue is the only metric that matters. Tracking it inside the app keeps users focused and motivated.
+
+---
+
+### 5. Smart Workflow Templates with One-Click Deploy
+The Template Library exists but templates are static. Making them **context-aware** and deployable in one click supercharges adoption.
+
+**What changes:**
+- Templates auto-customize based on the user's saved business idea (inject business name, niche, target audience into node configs)
+- One-click deploy creates the workflow, populates all nodes with business-specific data, and opens the editor
+- Add an "AI Suggest" button that analyzes the user's current business stage and recommends which template to deploy next
+- Track which templates have been deployed and their execution success rates
+
+**Why it matters:** Reduces the workflow builder from a blank canvas problem to a guided, contextualized experience.
+
+---
+
+## Technical Summary
+
+### New database tables
+- `workflow_schedules` -- cron expressions, last_run, next_run, enabled flag
+- `revenue_entries` -- amount, source, lead_id, date, is_recurring, notes
+
+### New edge functions
+- `workflow-scheduler` -- cron-triggered function that checks schedules and invokes executor
+
+### Modified edge functions
+- `chat/index.ts` -- add tool-calling support for copilot actions
+- `workflow-executor/index.ts` -- accept scheduled trigger context
+
+### Modified frontend files
+- `WorkflowToolbar.tsx` -- schedule configuration UI
+- `WorkflowEditor.tsx` -- realtime execution overlay on canvas
+- `NodeRenderer.tsx` -- execution status coloring
+- `NodeInspector.tsx` -- show execution input/output data
+- `Dashboard.tsx` -- revenue dashboard card, AI action cards in chat
+- `Chat.tsx` -- tool-call rendering for copilot actions
+- `Leads.tsx` -- deal value on lead conversion
+
+### Files count
+- ~3 new edge functions/tables
+- ~8-10 modified files
+- ~3-4 new components (RevenueCard, ExecutionOverlay, CopilotActionCard, ScheduleConfig)
+
+---
+
+## Implementation Order
+1. **Realtime Execution Overlay** -- builds on existing infrastructure, immediate visual impact
+2. **Autonomous Workflow Scheduler** -- makes workflows actually useful
+3. **Revenue Intelligence Dashboard** -- closes the mission loop
+4. **AI Business Copilot Mode** -- the killer feature
+5. **Smart Workflow Templates** -- accelerates adoption
+
+Each upgrade is independent and can be shipped incrementally.
