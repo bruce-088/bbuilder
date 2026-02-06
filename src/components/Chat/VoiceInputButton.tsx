@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -6,24 +6,44 @@ import { cn } from "@/lib/utils";
 
 interface VoiceInputButtonProps {
   onTranscript: (text: string) => void;
+  onActivateVoiceMode?: () => void;
   disabled?: boolean;
   className?: string;
 }
 
 export default function VoiceInputButton({ 
   onTranscript, 
+  onActivateVoiceMode,
   disabled = false,
   className 
 }: VoiceInputButtonProps) {
   const [isRecording, setIsRecording] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessing] = useState(false);
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didLongPress = useRef(false);
+
+  const handlePointerDown = useCallback(() => {
+    didLongPress.current = false;
+    if (onActivateVoiceMode) {
+      longPressTimer.current = setTimeout(() => {
+        didLongPress.current = true;
+        onActivateVoiceMode();
+      }, 600);
+    }
+  }, [onActivateVoiceMode]);
+
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
 
   // Use Web Speech API for simplicity
   const startRecording = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
-      // Fallback message
       alert("Speech recognition is not supported in this browser. Please use Chrome, Edge, or Safari.");
       return;
     }
@@ -55,10 +75,8 @@ export default function VoiceInputButton({
   };
 
   const handleClick = () => {
-    if (isRecording) {
-      // Stop recording is handled by the recognition.onend
-      return;
-    }
+    if (didLongPress.current) return;
+    if (isRecording) return;
     startRecording();
   };
 
@@ -70,10 +88,14 @@ export default function VoiceInputButton({
           variant={isRecording ? "destructive" : "ghost"}
           size="icon"
           onClick={handleClick}
+          onPointerDown={handlePointerDown}
+          onPointerUp={handlePointerUp}
+          onPointerLeave={handlePointerUp}
           disabled={disabled || isProcessing}
           className={cn(
             "transition-all",
             isRecording && "animate-pulse bg-red-500 hover:bg-red-600",
+            onActivateVoiceMode && !isRecording && "ring-1 ring-primary/30",
             className
           )}
         >
@@ -87,7 +109,7 @@ export default function VoiceInputButton({
         </Button>
       </TooltipTrigger>
       <TooltipContent>
-        {isRecording ? "Recording... (click to stop)" : "Voice input"}
+        {isRecording ? "Recording... (click to stop)" : onActivateVoiceMode ? "Tap to dictate • Hold for Voice Mode" : "Voice input"}
       </TooltipContent>
     </Tooltip>
   );

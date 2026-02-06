@@ -35,7 +35,8 @@ import UnifiedSetupGuide from "@/components/UnifiedSetupGuide";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import SavePromptBanner from "@/components/SavePromptBanner";
 import PostSaveDialog from "@/components/PostSaveDialog";
-import { WorkflowContextPanel, VerifyFixButton, VoiceInputButton, AudioPlaybackButton, CoworkExecutionCard, CoworkBrowserPanel, CopilotActionCard } from "@/components/Chat";
+import { WorkflowContextPanel, VerifyFixButton, VoiceInputButton, AudioPlaybackButton, CoworkExecutionCard, CoworkBrowserPanel, CopilotActionCard, VoiceModeOverlay } from "@/components/Chat";
+import { useVoiceMode } from "@/hooks/useVoiceMode";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { useN8nWorkflowContext } from "@/hooks/useN8nWorkflowContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -109,6 +110,81 @@ export default function Chat() {
   // Cowork mode hook
   const cowork = useCoworkMode();
   const [showBrowserPanel, setShowBrowserPanel] = useState(false);
+
+  // Voice mode send handler — sends text through the normal chat pipeline
+  const handleVoiceModeSend = useCallback(async (text: string) => {
+    if (!user || !id) return;
+
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: text,
+    };
+    setMessages((prev) => [...prev, userMessage]);
+    await saveMessage("user", text);
+
+    setIsStreaming(true);
+
+    const messagesForAI: Message[] = messages
+      .filter((m) => m.role === "user" || m.role === "assistant")
+      .map((m) => ({ role: m.role, content: m.content }));
+    messagesForAI.push({ role: "user", content: text });
+
+    const n8nContextForAI = workflowContext.getContextForAI();
+    let assistantContent = "";
+    let collectedToolResults: ToolResult[] = [];
+    const assistantId = crypto.randomUUID();
+
+    setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
+
+    const parseAndStripToolResults = (raw: string) => {
+      const tools: ToolResult[] = [];
+      const clean = raw.replace(/\[TOOL_RESULT:(\w+):(.*?)\]\n?/gs, (_m, name, jsonStr) => {
+        try { tools.push({ name, result: JSON.parse(jsonStr) }); } catch { /* ok */ }
+        return "";
+      });
+      return { clean, tools };
+    };
+
+    await streamChat({
+      messages: messagesForAI,
+      type: "chat",
+      n8nContext: n8nContextForAI ? { workflowName: n8nContextForAI.workflowName, workflowId: n8nContextForAI.workflowId, nodes: n8nContextForAI.nodes } : undefined,
+      onDelta: (chunk) => {
+        assistantContent += chunk;
+        const { clean, tools } = parseAndStripToolResults(assistantContent);
+        if (tools.length > 0) collectedToolResults = tools;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantId ? { ...m, content: clean, toolResults: collectedToolResults.length > 0 ? collectedToolResults : undefined } : m
+          )
+        );
+      },
+      onDone: async () => {
+        setIsStreaming(false);
+        await saveMessage("assistant", assistantContent);
+        const { clean } = parseAndStripToolResults(assistantContent);
+        voiceMode.feedAssistantResponse(clean);
+        if (user) {
+          await addMemories(user.id, [
+            { role: "user", content: text },
+            { role: "assistant", content: assistantContent },
+          ]);
+        }
+      },
+      onError: (error) => {
+        setIsStreaming(false);
+        toast.error(error.message);
+        // Resume listening even on error
+        voiceMode.feedAssistantResponse("Sorry, something went wrong.");
+      },
+    });
+  }, [user, id, messages, workflowContext]);
+
+  // Voice mode hook
+  const voiceMode = useVoiceMode({
+    onSendMessage: handleVoiceModeSend,
+  });
 
   // Sync cowork execution status back into chat messages
   useEffect(() => {
@@ -973,8 +1049,9 @@ export default function Chat() {
                       disabled={isStreaming}
                     />
                   </div>
-                  <VoiceInputButton
+              <VoiceInputButton
                     onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
+                    onActivateVoiceMode={voiceMode.startVoiceMode}
                     disabled={isStreaming}
                     className="h-12 w-12"
                   />
@@ -1451,6 +1528,7 @@ export default function Chat() {
               </div>
               <VoiceInputButton
                 onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
+                onActivateVoiceMode={voiceMode.startVoiceMode}
                 disabled={isStreaming}
                 className="h-12 w-12"
               />
@@ -1495,6 +1573,14 @@ export default function Chat() {
           }}
         />
       )}
+
+      {/* Voice Mode Overlay */}
+      <VoiceModeOverlay
+        state={voiceMode.state}
+        liveTranscript={voiceMode.liveTranscript}
+        lastAssistantText={voiceMode.lastAssistantText}
+        onStop={voiceMode.stopVoiceMode}
+      />
     </div>
   );
 }
