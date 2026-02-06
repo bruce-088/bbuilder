@@ -7,6 +7,7 @@ import { Canvas } from "@/components/WorkflowBuilder/Canvas";
 import { NodePalette } from "@/components/WorkflowBuilder/NodePalette";
 import { NodeInspector } from "@/components/WorkflowBuilder/NodeInspector";
 import { WorkflowToolbar } from "@/components/WorkflowBuilder/WorkflowToolbar";
+import { ExecutionLogPanel } from "@/components/WorkflowBuilder/ExecutionLogPanel";
 import type { NodeType } from "@/components/WorkflowBuilder/types";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -27,7 +28,7 @@ export default function WorkflowEditor() {
   } = useWorkflowBuilder();
 
   const {
-    executing, runWorkflow, getNodeStatus, nodeLogs,
+    executing, runWorkflow, getNodeStatus, getNodeLog, nodeLogs,
   } = useWorkflowExecution(workflow?.id);
 
   useEffect(() => {
@@ -92,32 +93,41 @@ export default function WorkflowEditor() {
         saving={saving}
         running={executing}
       />
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         <NodePalette onDragStart={() => {}} />
-        <Canvas
-          nodes={nodes}
-          edges={edges}
-          selectedNodeId={selectedNodeId}
-          pan={pan}
-          zoom={zoom}
-          executionStatuses={executionStatuses}
-          connectingFrom={connectingFrom}
-          connectingMousePos={connectingMousePos}
-          onPanChange={setPan}
-          onZoomChange={setZoom}
-          onSelectNode={setSelectedNodeId}
-          onMoveNode={moveNode}
-          onDeleteNode={deleteNode}
-          onDeleteEdge={deleteEdge}
-          onAddNode={handleAddNode}
-          onConnectStart={handleConnectStart}
-          onConnectEnd={handleConnectEnd}
-          onConnectMouseMove={setConnectingMousePos}
-          onConnectCancel={handleConnectCancel}
-        />
+        <div className="flex-1 relative">
+          <Canvas
+            nodes={nodes}
+            edges={edges}
+            selectedNodeId={selectedNodeId}
+            pan={pan}
+            zoom={zoom}
+            executionStatuses={executionStatuses}
+            connectingFrom={connectingFrom}
+            connectingMousePos={connectingMousePos}
+            onPanChange={setPan}
+            onZoomChange={setZoom}
+            onSelectNode={setSelectedNodeId}
+            onMoveNode={moveNode}
+            onDeleteNode={deleteNode}
+            onDeleteEdge={deleteEdge}
+            onAddNode={handleAddNode}
+            onConnectStart={handleConnectStart}
+            onConnectEnd={handleConnectEnd}
+            onConnectMouseMove={setConnectingMousePos}
+            onConnectCancel={handleConnectCancel}
+          />
+          <ExecutionLogPanel
+            executing={executing}
+            nodeLogs={nodeLogs}
+            nodes={nodes}
+            onNodeClick={setSelectedNodeId}
+          />
+        </div>
         {selectedNode && (
           <NodeInspector
             node={selectedNode}
+            executionLog={getNodeLog(selectedNode.id)}
             onUpdate={updateNode}
             onClose={() => setSelectedNodeId(null)}
           />
