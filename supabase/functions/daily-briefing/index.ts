@@ -89,7 +89,7 @@ Days remaining: ${mission?.target_date ? Math.max(0, Math.ceil((new Date(mission
     const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
 
     if (lovableApiKey) {
-      const aiResponse = await fetch("https://ai-gateway.lovable.dev/chat/completions", {
+      const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
