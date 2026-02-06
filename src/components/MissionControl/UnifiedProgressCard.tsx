@@ -17,12 +17,14 @@ interface UnifiedProgressCardProps {
   completedMilestones: string[];
   capabilities: CapabilityArea[];
   onOpenSetupGuide: () => void;
+  activeQuestName?: string;
 }
 
 export default function UnifiedProgressCard({
   completedMilestones,
   capabilities,
   onOpenSetupGuide,
+  activeQuestName,
 }: UnifiedProgressCardProps) {
   const { getCompleted, getOverallProgress } = useManualProgress(capabilities);
 
@@ -46,7 +48,12 @@ export default function UnifiedProgressCard({
   return (
     <Card className="mb-6">
       <CardHeader className="flex flex-row items-center justify-between pb-3">
-        <CardTitle className="text-lg">Your Progress</CardTitle>
+        <div>
+          <CardTitle className="text-lg">Your Progress</CardTitle>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {activeQuestName ? `Tracking: ${activeQuestName}` : "No active quest"}
+          </p>
+        </div>
         <Button variant="outline" size="sm" onClick={onOpenSetupGuide}>
           <BookOpen className="w-4 h-4 mr-1.5" />
           Open Setup Guide
