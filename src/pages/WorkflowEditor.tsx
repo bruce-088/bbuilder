@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useWorkflowBuilder } from "@/hooks/useWorkflowBuilder";
 import { useWorkflowExecution } from "@/hooks/useWorkflowExecution";
+import { useWorkflowSchedule } from "@/hooks/useWorkflowSchedule";
 import { Canvas } from "@/components/WorkflowBuilder/Canvas";
 import { NodePalette } from "@/components/WorkflowBuilder/NodePalette";
 import { NodeInspector } from "@/components/WorkflowBuilder/NodeInspector";
@@ -30,6 +31,8 @@ export default function WorkflowEditor() {
   const {
     executing, runWorkflow, getNodeStatus, getNodeLog, nodeLogs,
   } = useWorkflowExecution(workflow?.id);
+
+  const { schedule, saving: scheduleSaving, saveSchedule, toggleEnabled } = useWorkflowSchedule(workflow?.id);
 
   useEffect(() => {
     if (authLoading) return;
@@ -92,6 +95,10 @@ export default function WorkflowEditor() {
         onRun={handleRun}
         saving={saving}
         running={executing}
+        schedule={schedule}
+        scheduleSaving={scheduleSaving}
+        onScheduleSave={saveSchedule}
+        onScheduleToggle={toggleEnabled}
       />
       <div className="flex-1 flex overflow-hidden relative">
         <NodePalette onDragStart={() => {}} />

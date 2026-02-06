@@ -62,3 +62,6 @@ verify_jwt = false
 
 [functions.workflow-executor]
 verify_jwt = false
+
+[functions.workflow-scheduler]
+verify_jwt = false
