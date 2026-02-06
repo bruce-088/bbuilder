@@ -1,95 +1,73 @@
 
 
-# Voice-First Mode for Mya
+# Improve Ease of Use for Both Paths in the Setup Guide
 
-## Overview
+## What Changes
 
-Add a hands-free "Voice Mode" to the chat where users tap one button to start a continuous voice conversation with Mya. They speak naturally, Mya transcribes in real-time using ElevenLabs Scribe, auto-sends the message, executes business tools, and speaks the response back -- all without touching the keyboard.
+Enhance the Unified Setup Guide to reduce friction for both the Manual and Mya paths, making each more actionable and less overwhelming.
 
-## Current State
+---
 
-- **VoiceInputButton**: Uses browser Web Speech API, only fills the text input (user must still click Send)
-- **AudioPlaybackButton**: Plays TTS for individual messages (manual click per message)
-- **useVoiceChat hook**: Has TTS playback and MediaRecorder code but doesn't connect STT-to-send-to-TTS in a loop
-- **Edge functions**: `elevenlabs-stt` (token endpoint) and `elevenlabs-tts` exist and are ready
-- **Missing secret**: `ELEVENLABS_API_KEY` is NOT configured -- voice mode needs a graceful fallback to Web Speech API
+## 1. Mya Path: "Do It All For Me" Quick Launch
 
-## How Voice Mode Works
+**Problem**: Users see 7 categories with 3 commands each (21 options) -- too many choices.
 
-1. User taps the **microphone button** (hold or toggle) in the chat footer
-2. A **Voice Mode overlay** appears with a pulsing waveform animation and status text
-3. **STT** transcribes speech in real-time (ElevenLabs Scribe if API key available, otherwise Web Speech API fallback)
-4. On silence/commit, the transcript is **auto-sent** to Mya as a chat message
-5. Mya processes the message (including tool calls like `log_revenue`, `move_lead_stage`, etc.)
-6. Mya's response is **auto-spoken** via ElevenLabs TTS (or skipped if no API key)
-7. After TTS finishes, the mic **re-opens automatically** for the next command (continuous conversation loop)
-8. User taps the stop button or says "stop" / "goodbye" to exit voice mode
+**Solution**: Add a single "Quick Launch" button at the top of the Mya tab that sends a bundled starter prompt like *"Set up my business: add 3 sample leads, create a follow-up workflow, and give me a business summary"*. One tap, full demo.
 
-## Technical Changes
+- Appears as a highlighted hero card above the per-category sections
+- Clicking it navigates to chat with the bundled prompt pre-filled and auto-sent
 
-### 1. New Component: `src/components/Chat/VoiceModeOverlay.tsx`
+---
 
-A full-screen overlay that appears during voice mode:
-- Mya avatar with pulsing ring animation (listening vs speaking states)
-- Live transcript text below avatar
-- Status indicator: "Listening...", "Processing...", "Mya is speaking..."
-- Waveform/pulse animation using framer-motion
-- Close/stop button
-- Tool result cards rendered inline (reuses `CopilotActionCard`)
+## 2. Mya Path: Voice Mode Hint
 
-### 2. New Hook: `src/hooks/useVoiceMode.ts`
+**Problem**: Users with the new Voice Mode don't know they can long-press mic instead of typing commands.
 
-Orchestrates the full voice loop:
-- **State machine**: `idle` -> `listening` -> `processing` -> `speaking` -> `listening` (loop)
-- **STT integration**: Tries ElevenLabs Scribe first (via `elevenlabs-stt` token endpoint), falls back to Web Speech API
-- **Auto-send**: When transcript is committed, calls the same `handleSend` logic from Chat.tsx
-- **Auto-TTS**: When assistant response is complete, plays it via `elevenlabs-tts`
-- **Re-listen**: After TTS playback ends, automatically re-starts STT
-- **Exit commands**: Detects "stop", "goodbye", "exit" to end voice mode
-- **Graceful degradation**: If ElevenLabs API key is missing, uses Web Speech API for STT and skips TTS (text-only responses shown in overlay)
+**Solution**: Add a small banner/tip in the Mya tab: "You can also long-press the mic button to talk to Mya hands-free" with a microphone icon.
 
-### 3. Update `src/pages/Chat.tsx`
+---
 
-- Add `voiceModeActive` state
-- Long-press or dedicated toggle on the mic button activates voice mode
-- When voice mode is active, render `VoiceModeOverlay` on top of the chat
-- Pass `handleSend`-equivalent function to voice mode so transcripts go through the same copilot tool pipeline
-- Messages sent/received during voice mode appear in the normal chat history too
+## 3. Manual Path: Checklist with Local Progress
 
-### 4. Update `src/components/Chat/VoiceInputButton.tsx`
+**Problem**: Manual steps are read-only text -- users can't track what they've done.
 
-- Add `onLongPress` or `onDoubleClick` prop to trigger voice mode (distinct from single-tap which fills input)
-- Visual indicator when voice mode is available
+**Solution**: Add interactive checkboxes next to each manual step, persisted in `localStorage`. A small progress indicator (e.g., "3/5 done") appears on each category's accordion trigger so users see progress at a glance without expanding.
 
-### 5. Secret Check
+---
 
-- `ELEVENLABS_API_KEY` is not currently configured
-- Voice mode will work without it using Web Speech API fallback for STT (no TTS playback)
-- If the user wants full ElevenLabs voice quality, we'll prompt them to add the secret
+## 4. Manual Path: "Ask Mya to Help" Nudge
 
-## Voice Mode States (Visual)
+**Problem**: Users on the manual path don't realize Mya can shortcut specific steps.
 
-| State | Avatar Animation | Status Text | Mic |
-|-------|-----------------|-------------|-----|
-| Listening | Green pulsing ring | "Listening..." + live transcript | Active |
-| Processing | Amber spinning | "Thinking..." | Off |
-| Speaking | Blue wave animation | "Mya is speaking..." | Off |
-| Paused | Dim ring | "Tap to continue" | Off |
+**Solution**: After each manual step list, add a subtle CTA: "Or skip the rest -- just tell Mya:" followed by the equivalent Mya command button. This bridges paths without being pushy.
 
-## Exit Conditions
+---
 
-- User taps the X / stop button
-- User says "stop", "goodbye", "that's all", or "exit"
-- User navigates away from the chat page
-- Browser tab loses focus (optional -- can pause instead)
+## 5. Side-by-Side: Auto-Expand First Item
 
-## No Database Changes
+**Problem**: All accordion items start collapsed -- users see a wall of titles and have to click to discover content.
 
-Voice mode is entirely client-side UI. All messages still flow through the existing chat pipeline and are saved normally.
+**Solution**: Default-expand the first accordion item ("Lead Generation") so users immediately see the comparison format.
 
-## Dependencies
+---
 
-- `@elevenlabs/react` (already installed) -- `useScribe` hook for realtime STT
-- `framer-motion` (already installed) -- animations
-- Existing `elevenlabs-stt` and `elevenlabs-tts` edge functions
+## Technical Details
 
+### Files Modified
+
+1. **`src/components/UnifiedSetupGuide.tsx`**
+   - Add `quickLaunchPrompt` constant and hero card in the Mya tab
+   - Add Voice Mode tip component
+   - Add checkbox state using `useState` + `localStorage` persistence for manual steps
+   - Add progress counts on accordion triggers
+   - Add "Or tell Mya" bridge CTA after manual steps
+   - Set `defaultValue={["lead-gen"]}` on the side-by-side Accordion
+
+### State Management
+
+- Manual step completion: `localStorage` key `setup_guide_progress` storing a `Record<string, boolean[]>` (capability ID to step completion array)
+- No database changes needed -- this is lightweight local UI state
+
+### No New Dependencies
+
+All changes use existing components (Badge, Button, Checkbox from radix) and localStorage.
