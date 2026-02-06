@@ -35,7 +35,7 @@ import ImplementationGuideDialog from "@/components/ImplementationGuideDialog";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import SavePromptBanner from "@/components/SavePromptBanner";
 import PostSaveDialog from "@/components/PostSaveDialog";
-import { WorkflowContextPanel, VerifyFixButton, VoiceInputButton, AudioPlaybackButton, CoworkExecutionCard, CoworkBrowserPanel } from "@/components/Chat";
+import { WorkflowContextPanel, VerifyFixButton, VoiceInputButton, AudioPlaybackButton, CoworkExecutionCard, CoworkBrowserPanel, CopilotActionCard } from "@/components/Chat";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { useN8nWorkflowContext } from "@/hooks/useN8nWorkflowContext";
 import { motion, AnimatePresence } from "framer-motion";
@@ -44,12 +44,18 @@ import ReactMarkdown from "react-markdown";
 import myaAvatar from "@/assets/mya-avatar.png";
 import { celebrateSave, celebrateFirstIdea } from "@/lib/confetti";
 
+interface ToolResult {
+  name: string;
+  result: { success: boolean; data?: Record<string, unknown>; error?: string };
+}
+
 interface ChatMessage {
   id: string;
   role: "user" | "assistant";
   content: string;
   savedAsIdea?: boolean;
   coworkExecution?: import("@/hooks/useCoworkMode").CoworkExecution;
+  toolResults?: ToolResult[];
 }
 
 interface ChatNavigationState {
@@ -669,9 +675,22 @@ export default function Chat() {
     const n8nContextForAI = workflowContext.getContextForAI();
 
     let assistantContent = "";
+    let collectedToolResults: ToolResult[] = [];
     const assistantId = crypto.randomUUID();
 
     setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
+
+    // Parse tool result markers from streamed content
+    const parseAndStripToolResults = (raw: string): { clean: string; tools: ToolResult[] } => {
+      const tools: ToolResult[] = [];
+      const clean = raw.replace(/\[TOOL_RESULT:(\w+):(.*?)\]\n?/gs, (_match, name, jsonStr) => {
+        try {
+          tools.push({ name, result: JSON.parse(jsonStr) });
+        } catch { /* ignore bad json */ }
+        return "";
+      });
+      return { clean, tools };
+    };
 
     await streamChat({
       messages: messagesForAI,
@@ -683,9 +702,11 @@ export default function Chat() {
       } : undefined,
       onDelta: (chunk) => {
         assistantContent += chunk;
+        const { clean, tools } = parseAndStripToolResults(assistantContent);
+        if (tools.length > 0) collectedToolResults = tools;
         setMessages((prev) =>
           prev.map((m) =>
-            m.id === assistantId ? { ...m, content: assistantContent } : m
+            m.id === assistantId ? { ...m, content: clean, toolResults: collectedToolResults.length > 0 ? collectedToolResults : undefined } : m
           )
         );
       },
@@ -1016,6 +1037,14 @@ export default function Chat() {
                         <p className="whitespace-pre-wrap">{message.content}</p>
                       )}
                     </div>
+                    {/* Copilot action cards */}
+                    {message.toolResults && message.toolResults.length > 0 && (
+                      <div className="space-y-1">
+                        {message.toolResults.map((tr, i) => (
+                          <CopilotActionCard key={i} toolResult={tr} />
+                        ))}
+                      </div>
+                    )}
                     {/* Cowork execution card */}
                     {message.coworkExecution && (
                       <div className="mt-2">

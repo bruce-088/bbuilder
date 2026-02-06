@@ -10,7 +10,7 @@ const corsHeaders = {
 // Request body validation schema
 const ChatMessageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
-  content: z.string().min(1).max(100000), // Reasonable limit for chat messages
+  content: z.string().min(1).max(100000),
 });
 
 const N8nContextSchema = z.object({
@@ -29,95 +29,328 @@ const ChatRequestSchema = z.object({
   n8nContext: N8nContextSchema,
 });
 
-const SYSTEM_PROMPT = `You are Mya (Mission Yield Accelerator), a confident and playful AI business partner who makes building a $10K/month business feel effortless and fun. You believe success is inevitable for anyone who follows your guidance—it's not a question of "if" but "when."
+// ─── Tool Definitions ───
+const COPILOT_TOOLS = [
+  {
+    type: "function",
+    function: {
+      name: "create_workflow",
+      description: "Create a new automation workflow for the user. Use when they ask to set up, build, or create a workflow/automation.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Name for the workflow" },
+          description: { type: "string", description: "Brief description of what the workflow does" },
+          nodes: {
+            type: "array",
+            description: "Array of nodes to add to the workflow",
+            items: {
+              type: "object",
+              properties: {
+                type: { type: "string", enum: ["webhook_trigger", "schedule_trigger", "ai_agent", "http_request", "email_send", "filter", "code", "delay", "transform", "database_query"] },
+                name: { type: "string" },
+                config: { type: "object", description: "Node configuration" },
+              },
+              required: ["type", "name"],
+            },
+          },
+        },
+        required: ["name", "description"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_lead",
+      description: "Add a new lead/contact to the user's CRM pipeline. Use when they mention a prospect, potential client, or want to track a contact.",
+      parameters: {
+        type: "object",
+        properties: {
+          name: { type: "string", description: "Lead's full name" },
+          email: { type: "string", description: "Lead's email address" },
+          company: { type: "string", description: "Lead's company name" },
+          phone: { type: "string", description: "Lead's phone number" },
+          source: { type: "string", description: "How the lead was acquired", enum: ["manual", "website", "referral", "social", "webhook", "other"] },
+          stage: { type: "string", description: "Pipeline stage", enum: ["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost"] },
+          estimated_value: { type: "number", description: "Estimated deal value in dollars" },
+          tags: { type: "array", items: { type: "string" }, description: "Tags for categorization" },
+        },
+        required: ["name"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "trigger_workflow",
+      description: "Trigger/execute an existing workflow by name or ID. Use when the user wants to run, test, or trigger one of their workflows.",
+      parameters: {
+        type: "object",
+        properties: {
+          workflow_name: { type: "string", description: "Name of the workflow to trigger (partial match)" },
+          workflow_id: { type: "string", description: "Exact workflow ID if known" },
+          trigger_data: { type: "object", description: "Data to pass to the workflow trigger" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_leads",
+      description: "List current leads in the CRM pipeline, optionally filtered by stage. Use when the user asks about their pipeline, prospects, or deals.",
+      parameters: {
+        type: "object",
+        properties: {
+          stage: { type: "string", description: "Filter by pipeline stage", enum: ["new", "contacted", "qualified", "proposal", "negotiation", "won", "lost"] },
+          limit: { type: "number", description: "Max results to return (default 10)" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_workflows",
+      description: "List the user's existing workflows. Use when they ask what automations they have or want to see their workflows.",
+      parameters: {
+        type: "object",
+        properties: {
+          active_only: { type: "boolean", description: "Only show active workflows" },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
+];
 
-Your core philosophy: **Success should feel effortless, and the journey should be enjoyable.** You treat every conversation like an exciting adventure, not a chore.
+// ─── Tool Execution ───
+async function executeTool(
+  toolName: string,
+  args: Record<string, unknown>,
+  userId: string,
+  supabaseAdmin: ReturnType<typeof createClient>
+): Promise<{ success: boolean; data?: unknown; error?: string }> {
+  try {
+    switch (toolName) {
+      case "create_workflow": {
+        // Create the workflow
+        const { data: workflow, error: wfError } = await supabaseAdmin
+          .from("workflows")
+          .insert({
+            user_id: userId,
+            name: args.name as string,
+            description: args.description as string || null,
+            is_active: true,
+          })
+          .select("id, name")
+          .single();
 
-PERSONALITY TRAITS:
-- Warm, enthusiastic, and genuinely excited about the user's potential
+        if (wfError) throw wfError;
+
+        // Add nodes if provided
+        const nodes = (args.nodes as Array<{ type: string; name: string; config?: Record<string, unknown> }>) || [];
+        if (nodes.length > 0) {
+          const nodeInserts = nodes.map((n, i) => ({
+            workflow_id: workflow.id,
+            type: n.type,
+            name: n.name,
+            config: n.config || {},
+            position_x: 100 + i * 250,
+            position_y: 200,
+          }));
+
+          const { error: nodeError } = await supabaseAdmin
+            .from("workflow_nodes")
+            .insert(nodeInserts);
+
+          if (nodeError) console.error("Error adding nodes:", nodeError);
+        }
+
+        return {
+          success: true,
+          data: { workflow_id: workflow.id, name: workflow.name, node_count: nodes.length },
+        };
+      }
+
+      case "add_lead": {
+        const { data: lead, error: leadError } = await supabaseAdmin
+          .from("lead_contacts")
+          .insert({
+            user_id: userId,
+            name: args.name as string,
+            email: (args.email as string) || null,
+            company: (args.company as string) || null,
+            phone: (args.phone as string) || null,
+            source: (args.source as string) || "manual",
+            stage: (args.stage as string) || "new",
+            estimated_value: (args.estimated_value as number) || null,
+            tags: (args.tags as string[]) || null,
+          })
+          .select("id, name, stage, estimated_value")
+          .single();
+
+        if (leadError) throw leadError;
+
+        // Log the activity
+        await supabaseAdmin.from("lead_activities").insert({
+          user_id: userId,
+          lead_id: lead.id,
+          activity_type: "created",
+          content: `Lead added via Mya Copilot`,
+        });
+
+        return { success: true, data: lead };
+      }
+
+      case "trigger_workflow": {
+        // Find the workflow
+        let query = supabaseAdmin
+          .from("workflows")
+          .select("id, name, is_active")
+          .eq("user_id", userId);
+
+        if (args.workflow_id) {
+          query = query.eq("id", args.workflow_id as string);
+        } else if (args.workflow_name) {
+          query = query.ilike("name", `%${args.workflow_name as string}%`);
+        }
+
+        const { data: workflows, error: findError } = await query.limit(1);
+        if (findError) throw findError;
+        if (!workflows || workflows.length === 0) {
+          return { success: false, error: "Workflow not found" };
+        }
+
+        const wf = workflows[0];
+
+        // Create an execution record
+        const { data: execution, error: execError } = await supabaseAdmin
+          .from("workflow_executions")
+          .insert({
+            workflow_id: wf.id,
+            user_id: userId,
+            status: "running",
+            trigger_data: args.trigger_data || {},
+          })
+          .select("id")
+          .single();
+
+        if (execError) throw execError;
+
+        return {
+          success: true,
+          data: { execution_id: execution.id, workflow_name: wf.name, workflow_id: wf.id },
+        };
+      }
+
+      case "list_leads": {
+        let query = supabaseAdmin
+          .from("lead_contacts")
+          .select("id, name, email, company, stage, estimated_value, source, created_at")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit((args.limit as number) || 10);
+
+        if (args.stage) {
+          query = query.eq("stage", args.stage as string);
+        }
+
+        const { data: leads, error: leadsError } = await query;
+        if (leadsError) throw leadsError;
+
+        return { success: true, data: { leads, total: leads?.length || 0 } };
+      }
+
+      case "list_workflows": {
+        let query = supabaseAdmin
+          .from("workflows")
+          .select("id, name, description, is_active, created_at, updated_at")
+          .eq("user_id", userId)
+          .order("updated_at", { ascending: false });
+
+        if (args.active_only) {
+          query = query.eq("is_active", true);
+        }
+
+        const { data: workflows, error: wfError } = await query;
+        if (wfError) throw wfError;
+
+        return { success: true, data: { workflows, total: workflows?.length || 0 } };
+      }
+
+      default:
+        return { success: false, error: `Unknown tool: ${toolName}` };
+    }
+  } catch (err) {
+    console.error(`Tool execution error (${toolName}):`, err);
+    return { success: false, error: err instanceof Error ? err.message : "Execution failed" };
+  }
+}
+
+// ─── System Prompt ───
+const SYSTEM_PROMPT = `You are Mya (Mission Yield Accelerator), a confident and playful AI business partner who makes building a $10K/month business feel effortless and fun. You believe success is inevitable for anyone who follows your guidance.
+
+You have ACTIONS you can take on behalf of the user. When a user asks you to do something actionable, USE YOUR TOOLS to do it directly instead of just explaining how. Be proactive!
+
+PERSONALITY:
+- Warm, enthusiastic, genuinely excited about the user's potential
 - Playfully confident—you KNOW they're going to succeed
-- You minimize the perception of effort: "This is the easy part!", "Just one simple step"
-- You celebrate every win, no matter how small: "Look at you go!", "You're crushing it!"
-- You frame challenges as exciting puzzles to solve together, not obstacles
-- You use encouraging phrases: "This is going to be fun!", "Let's make some magic happen"
-- You never say "if you succeed"—always "when you succeed" or "once you've done this"
+- Celebrate every win: "Look at you go!", "You're crushing it!"
+- Frame challenges as exciting puzzles, not obstacles
 
-You have deep expertise in:
-- Online business models (agencies, SaaS, productized services, digital products)
-- AI automation for sales and client management
-- Fast validation strategies that feel like play, not work
-- Revenue modeling and pricing
-- Market research and niche selection
-- **n8n workflow automation** - You can help users configure and troubleshoot n8n nodes
+COPILOT CAPABILITIES (use tools proactively):
+- **Create workflows**: When users describe automations they need, create them directly
+- **Add leads**: When users mention prospects or contacts, add them to the CRM
+- **Trigger workflows**: When users want to run/test automations, trigger them
+- **List leads/workflows**: When users ask about their pipeline or automations, show the data
 
-When generating business plans, always provide:
-1. Business Name and Niche - catchy, memorable, and descriptive
-2. Target Audience - specific demographics and psychographics
-3. Value Proposition - the unique benefit you provide
-4. Service/Product Offering - detailed description of deliverables
-5. Revenue Math - clear breakdown showing path to $10K/month
-6. Fast Validation Path - steps to get first paying customer in 2-4 weeks
-7. AI Automation Strategy - how AI can handle prospecting, qualification, presentation, objection handling, closing, and follow-up
+WHEN TO USE TOOLS:
+- "Set up a lead follow-up automation" → create_workflow with appropriate nodes
+- "Add John Smith as a lead" → add_lead
+- "Run my email sequence" → trigger_workflow
+- "How many leads do I have?" → list_leads
+- "What automations do I have?" → list_workflows
 
-Focus on businesses that:
-- Can be started with minimal upfront investment
-- Don't require extensive technical skills
-- Leverage AI tools for automation (the best part? they practically run themselves!)
-- Can scale without proportional time investment
-- Are suitable for introverts (minimal cold calling, relationship-focused)
+After executing a tool, summarize what you did in a friendly, celebratory way. Include relevant details like names, IDs, and next steps.
 
-COMMUNICATION STYLE:
-- Keep energy high and positive
-- Use phrases like: "Easy, right?", "The fun part is...", "Here's where it gets exciting..."
-- Celebrate progress: "🎉 Amazing!", "You're already ahead of 90% of people!"
-- Make complex things feel simple and achievable
-- End responses with encouragement or excitement about next steps
+EXPERTISE: Online business models, AI automation, n8n workflows, sales pipelines, revenue modeling, market research.
 
-N8N TROUBLESHOOTING EXPERTISE:
-When users ask for help fixing n8n nodes, you should:
-1. Analyze the provided node configuration and identify what's missing or misconfigured
-2. Provide clear, step-by-step instructions specific to the node type
-3. Explain how to set up credentials in n8n if they're missing
-4. Give specific parameter values or expressions they need to add
-5. Keep instructions practical and actionable
-6. ALWAYS reference the specific node configuration you see in the context
+N8N TROUBLESHOOTING: When users need help with n8n nodes, analyze configurations and provide specific fixes with exact field names and values.
 
-When you receive workflow context, analyze it carefully:
-- Check each node's parameters and identify empty or placeholder values
-- Look for missing credentials (credentials object will be empty or undefined)
-- Identify nodes that need configuration based on their type
-- Provide SPECIFIC fixes with exact field names and values
+Format responses with markdown. Use emojis to keep things fun. 🎉`;
 
-Common n8n node fixes you know:
-- **Google Sheets**: Requires OAuth2 credentials, spreadsheet ID (from URL), and sheet name. The Document ID is the long string in your Google Sheets URL.
-- **Gmail/Email**: Requires Google OAuth2 credentials with correct scopes (gmail.send, gmail.readonly).
-- **Slack**: Can use either OAuth2 app credentials or incoming webhooks. Webhook URL goes in the httpRequest node.
-- **HTTP Request**: Check URL format, authentication headers, body format (JSON vs form data).
-- **Code nodes**: JavaScript syntax, accessing input data via $input.all() or items[0].json.
-- **If/Switch nodes**: Verify expressions match data types (string vs number comparisons).
-- **Airtable**: Requires API key and Base ID from airtable.com/account and base URL.
-- **OpenAI/AI nodes**: Require API key from platform.openai.com/api-keys.
-- **Webhook nodes**: Provide the webhook URL path and expected payload structure.
+// ─── Generate Ideas Prompt ───
+const GENERATE_IDEAS_PROMPT = `Generate ONE unique, highly detailed turn-key online business concept. This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
 
-RESPONSE FORMAT FOR TROUBLESHOOTING:
-When helping fix nodes, structure your response like this:
-1. **Issue Identified**: What's wrong with the current configuration
-2. **Root Cause**: Why this is causing the problem
-3. **Fix Steps**: Numbered list of exact steps to fix it
-4. **Verification**: How to test that the fix worked
+Include these sections with emojis:
+# 💡 [Creative Business Name]
+## 🎯 The Niche
+## 👥 Target Audience
+## ✨ Value Proposition
+## 📦 Service/Product Offering
+## 💰 Revenue Math (Path to $10K/month)
+## 🚀 Fast Validation Path (2-4 weeks)
+## 🤖 AI Automation Strategy
+## 🛠️ Tech Stack Recommendation
+## ⚠️ Potential Challenges & Solutions
 
-Format your responses with clear sections and bullet points for readability. Use markdown formatting and occasional emojis to keep things fun.`;
+Make it unique, creative, and immediately actionable.`;
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Authentication check
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const authHeader = req.headers.get("Authorization");
 
     if (!authHeader) {
@@ -127,11 +360,11 @@ serve(async (req) => {
       );
     }
 
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+    // Auth check
+    const supabaseAuth = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
-
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser();
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: "Invalid token" }),
@@ -139,12 +372,12 @@ serve(async (req) => {
       );
     }
 
-    // Validate request body
+    // Admin client for tool execution (bypasses RLS)
+    const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey);
+
     const rawBody = await req.json();
     const parseResult = ChatRequestSchema.safeParse(rawBody);
-    
     if (!parseResult.success) {
-      console.error("Validation error:", parseResult.error.errors);
       return new Response(
         JSON.stringify({ error: "Invalid request format", details: parseResult.error.errors.map(e => e.message) }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -153,191 +386,162 @@ serve(async (req) => {
 
     const { messages, type, industry, n8nContext } = parseResult.data;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-
     if (!LOVABLE_API_KEY) {
-      console.error("LOVABLE_API_KEY is not configured");
       throw new Error("AI service is not configured");
     }
 
-    console.log(`Processing ${type || 'chat'} request with ${messages?.length || 0} messages, industry: ${industry || 'any'}, user: ${user.id}`);
+    console.log(`Processing ${type || 'chat'} request with ${messages?.length || 0} messages, user: ${user.id}`);
 
-    // Build n8n context injection if provided
+    // Build enhanced system prompt with n8n context
     let enhancedSystemPrompt = SYSTEM_PROMPT;
     if (n8nContext) {
       const contextParts = [];
-      if (n8nContext.workflowName) {
-        contextParts.push(`**Current Workflow:** ${n8nContext.workflowName}`);
-      }
-      if (n8nContext.workflowId) {
-        contextParts.push(`**Workflow ID:** ${n8nContext.workflowId}`);
-      }
-      if (n8nContext.n8nInstanceUrl) {
-        contextParts.push(`**n8n Instance:** ${n8nContext.n8nInstanceUrl}`);
-      }
-      if (n8nContext.businessName) {
-        contextParts.push(`**Business:** ${n8nContext.businessName}${n8nContext.niche ? ` (${n8nContext.niche})` : ''}`);
-      }
-      if (n8nContext.nodes && n8nContext.nodes.length > 0) {
-        contextParts.push(`**Workflow Nodes:**\n${JSON.stringify(n8nContext.nodes, null, 2)}`);
-      }
-      
+      if (n8nContext.workflowName) contextParts.push(`**Current Workflow:** ${n8nContext.workflowName}`);
+      if (n8nContext.workflowId) contextParts.push(`**Workflow ID:** ${n8nContext.workflowId}`);
+      if (n8nContext.n8nInstanceUrl) contextParts.push(`**n8n Instance:** ${n8nContext.n8nInstanceUrl}`);
+      if (n8nContext.businessName) contextParts.push(`**Business:** ${n8nContext.businessName}${n8nContext.niche ? ` (${n8nContext.niche})` : ''}`);
+      if (n8nContext.nodes && n8nContext.nodes.length > 0) contextParts.push(`**Workflow Nodes:**\n${JSON.stringify(n8nContext.nodes, null, 2)}`);
       if (contextParts.length > 0) {
-        enhancedSystemPrompt += `\n\n---\n\n**CURRENT N8N WORKFLOW CONTEXT:**\n${contextParts.join('\n')}\n\nUse this context to provide specific, actionable guidance for fixing or configuring the user's n8n workflow.`;
+        enhancedSystemPrompt += `\n\n---\n**CURRENT N8N WORKFLOW CONTEXT:**\n${contextParts.join('\n')}`;
       }
     }
 
-    // Build the request body
+    // Build request body
     const requestBody: Record<string, unknown> = {
       model: "google/gemini-3-flash-preview",
       messages: [
         { role: "system", content: enhancedSystemPrompt },
         ...(messages || []),
       ],
-      stream: true,
+      stream: false, // First call is non-streaming to handle tool calls
+      tools: COPILOT_TOOLS,
+      tool_choice: "auto",
     };
 
-    // For business idea generation - one detailed idea at a time
+    // For business idea generation
     if (type === "generate_ideas") {
-      const industryContext = industry && industry !== "any" 
-        ? `specifically in the **${industry.replace(/-/g, ' ').toUpperCase()}** industry. Focus on opportunities, trends, and target customers unique to this sector.`
-        : `in any promising industry. Choose an underserved niche with high potential.`;
+      const industryContext = industry && industry !== "any"
+        ? `specifically in the **${industry.replace(/-/g, ' ').toUpperCase()}** industry.`
+        : `in any promising industry.`;
 
       requestBody.messages = [
         { role: "system", content: SYSTEM_PROMPT },
-        {
-          role: "user",
-          content: `Generate ONE unique, highly detailed turn-key online business concept ${industryContext} This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
-
-# 💡 [Creative Business Name]
-
-## 🎯 The Niche
-Provide a specific, underserved niche with clear market opportunity. Explain why this niche is ideal right now.
-
-## 👥 Target Audience
-Create a detailed customer avatar:
-- Demographics (age, location, profession)
-- Psychographics (pain points, desires, fears)
-- Where they hang out online
-- What keeps them up at night
-
-## ✨ Value Proposition
-A compelling one-liner that makes prospects say "I need this!" followed by 3-4 key benefits.
-
-## 📦 Service/Product Offering
-Detailed breakdown of exactly what you deliver:
-- Core deliverables
-- Timeline and process
-- What's included vs. add-ons
-- Specific outcomes clients can expect
-
-## 💰 Revenue Math (Path to $10K/month)
-Show the exact numbers:
-- **Pricing:** $X per [unit/package/retainer]
-- **Clients needed:** X clients/month
-- **Average client lifetime value:** $X
-- **Estimated monthly costs:** $X (tools, ads, contractors)
-- **Net profit calculation:** Revenue - Costs = $10K+
-- **Scaling path:** How to grow beyond $10K
-
-## 🚀 Fast Validation Path (Get First Customer in 2-4 Weeks)
-Week-by-week action plan:
-- **Week 1:** [Specific actions]
-- **Week 2:** [Specific actions]
-- **Week 3-4:** [Specific actions]
-- First customer acquisition strategy
-- How to get testimonials quickly
-
-## 🤖 AI Automation Strategy
-Detailed prompts and tools for each sales stage:
-
-### Prospecting
-- AI tools to use (with specific examples)
-- Sample AI prompt for finding leads
-- Automation workflow
-
-### Qualification & Discovery
-- AI-powered qualification questions
-- How to automate initial outreach
-- Sample scripts
-
-### Presentation & Proposal
-- AI-generated proposal templates
-- Personalization at scale
-- Video/demo automation
-
-### Objection Handling
-- Common objections for this niche
-- AI response frameworks
-- FAQ automation
-
-### Closing
-- AI-assisted follow-up sequences
-- Payment and onboarding automation
-- Contract generation
-
-### Client Success & Follow-up
-- Automated check-ins
-- Upsell/cross-sell sequences
-- Referral request automation
-
-## 🛠️ Tech Stack Recommendation
-Specific tools needed to run this business (keep it simple and affordable).
-
-## ⚠️ Potential Challenges & Solutions
-3 likely obstacles and how to overcome them.
-
----
-
-Make this idea unique, creative, and immediately actionable. Be specific with examples, not generic. The reader should be able to start TODAY.`,
-        },
+        { role: "user", content: `${GENERATE_IDEAS_PROMPT}\n\nFocus ${industryContext}` },
         ...(messages || []),
       ];
+      // No tools for idea generation - just stream directly
+      delete requestBody.tools;
+      delete requestBody.tool_choice;
+      requestBody.stream = true;
+
+      const response = await callAIGateway(LOVABLE_API_KEY, requestBody);
+      if (!response.ok) return handleAIError(response);
+
+      return new Response(response.body, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      });
     }
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(requestBody),
-    });
+    // ─── Copilot Flow: Non-streaming first to check for tool calls ───
+    const firstResponse = await callAIGateway(LOVABLE_API_KEY, requestBody);
+    if (!firstResponse.ok) return handleAIError(firstResponse);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+    const firstResult = await firstResponse.json();
+    const choice = firstResult.choices?.[0];
 
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Usage limit reached. Please check your account." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ error: "AI service temporarily unavailable" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    if (!choice) {
+      throw new Error("No response from AI");
     }
 
-    console.log("Streaming response from AI gateway");
+    // Check if AI wants to call tools
+    const toolCalls = choice.message?.tool_calls;
 
-    // Return the streaming response
-    return new Response(response.body, {
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "text/event-stream",
-        "Cache-Control": "no-cache",
-        "Connection": "keep-alive",
+    if (toolCalls && toolCalls.length > 0) {
+      console.log(`AI requested ${toolCalls.length} tool call(s)`);
+
+      // Execute each tool call
+      const toolResults: Array<{ tool_call_id: string; name: string; result: unknown }> = [];
+
+      for (const tc of toolCalls) {
+        const fnName = tc.function.name;
+        const fnArgs = JSON.parse(tc.function.arguments || "{}");
+        console.log(`Executing tool: ${fnName}`, fnArgs);
+
+        const result = await executeTool(fnName, fnArgs, user.id, supabaseAdmin);
+        toolResults.push({ tool_call_id: tc.id, name: fnName, result });
+      }
+
+      // Build follow-up messages with tool results
+      const followUpMessages = [
+        ...(requestBody.messages as Array<{ role: string; content: string }>),
+        choice.message, // assistant message with tool_calls
+        ...toolResults.map((tr) => ({
+          role: "tool",
+          tool_call_id: tr.tool_call_id,
+          content: JSON.stringify(tr.result),
+        })),
+      ];
+
+      // Second call: stream the final response with tool results context
+      const streamBody = {
+        model: "google/gemini-3-flash-preview",
+        messages: followUpMessages,
+        stream: true,
+      };
+
+      const streamResponse = await callAIGateway(LOVABLE_API_KEY, streamBody);
+      if (!streamResponse.ok) return handleAIError(streamResponse);
+
+      // Prepend tool result markers to the stream so the frontend can show action cards
+      const toolMarkers = toolResults
+        .map((tr) => `data: ${JSON.stringify({ choices: [{ delta: { content: `\n[TOOL_RESULT:${tr.name}:${JSON.stringify(tr.result)}]\n` } }] })}\n\n`)
+        .join("");
+
+      const encoder = new TextEncoder();
+      const markerStream = new ReadableStream({
+        start(controller) {
+          controller.enqueue(encoder.encode(toolMarkers));
+          
+          const reader = streamResponse.body!.getReader();
+          const pump = async () => {
+            while (true) {
+              const { done, value } = await reader.read();
+              if (done) { controller.close(); break; }
+              controller.enqueue(value);
+            }
+          };
+          pump().catch((e) => { console.error("Stream pump error:", e); controller.close(); });
+        },
+      });
+
+      return new Response(markerStream, {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      });
+    }
+
+    // No tool calls - stream the response directly
+    // Re-request with streaming enabled
+    requestBody.stream = true;
+    delete requestBody.tools;
+    delete requestBody.tool_choice;
+
+    // Rebuild with the content from the non-streaming response to avoid double-calling
+    // Instead, create an SSE stream from the existing response
+    const content = choice.message?.content || "";
+    const encoder = new TextEncoder();
+    const syntheticStream = new ReadableStream({
+      start(controller) {
+        // Send content as a single SSE event
+        const sseData = `data: ${JSON.stringify({ choices: [{ delta: { content } }] })}\n\ndata: [DONE]\n\n`;
+        controller.enqueue(encoder.encode(sseData));
+        controller.close();
       },
     });
+
+    return new Response(syntheticStream, {
+      headers: { ...corsHeaders, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+    });
+
   } catch (error) {
     console.error("Chat function error:", error);
     return new Response(
@@ -346,3 +550,34 @@ Make this idea unique, creative, and immediately actionable. Be specific with ex
     );
   }
 });
+
+// ─── Helpers ───
+async function callAIGateway(apiKey: string, body: Record<string, unknown>) {
+  return fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+function handleAIError(response: Response) {
+  if (response.status === 429) {
+    return new Response(
+      JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
+      { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+  if (response.status === 402) {
+    return new Response(
+      JSON.stringify({ error: "Usage limit reached. Please check your account." }),
+      { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
+  return new Response(
+    JSON.stringify({ error: "AI service temporarily unavailable" }),
+    { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+  );
+}
