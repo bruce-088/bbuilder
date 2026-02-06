@@ -5,12 +5,13 @@ import { toast } from "sonner";
 // Voice command patterns
 const VOICE_COMMANDS = [
   { pattern: /pipeline|leads/i, action: "pipeline_summary" as const },
-  { pattern: /progress|status/i, action: "daily_progress" as const },
+  { pattern: /progress|status|how am i doing/i, action: "daily_progress" as const },
   { pattern: /next steps?|todo|what('s| is) next/i, action: "whats_next" as const },
+  { pattern: /briefing|morning|update me/i, action: "daily_briefing" as const },
   { pattern: /help|how (do|can) I/i, action: "help" as const },
 ];
 
-type VoiceCommand = "pipeline_summary" | "daily_progress" | "whats_next" | "help" | null;
+type VoiceCommand = "pipeline_summary" | "daily_progress" | "whats_next" | "daily_briefing" | "help" | null;
 
 interface UseVoiceChatOptions {
   onTranscript?: (text: string) => void;

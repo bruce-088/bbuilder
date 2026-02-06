@@ -5,4 +5,7 @@ export { default as QuestList } from './QuestList';
 export { default as CurrentQuestCard } from './CurrentQuestCard';
 export { default as WhatsNextCard } from './WhatsNextCard';
 export { default as QuestPromptDialog } from './QuestPromptDialog';
+export { default as ActivityFeed } from './ActivityFeed';
+export { default as MomentumCard } from './MomentumCard';
+export { default as DailyBriefing } from './DailyBriefing';
 export * from './types';
