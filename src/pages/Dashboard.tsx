@@ -54,7 +54,12 @@ import {
   Rocket,
   Trophy,
   Eye,
-  Workflow
+  Workflow,
+  Users,
+  UserPlus,
+  DollarSign,
+  Mail,
+  BarChart3,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -75,6 +80,7 @@ import {
   ActivityFeed,
   MomentumCard,
   DailyBriefing,
+  TodaysTasks,
 } from "@/components/MissionControl";
 import { useMissionProgress } from "@/hooks/useMissionProgress";
 import { useMissionIntelligenceContext } from "@/contexts/MissionIntelligenceContext";
@@ -130,6 +136,7 @@ export default function Dashboard() {
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
   const [showQuestList, setShowQuestList] = useState(false);
+  const [showSetupGuide, setShowSetupGuide] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
   const editIdeaInputRef = useRef<HTMLInputElement>(null);
   
@@ -767,7 +774,11 @@ export default function Dashboard() {
             </div>
             <span className="font-display font-bold text-xl">Mya</span>
           </div>
-          <div className="flex items-center gap-2">
+           <div className="flex items-center gap-2">
+            <Button onClick={() => navigate("/leads")} variant="ghost" size="sm">
+              <Users className="w-4 h-4 mr-2" />
+              Leads
+            </Button>
             <Button onClick={() => navigate("/workflows")} variant="ghost" size="sm">
               <Workflow className="w-4 h-4 mr-2" />
               Workflows
@@ -801,6 +812,17 @@ export default function Dashboard() {
               />
             </div>
           )}
+
+          {/* Today's Tasks */}
+          <TodaysTasks
+            onNavigateToChat={async (prompt) => {
+              if (!user) return;
+              const { data } = await supabase.from("conversations").insert({ user_id: user.id, title: "Follow-up" }).select().single();
+              if (data) navigate(`/chat/${data.id}`, { state: { initialPrompt: prompt } });
+            }}
+            onOpenSetupGuide={() => setShowSetupGuide(true)}
+            currentSetupStep="Continue your Setup Guide"
+          />
 
           {/* Mission Control Header */}
           <div className="grid lg:grid-cols-3 gap-6 mb-8">
@@ -977,39 +999,33 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Quick Actions - More Compact */}
-          <div className="grid md:grid-cols-2 gap-4 mb-8">
-            <Card 
-              className="glass card-hover cursor-pointer group" 
-              onClick={handleNewChat}
-            >
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-primary/20 flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
-                  <MessageSquare className="w-6 h-6 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-display font-semibold">Chat with Mya</h3>
-                  <p className="text-sm text-muted-foreground truncate">Refine ideas & get personalized advice</p>
-                </div>
-                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-colors flex-shrink-0" />
-              </CardContent>
-            </Card>
-
-            <Card 
-              className="glass card-hover cursor-pointer group border-accent/30" 
-              onClick={openIndustryDialog}
-            >
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className="w-12 h-12 rounded-lg bg-gradient-accent flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0">
-                  <Sparkles className="w-6 h-6 text-accent-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-display font-semibold">Generate Business Idea</h3>
-                  <p className="text-sm text-muted-foreground truncate">AI-powered concept with revenue math</p>
-                </div>
-                <ArrowRight className="w-5 h-5 text-muted-foreground group-hover:text-accent transition-colors flex-shrink-0" />
-              </CardContent>
-            </Card>
+          {/* Quick Actions */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-8">
+            {[
+              { label: "Add a Lead", icon: UserPlus, onClick: () => navigate("/leads"), color: "bg-primary/20", iconColor: "text-primary" },
+              { label: "Log Revenue", icon: DollarSign, onClick: async () => {
+                if (!user) return;
+                const { data } = await supabase.from("conversations").insert({ user_id: user.id, title: "Revenue Logging" }).select().single();
+                if (data) navigate(`/chat/${data.id}`, { state: { initialPrompt: "Log revenue for today" } });
+              }, color: "bg-chart-2/20", iconColor: "text-chart-2" },
+              { label: "Send Follow-up", icon: Mail, onClick: async () => {
+                if (!user) return;
+                const { data } = await supabase.from("conversations").insert({ user_id: user.id, title: "Follow-up Draft" }).select().single();
+                if (data) navigate(`/chat/${data.id}`, { state: { initialPrompt: "Draft a follow-up email for my warmest lead" } });
+              }, color: "bg-accent/20", iconColor: "text-accent" },
+              { label: "Check Pipeline", icon: BarChart3, onClick: () => navigate("/leads"), color: "bg-chart-4/20", iconColor: "text-chart-4" },
+              { label: "Chat with Mya", icon: MessageSquare, onClick: handleNewChat, color: "bg-primary/20", iconColor: "text-primary" },
+              { label: "Generate Idea", icon: Sparkles, onClick: openIndustryDialog, color: "bg-accent/20", iconColor: "text-accent" },
+            ].map((action) => (
+              <Card key={action.label} className="glass card-hover cursor-pointer group" onClick={action.onClick}>
+                <CardContent className="p-3 flex items-center gap-3">
+                  <div className={`w-10 h-10 rounded-lg ${action.color} flex items-center justify-center group-hover:scale-105 transition-transform flex-shrink-0`}>
+                    <action.icon className={`w-5 h-5 ${action.iconColor}`} />
+                  </div>
+                  <span className="font-medium text-sm">{action.label}</span>
+                </CardContent>
+              </Card>
+            ))}
           </div>
 
           {/* Recent Content */}

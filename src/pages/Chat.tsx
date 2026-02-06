@@ -983,10 +983,10 @@ export default function Chat() {
               {/* Starter prompts */}
               <div className="flex flex-wrap gap-2 mb-6 max-w-xl justify-center">
                 {[
-                  "What business can I start with $500?",
-                  "How do I validate my idea fast?",
-                  "Best niches for introverts?",
-                  "How to get my first customer?"
+                  "Add my first lead",
+                  "Create an outreach workflow",
+                  "How's my revenue this month?",
+                  "Give me a business summary",
                 ].map((prompt) => (
                   <Button
                     key={prompt}
@@ -1496,6 +1496,20 @@ export default function Chat() {
                   <ImageIcon className="w-3 h-3 mr-1" />
                   {pastedImages.length}/5 images
                 </div>
+              </div>
+            )}
+            {/* Quick action chips */}
+            {!isStreaming && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {["Add a lead", "Log revenue", "Pipeline stats", "Business summary"].map((chip) => (
+                  <button
+                    key={chip}
+                    onClick={() => { setInput(chip); footerTextareaRef.current?.focus(); }}
+                    className="text-[11px] px-2.5 py-1 rounded-full border border-border/60 text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors"
+                  >
+                    {chip}
+                  </button>
+                ))}
               </div>
             )}
             <div className="flex gap-3">
