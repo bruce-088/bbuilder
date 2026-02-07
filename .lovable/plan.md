@@ -1,57 +1,57 @@
 
 
-# Declutter the Dashboard
+# Mind Map for Business Plan
 
-## Current State
+## Overview
+Create an interactive, visual mind map component that displays a business plan's key sections (Niche, Target Audience, Value Proposition, Service Offering, Revenue Math, Validation Path, AI Automation Strategy) as nodes radiating from a central hub. This gives users a bird's-eye view of their business concept.
 
-The dashboard currently shows **13 distinct sections** stacked vertically, which creates significant scroll depth and visual overload:
+## Design
 
-1. Daily Briefing (banner)
-2. Today's Tasks
-3. Mission HQ (tabbed card -- Quest / Progress / Quest Line)
-4. Achievement Badges
-5. Countdown Timer (right column)
-6. XP Progress + Momentum Card (right column)
-7. Lead Stats Card (right column)
-8. Revenue Card (right column)
-9. What's Next Card (right column)
-10. Activity Feed (full width)
-11. Quick Actions (6-button grid)
-12. Conversations list
-13. Business Plans list
+The mind map will be an SVG-based radial layout with:
+- A **central node** showing the business name
+- **7 branch nodes** arranged in a circle, each representing one plan section
+- Curved connector lines from center to each branch
+- Click-to-expand behavior: clicking a branch reveals the full text in a popover or expanded card
+- Color-coded branches matching existing purple brand palette with distinct accent tones per section
 
-## Proposed Reductions (5 changes)
+```text
+                    [Niche]
+                   /
+    [AI Strategy]--     --[Target Audience]
+                  \   /
+              [Business Name]
+                  /   \
+  [Validation]--       --[Value Proposition]
+                   \
+    [Revenue Math]--[Service Offering]
+```
 
-### 1. Remove "What's Next Card" -- it duplicates Mission HQ
-The What's Next card shows the next recommended action, but the Quest tab inside Mission HQ already does this with more detail. Removing it frees up significant right-column space.
+## Where It Lives
 
-### 2. Fold Achievement Badges into Mission HQ as a 4th tab
-Instead of a separate card below Mission HQ, add an "Achievements" tab alongside Quest / Progress / Quest Line. This keeps it accessible but hidden by default.
-
-### 3. Collapse Activity Feed into an expandable section
-Replace the always-visible activity feed with a compact "Recent Activity" row that expands on click. Default state: collapsed, showing just "3 recent events" as a single line.
-
-### 4. Reduce Quick Actions from 6 to 4 buttons
-Remove "Chat with Mya" (already accessible from nav or new-chat button) and "Generate Idea" (already in Mission HQ Quest tab). Keep the 4 business-focused actions: Add a Lead, Log Revenue, Send Follow-up, Check Pipeline.
-
-### 5. Merge Daily Briefing into the welcome header
-Instead of a separate banner, show the briefing summary (next action + momentum) as a subtitle line under the "Mission: First Customer" heading. This eliminates an entire section.
+- Accessible from the **Business Idea Detail Dialog** (`BusinessIdeaDialog.tsx`) as a new tab or toggle ("Mind Map" view alongside the existing detail list)
+- Also usable standalone if needed later
 
 ## Technical Changes
 
-### Files to modify:
+### New file: `src/components/BusinessPlanMindMap.tsx`
+- Accepts a business idea object (business_name, niche, target_audience, value_proposition, service_offering, revenue_math, validation_path, ai_automation_strategy)
+- Renders an SVG mind map with:
+  - Central circle node with business name
+  - 7 branch nodes positioned radially (evenly spaced at ~51-degree intervals)
+  - Curved SVG path connectors from center to each branch
+  - Each branch node shows an icon and short label
+  - Clicking a branch node opens a popover/tooltip with the full section text
+- Responsive: scales within its container
+- Uses existing Tailwind colors and Lucide icons matching `detailItems` definitions (Target, Users, Sparkles, CheckCircle2, DollarSign, Zap, Bot)
 
-| File | Change |
-|------|--------|
-| `src/components/MissionControl/MissionHQCard.tsx` | Add 4th "Achievements" tab rendering `AchievementBadges` |
-| `src/pages/Dashboard.tsx` | Remove `WhatsNextCard`, remove standalone `AchievementBadges`, collapse `ActivityFeed`, reduce Quick Actions to 4, inline `DailyBriefing` data into header |
-| `src/components/MissionControl/ActivityFeed.tsx` | Add a `collapsible` prop that defaults to collapsed state with a "Show activity" toggle |
+### Modified file: `src/components/BusinessIdeaDialog.tsx`
+- Add a toggle button (e.g., "Mind Map" / "Details" view switcher) near the top of the dialog content
+- When "Mind Map" is selected, render `BusinessPlanMindMap` instead of the linear detail list
+- Default view remains the existing detail list
 
-### No files to delete
-All existing components remain intact -- they're just repositioned or hidden behind toggles/tabs.
+### No database changes needed
+All data already exists in the `business_ideas` table.
 
-### No new dependencies or database changes needed.
-
-## Result
-The dashboard shrinks from 13 sections to roughly 8 visible sections, with achievements and activity tucked behind tabs/toggles. The right column loses one card, and the top area loses two full-width sections.
+### No new dependencies needed
+SVG rendering is native; popovers use existing Radix `Popover` component.
 
