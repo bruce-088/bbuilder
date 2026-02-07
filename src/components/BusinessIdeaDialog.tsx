@@ -47,6 +47,8 @@ import {
   Wrench,
   FileDown,
   Package,
+  LayoutList,
+  GitBranchPlus,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -59,6 +61,7 @@ import { generateBusinessPlanBundle } from "@/lib/bundleGenerator";
 import FixDiagnosisDialog from "./FixDiagnosisDialog";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
 import BusinessIdeaMasterPromptDialog from "./BusinessIdeaMasterPromptDialog";
+import BusinessPlanMindMap from "./BusinessPlanMindMap";
 import UnifiedSetupGuide from "./UnifiedSetupGuide";
 import { AutomationEngine } from "./AutomationEngine";
 import { Json } from "@/integrations/supabase/types";
@@ -278,6 +281,7 @@ export default function BusinessIdeaDialog({
   const [generatingBundle, setGeneratingBundle] = useState(false);
   const [verificationResults, setVerificationResults] = useState<Map<string, VerificationResult>>(new Map());
   const [verifyingAll, setVerifyingAll] = useState(false);
+  const [viewMode, setViewMode] = useState<'details' | 'mindmap'>('details');
 
   useEffect(() => {
     if (open && ideaId) {
@@ -850,8 +854,34 @@ export default function BusinessIdeaDialog({
               </div>
             </DialogHeader>
 
+            {/* View Toggle */}
+            <div className="flex items-center gap-1 pb-2">
+              <Button
+                variant={viewMode === 'details' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => setViewMode('details')}
+              >
+                <LayoutList className="w-3.5 h-3.5" />
+                Details
+              </Button>
+              <Button
+                variant={viewMode === 'mindmap' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="h-8 text-xs gap-1.5"
+                onClick={() => setViewMode('mindmap')}
+              >
+                <GitBranchPlus className="w-3.5 h-3.5" />
+                Mind Map
+              </Button>
+            </div>
+
             <ScrollArea className="flex-1 min-h-0 -mx-6 px-6 [&>[data-radix-scroll-area-viewport]]:max-h-[50vh]">
               <div className="space-y-4 pb-4 pr-2">
+                {viewMode === 'mindmap' ? (
+                  <BusinessPlanMindMap idea={idea} />
+                ) : (
+                <>
                 {/* Quick Start Checklist with Verification */}
                 <Card className="glass border-primary/20">
                   <CardContent className="p-4">
@@ -1158,6 +1188,8 @@ export default function BusinessIdeaDialog({
                     </p>
                   </CardContent>
                 </Card>
+                </>
+                )}
               </div>
             </ScrollArea>
 
