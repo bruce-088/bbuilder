@@ -52,7 +52,6 @@ import {
   Search,
   HelpCircle,
   Rocket,
-  
   Eye,
   Workflow,
   Users,
@@ -61,6 +60,7 @@ import {
   Mail,
   BarChart3,
   FileText,
+  RefreshCw,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -131,6 +131,7 @@ export default function Dashboard() {
   const [savedConversationIds, setSavedConversationIds] = useState<Set<string>>(new Set());
   const [ideaToDelete, setIdeaToDelete] = useState<string | null>(null);
   const [ideaSearch, setIdeaSearch] = useState("");
+  const [syncingIdeaId, setSyncingIdeaId] = useState<string | null>(null);
   const [conversationSearch, setConversationSearch] = useState("");
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
@@ -483,6 +484,30 @@ export default function Dashboard() {
   const cancelEditingIdea = () => {
     setEditingIdeaId(null);
     setEditingIdeaName("");
+  };
+
+  const syncToNexus = async (ideaId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+    setSyncingIdeaId(ideaId);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-to-nexus", {
+        body: { business_idea_id: ideaId },
+      });
+      if (error) throw error;
+      if (data?.nexus_sync?.sent && data.nexus_sync.message === "ok") {
+        toast.success("Synced to Nexus successfully!");
+      } else if (data?.manifest_saved) {
+        toast.success("Manifest saved! Nexus sync: " + (data.nexus_sync?.message || "pending"));
+      } else {
+        toast.error("Sync failed");
+      }
+    } catch (err: any) {
+      console.error("Sync to Nexus error:", err);
+      toast.error("Failed to sync: " + (err.message || "Unknown error"));
+    } finally {
+      setSyncingIdeaId(null);
+    }
   };
 
   const saveConversationTitle = async (id: string) => {
@@ -1361,6 +1386,22 @@ export default function Dashboard() {
                                 </TooltipTrigger>
                                 <TooltipContent>
                                   <p>View business plan details</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
+                                    disabled={syncingIdeaId === idea.id}
+                                    onClick={(e) => syncToNexus(idea.id, e)}
+                                  >
+                                    <RefreshCw className={`w-4 h-4 text-muted-foreground hover:text-primary ${syncingIdeaId === idea.id ? "animate-spin" : ""}`} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Sync to Nexus</p>
                                 </TooltipContent>
                               </Tooltip>
                               <Tooltip>

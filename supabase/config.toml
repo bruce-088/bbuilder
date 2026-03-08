@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.workflow-scheduler]
 verify_jwt = false
+
+[functions.sync-to-nexus]
+verify_jwt = false
