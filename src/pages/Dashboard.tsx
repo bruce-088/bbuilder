@@ -69,6 +69,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import HowToUseDialog from "@/components/HowToUseDialog";
+import StrategyGuideDialog from "@/components/StrategyGuideDialog";
 import GettingStartedCard from "@/components/GettingStartedCard";
 import ProgressIndicator from "@/components/ProgressIndicator";
 import { 
