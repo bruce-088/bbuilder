@@ -938,7 +938,7 @@ export default function Dashboard() {
           )}
 
           {/* Quick Actions */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
             {[
               { label: "Add a Lead", icon: UserPlus, onClick: () => navigate("/leads"), color: "bg-primary/20", iconColor: "text-primary" },
               { label: "Log Revenue", icon: DollarSign, onClick: async () => {
@@ -952,6 +952,7 @@ export default function Dashboard() {
                 if (data) navigate(`/chat/${data.id}`, { state: { initialPrompt: "Draft a follow-up email for my warmest lead" } });
               }, color: "bg-accent/20", iconColor: "text-accent" },
               { label: "Check Pipeline", icon: BarChart3, onClick: () => navigate("/leads"), color: "bg-chart-4/20", iconColor: "text-chart-4" },
+              { label: "Export Spec", icon: FileText, onClick: () => navigate("/export-prompt"), color: "bg-chart-5/20", iconColor: "text-chart-5" },
             ].map((action) => (
               <Card key={action.label} className="glass card-hover cursor-pointer group" onClick={action.onClick}>
                 <CardContent className="p-3 flex items-center gap-3">
