@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import { generateBusinessPlanPDFBlob } from "./pdfGenerator";
 import { supabase } from "@/integrations/supabase/client";
+import { generateSystemManifest } from "./systemManifestGenerator";
 import type { Json } from "@/integrations/supabase/types";
 
 interface BusinessIdea {
