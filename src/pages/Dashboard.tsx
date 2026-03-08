@@ -497,14 +497,17 @@ export default function Dashboard() {
       if (error) throw error;
       if (data?.nexus_sync?.sent && data.nexus_sync.message === "ok") {
         toast.success("Synced to Nexus successfully!");
+      } else if (data?.nexus_sync?.sent && data.nexus_sync.message !== "ok") {
+        const detail = data.nexus_sync.response_body || data.nexus_sync.message || "Unknown error";
+        toast.error(`Nexus sync failed: ${detail}`, { duration: 10000 });
       } else if (data?.manifest_saved) {
-        toast.success("Manifest saved! Nexus sync: " + (data.nexus_sync?.message || "pending"));
+        toast.success("Manifest saved! Nexus sync: " + (data.nexus_sync?.message || "not configured"));
       } else {
-        toast.error("Sync failed");
+        toast.error("Sync failed: " + JSON.stringify(data));
       }
     } catch (err: any) {
       console.error("Sync to Nexus error:", err);
-      toast.error("Failed to sync: " + (err.message || "Unknown error"));
+      toast.error("Failed to sync: " + (err.message || "Unknown error"), { duration: 10000 });
     } finally {
       setSyncingIdeaId(null);
     }
