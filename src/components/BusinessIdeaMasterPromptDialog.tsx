@@ -9,7 +9,8 @@ import {
 } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { Check, Copy, Sparkles, Wand2 } from "lucide-react";
+import { Check, Copy, FileDown, Sparkles, Wand2 } from "lucide-react";
+import { generateMasterPromptPDF } from "@/lib/masterPromptPdfGenerator";
 import { toast } from "sonner";
 import { Json } from "@/integrations/supabase/types";
 
