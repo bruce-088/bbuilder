@@ -493,6 +493,30 @@ export default function Dashboard() {
     setEditingIdeaName("");
   };
 
+  const syncToNexus = async (ideaId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!user) return;
+    setSyncingIdeaId(ideaId);
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-to-nexus", {
+        body: { business_idea_id: ideaId },
+      });
+      if (error) throw error;
+      if (data?.nexus_sync?.sent && data.nexus_sync.message === "ok") {
+        toast.success("Synced to Nexus successfully!");
+      } else if (data?.manifest_saved) {
+        toast.success("Manifest saved! Nexus sync: " + (data.nexus_sync?.message || "pending"));
+      } else {
+        toast.error("Sync failed");
+      }
+    } catch (err: any) {
+      console.error("Sync to Nexus error:", err);
+      toast.error("Failed to sync: " + (err.message || "Unknown error"));
+    } finally {
+      setSyncingIdeaId(null);
+    }
+  };
+
   const saveConversationTitle = async (id: string) => {
     if (!editingTitle.trim()) {
       cancelEditing();
