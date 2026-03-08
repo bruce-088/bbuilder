@@ -136,6 +136,7 @@ export default function Dashboard() {
   const [conversationSearch, setConversationSearch] = useState("");
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
+  const [showStrategyGuide, setShowStrategyGuide] = useState(false);
   
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
