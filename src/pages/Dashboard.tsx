@@ -824,6 +824,10 @@ export default function Dashboard() {
               <Workflow className="w-4 h-4 mr-2" />
               Workflows
             </Button>
+            <Button onClick={() => setShowStrategyGuide(true)} variant="ghost" size="sm">
+              <Map className="w-4 h-4 mr-2" />
+              Strategy Guide
+            </Button>
             <Button onClick={() => setShowHowToUse(true)} variant="ghost" size="sm">
               <HelpCircle className="w-4 h-4 mr-2" />
               How to Use
