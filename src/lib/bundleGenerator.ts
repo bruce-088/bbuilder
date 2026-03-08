@@ -355,6 +355,11 @@ export async function generateBusinessPlanBundle(
   // Add master workflow to zip
   zip.file("n8n-master-workflow.json", JSON.stringify(masterWorkflow, null, 2));
 
+  // Generate system manifest (NexusAI schema + WeatherPost pillars + API triggers)
+  onProgress?.("Generating system manifest...");
+  const manifest = generateSystemManifest(idea);
+  zip.file("system_manifest.json", manifest);
+
   // Add individual stage workflows
   if (includeIndividualStages) {
     const workflowsFolder = zip.folder("workflows");
