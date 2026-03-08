@@ -61,6 +61,7 @@ import {
   BarChart3,
   FileText,
   RefreshCw,
+  Map as MapIcon,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
