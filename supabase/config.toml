@@ -66,5 +66,5 @@ verify_jwt = false
 [functions.workflow-scheduler]
 verify_jwt = false
 
-[functions.sync-to-nexus]
+[functions.sync-to-triad]
 verify_jwt = false
