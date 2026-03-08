@@ -1625,6 +1625,12 @@ export default function Dashboard() {
         }}
       />
 
+      {/* Strategy Guide Dialog */}
+      <StrategyGuideDialog
+        open={showStrategyGuide}
+        onOpenChange={setShowStrategyGuide}
+      />
+
       {/* How to Use Dialog */}
       <HowToUseDialog
         open={showHowToUse}
