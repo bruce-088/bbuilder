@@ -491,22 +491,34 @@ export default function Dashboard() {
     if (!user) return;
     setSyncingIdeaId(ideaId);
     try {
-      const { data, error } = await supabase.functions.invoke("sync-to-nexus", {
+      const { data, error } = await supabase.functions.invoke("sync-to-triad", {
         body: { business_idea_id: ideaId },
       });
       if (error) throw error;
-      if (data?.nexus_sync?.sent && data.nexus_sync.message === "ok") {
-        toast.success("Synced to Nexus successfully!");
-      } else if (data?.nexus_sync?.sent && data.nexus_sync.message !== "ok") {
-        const detail = data.nexus_sync.response_body || data.nexus_sync.message || "Unknown error";
-        toast.error(`Nexus sync failed: ${detail}`, { duration: 10000 });
-      } else if (data?.manifest_saved) {
-        toast.success("Manifest saved! Nexus sync: " + (data.nexus_sync?.message || "not configured"));
+
+      const nexusOk = data?.nexus_sync?.sent && data.nexus_sync.message === "ok";
+      const wpOk = data?.weatherpost_sync?.sent && data.weatherpost_sync.message === "ok";
+
+      if (nexusOk && wpOk) {
+        toast.success("Synced to Nexus & WeatherPost successfully!");
       } else {
-        toast.error("Sync failed: " + JSON.stringify(data));
+        const failures: string[] = [];
+        if (!nexusOk) {
+          const detail = data?.nexus_sync?.response_body || data?.nexus_sync?.message || "not configured";
+          failures.push(`Nexus: ${detail}`);
+        }
+        if (!wpOk) {
+          const detail = data?.weatherpost_sync?.response_body || data?.weatherpost_sync?.message || "not configured";
+          failures.push(`WeatherPost: ${detail}`);
+        }
+        if (data?.manifest_saved) {
+          toast.error(`Manifest saved but sync issues — ${failures.join(" | ")}`, { duration: 10000 });
+        } else {
+          toast.error(`Sync failed — ${failures.join(" | ")}`, { duration: 10000 });
+        }
       }
     } catch (err: any) {
-      console.error("Sync to Nexus error:", err);
+      console.error("Sync to Triad error:", err);
       toast.error("Failed to sync: " + (err.message || "Unknown error"), { duration: 10000 });
     } finally {
       setSyncingIdeaId(null);
