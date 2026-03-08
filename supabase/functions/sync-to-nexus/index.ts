@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
 
         if (!nexusResponse.ok) {
           console.error(`Nexus API error [${nexusResponse.status}]: ${nexusBody}`);
-          nexusSyncResult = { sent: true, message: `Nexus returned ${nexusResponse.status}` };
+          nexusSyncResult = { sent: true, message: `Nexus returned ${nexusResponse.status}`, response_body: nexusBody };
         } else {
           nexusSyncResult = { sent: true, message: "ok" };
         }
