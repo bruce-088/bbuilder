@@ -6,6 +6,33 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+async function postToService(
+  url: string,
+  secret: string,
+  payload: Record<string, unknown>,
+  label: string
+): Promise<{ sent: boolean; message: string; response_body?: string }> {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-triad-key": secret,
+      },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.text();
+    if (!res.ok) {
+      console.error(`${label} error [${res.status}]: ${body}`);
+      return { sent: true, message: `${label} returned ${res.status}`, response_body: body };
+    }
+    return { sent: true, message: "ok" };
+  } catch (err) {
+    console.error(`${label} fetch error:`, err);
+    return { sent: false, message: String(err) };
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -59,17 +86,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Build content pillars from niche keywords
+    // Build content pillars
     const contentPillars = [
       `${idea.niche} Authority`,
       `${idea.target_audience} Pain Points`,
       `${idea.service_offering?.split(" ").slice(0, 3).join(" ") || idea.niche} Solutions`,
       "Social Proof",
     ];
-
     const crmStages = ["captured", "qualified", "proposal", "negotiation", "won", "lost"];
 
-    // Upsert into triad_manifests (singleton per user, id = auth.uid())
+    // Upsert manifest
     const { error: upsertError } = await supabase
       .from("triad_manifests")
       .upsert(
@@ -103,58 +129,44 @@ Deno.serve(async (req) => {
       payload: { business_idea_id, business_name: idea.business_name },
     });
 
-    // Forward to Nexus
+    // Shared payload for downstream services
+    const syncPayload = {
+      user_id: user.id,
+      business_name: idea.business_name,
+      niche: idea.niche,
+      target_audience: idea.target_audience,
+      value_proposition: idea.value_proposition,
+      content_pillars: contentPillars,
+      crm_stages: crmStages,
+      synced_at: new Date().toISOString(),
+    };
+
+    const triadSyncSecret = Deno.env.get("TRIAD_SYNC_SECRET") || "";
+
+    // Send to Nexus and WeatherPost in parallel
     const nexusApiUrl = Deno.env.get("NEXUS_API_URL");
-    const triadSyncSecret = Deno.env.get("TRIAD_SYNC_SECRET");
+    const weatherpostApiUrl = Deno.env.get("WEATHERPOST_API_URL");
 
-    let nexusSyncResult = { sent: false, message: "NEXUS_API_URL not configured" };
-
-    if (nexusApiUrl && triadSyncSecret) {
-      try {
-        const nexusPayload = {
-          user_id: user.id,
-          business_name: idea.business_name,
-          niche: idea.niche,
-          target_audience: idea.target_audience,
-          value_proposition: idea.value_proposition,
-          content_pillars: contentPillars,
-          crm_stages: crmStages,
-          synced_at: new Date().toISOString(),
-        };
-
-        const nexusResponse = await fetch(nexusApiUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-triad-key": triadSyncSecret,
-          },
-          body: JSON.stringify(nexusPayload),
-        });
-
-        const nexusBody = await nexusResponse.text();
-
-        if (!nexusResponse.ok) {
-          console.error(`Nexus API error [${nexusResponse.status}]: ${nexusBody}`);
-          nexusSyncResult = { sent: true, message: `Nexus returned ${nexusResponse.status}`, response_body: nexusBody };
-        } else {
-          nexusSyncResult = { sent: true, message: "ok" };
-        }
-      } catch (fetchErr) {
-        console.error("Nexus fetch error:", fetchErr);
-        nexusSyncResult = { sent: false, message: String(fetchErr) };
-      }
-    }
+    const [nexusSyncResult, weatherpostSyncResult] = await Promise.all([
+      nexusApiUrl && triadSyncSecret
+        ? postToService(nexusApiUrl, triadSyncSecret, syncPayload, "Nexus")
+        : Promise.resolve({ sent: false, message: "NEXUS_API_URL not configured" }),
+      weatherpostApiUrl && triadSyncSecret
+        ? postToService(weatherpostApiUrl, triadSyncSecret, syncPayload, "WeatherPost")
+        : Promise.resolve({ sent: false, message: "WEATHERPOST_API_URL not configured" }),
+    ]);
 
     return new Response(
       JSON.stringify({
         success: true,
         manifest_saved: true,
         nexus_sync: nexusSyncResult,
+        weatherpost_sync: weatherpostSyncResult,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (err) {
-    console.error("sync-to-nexus error:", err);
+    console.error("sync-to-triad error:", err);
     return new Response(JSON.stringify({ error: String(err) }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
