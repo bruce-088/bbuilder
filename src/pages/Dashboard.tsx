@@ -1394,6 +1394,22 @@ export default function Dashboard() {
                                     variant="ghost"
                                     size="icon"
                                     className="h-8 w-8"
+                                    disabled={syncingIdeaId === idea.id}
+                                    onClick={(e) => syncToNexus(idea.id, e)}
+                                  >
+                                    <RefreshCw className={`w-4 h-4 text-muted-foreground hover:text-primary ${syncingIdeaId === idea.id ? "animate-spin" : ""}`} />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>Sync to Nexus</p>
+                                </TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-8 w-8"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       toggleFavorite(idea.id, idea.is_favorite);
