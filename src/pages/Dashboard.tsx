@@ -138,6 +138,7 @@ export default function Dashboard() {
   const [savedConversationIds, setSavedConversationIds] = useState<Set<string>>(new Set());
   const [ideaToDelete, setIdeaToDelete] = useState<string | null>(null);
   const [ideaSearch, setIdeaSearch] = useState("");
+  const [syncingIdeaId, setSyncingIdeaId] = useState<string | null>(null);
   const [conversationSearch, setConversationSearch] = useState("");
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
