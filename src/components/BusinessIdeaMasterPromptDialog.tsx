@@ -252,22 +252,32 @@ export default function BusinessIdeaMasterPromptDialog({
         </ScrollArea>
 
         <div className="flex flex-col gap-3 pt-4 border-t">
-          <Button
-            onClick={copyToClipboard}
-            className="w-full bg-gradient-primary text-primary-foreground hover:opacity-90 btn-glow gap-2"
-          >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="w-4 h-4" />
-                Copy Master Prompt
-              </>
-            )}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={copyToClipboard}
+              className="flex-1 bg-gradient-primary text-primary-foreground hover:opacity-90 btn-glow gap-2"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4" />
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" />
+                  Copy Master Prompt
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => generateMasterPromptPDF(businessIdea)}
+              className="gap-2"
+            >
+              <FileDown className="w-4 h-4" />
+              Download PDF
+            </Button>
+          </div>
           
           <div className="text-xs text-muted-foreground text-center space-y-1">
             <p className="font-medium">How to use:</p>
