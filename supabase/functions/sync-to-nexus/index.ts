@@ -112,15 +112,13 @@ Deno.serve(async (req) => {
     if (nexusApiUrl && triadSyncSecret) {
       try {
         const nexusPayload = {
-          manifest: {
-            business_name: idea.business_name,
-            niche: idea.niche,
-            target_audience: idea.target_audience,
-            value_proposition: idea.value_proposition,
-            content_pillars: contentPillars,
-            crm_stages: crmStages,
-          },
           user_id: user.id,
+          business_name: idea.business_name,
+          niche: idea.niche,
+          target_audience: idea.target_audience,
+          value_proposition: idea.value_proposition,
+          content_pillars: contentPillars,
+          crm_stages: crmStages,
           synced_at: new Date().toISOString(),
         };
 
