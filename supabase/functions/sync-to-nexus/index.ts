@@ -126,7 +126,7 @@ Deno.serve(async (req) => {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${triadSyncSecret}`,
+            "x-triad-key": triadSyncSecret,
           },
           body: JSON.stringify(nexusPayload),
         });
