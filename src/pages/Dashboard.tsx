@@ -61,6 +61,7 @@ import {
   BarChart3,
   FileText,
   RefreshCw,
+  Map as MapIcon,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
@@ -69,6 +70,7 @@ import { motion } from "framer-motion";
 import { toast } from "sonner";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import HowToUseDialog from "@/components/HowToUseDialog";
+import StrategyGuideDialog from "@/components/StrategyGuideDialog";
 import GettingStartedCard from "@/components/GettingStartedCard";
 import ProgressIndicator from "@/components/ProgressIndicator";
 import { 
@@ -135,6 +137,7 @@ export default function Dashboard() {
   const [conversationSearch, setConversationSearch] = useState("");
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
+  const [showStrategyGuide, setShowStrategyGuide] = useState(false);
   
   const [showSetupGuide, setShowSetupGuide] = useState(false);
   const editInputRef = useRef<HTMLInputElement>(null);
@@ -821,6 +824,10 @@ export default function Dashboard() {
             <Button onClick={() => navigate("/workflows")} variant="ghost" size="sm">
               <Workflow className="w-4 h-4 mr-2" />
               Workflows
+            </Button>
+            <Button onClick={() => setShowStrategyGuide(true)} variant="ghost" size="sm">
+              <MapIcon className="w-4 h-4 mr-2" />
+              Strategy Guide
             </Button>
             <Button onClick={() => setShowHowToUse(true)} variant="ghost" size="sm">
               <HelpCircle className="w-4 h-4 mr-2" />
@@ -1617,6 +1624,12 @@ export default function Dashboard() {
             )
           );
         }}
+      />
+
+      {/* Strategy Guide Dialog */}
+      <StrategyGuideDialog
+        open={showStrategyGuide}
+        onOpenChange={setShowStrategyGuide}
       />
 
       {/* How to Use Dialog */}
