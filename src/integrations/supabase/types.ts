@@ -869,6 +869,75 @@ export type Database = {
         }
         Relationships: []
       }
+      triad_events: {
+        Row: {
+          created_at: string | null
+          event_type: string
+          id: string
+          is_processed: boolean | null
+          payload: Json | null
+          source_app: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          event_type: string
+          id?: string
+          is_processed?: boolean | null
+          payload?: Json | null
+          source_app: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          event_type?: string
+          id?: string
+          is_processed?: boolean | null
+          payload?: Json | null
+          source_app?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      triad_manifests: {
+        Row: {
+          business_name: string
+          content_pillars: string[] | null
+          created_at: string | null
+          crm_stages: string[] | null
+          id: string
+          metadata: Json | null
+          niche: string
+          status: string | null
+          target_audience: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          business_name: string
+          content_pillars?: string[] | null
+          created_at?: string | null
+          crm_stages?: string[] | null
+          id?: string
+          metadata?: Json | null
+          niche: string
+          status?: string | null
+          target_audience?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          business_name?: string
+          content_pillars?: string[] | null
+          created_at?: string | null
+          crm_stages?: string[] | null
+          id?: string
+          metadata?: Json | null
+          niche?: string
+          status?: string | null
+          target_audience?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       user_ai_preferences: {
         Row: {
           claude_configured: boolean | null
