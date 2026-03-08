@@ -60,6 +60,7 @@ import {
   DollarSign,
   Mail,
   BarChart3,
+  FileText,
 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
