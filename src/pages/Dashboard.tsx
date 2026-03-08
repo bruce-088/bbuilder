@@ -826,7 +826,7 @@ export default function Dashboard() {
               Workflows
             </Button>
             <Button onClick={() => setShowStrategyGuide(true)} variant="ghost" size="sm">
-              <Map className="w-4 h-4 mr-2" />
+              <MapIcon className="w-4 h-4 mr-2" />
               Strategy Guide
             </Button>
             <Button onClick={() => setShowHowToUse(true)} variant="ghost" size="sm">
