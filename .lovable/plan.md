@@ -1,38 +1,57 @@
 
 
-# Enhance Master Prompt to Full Implementation Spec for Mya App
+# Mind Map for Business Plan
 
-## Context
+## Overview
+Create an interactive, visual mind map component that displays a business plan's key sections (Niche, Target Audience, Value Proposition, Service Offering, Revenue Math, Validation Path, AI Automation Strategy) as nodes radiating from a central hub. This gives users a bird's-eye view of their business concept.
 
-The current `src/lib/masterPromptContent.ts` **already describes the Mya app itself** (not a generated business plan). It covers features, DB schema, edge functions, design system, and file structure. However, it's at a summary level. To make it truly useful for external LLMs to analyze and produce Lovable-formatted code updates, we need to expand it with implementation-level detail.
+## Design
 
-## What Changes
+The mind map will be an SVG-based radial layout with:
+- A **central node** showing the business name
+- **7 branch nodes** arranged in a circle, each representing one plan section
+- Curved connector lines from center to each branch
+- Click-to-expand behavior: clicking a branch reveals the full text in a popover or expanded card
+- Color-coded branches matching existing purple brand palette with distinct accent tones per section
 
-### 1. Expand `src/lib/masterPromptContent.ts` with deeper implementation detail
+```text
+                    [Niche]
+                   /
+    [AI Strategy]--     --[Target Audience]
+                  \   /
+              [Business Name]
+                  /   \
+  [Validation]--       --[Value Proposition]
+                   \
+    [Revenue Math]--[Service Offering]
+```
 
-Add these sections to the existing master prompt:
+## Where It Lives
 
-- **Edge Function signatures & patterns** — request/response shapes for all 22 functions, including the chat function's tool-calling system (copilot tools: `create_workflow`, `add_lead`, `complete_quest`, etc.)
-- **Auth pattern** — the `AuthContext` provider pattern with `signUp`, `signIn`, `signOut`, session listener
-- **AI streaming pattern** — how `src/lib/ai.ts` streams from the chat edge function via `ReadableStream`
-- **Key hook interfaces** — signatures for `useLeadManagement`, `useWorkflowBuilder`, `useMissionProgress`, `useCoworkMode`, `useVoiceChat`, etc.
-- **Component hierarchy** — Dashboard's section layout (Mission Control panels → Business Ideas list → Conversations list), Chat page's message flow, Lead CRM's Kanban structure
-- **RLS policy summary** — all tables use `user_id = auth.uid()` for CRUD
-- **Lovable-specific instructions** — a section telling the consuming LLM to format responses as Lovable-compatible code changes (full file paths, TypeScript, Tailwind classes, shadcn/ui components)
+- Accessible from the **Business Idea Detail Dialog** (`BusinessIdeaDialog.tsx`) as a new tab or toggle ("Mind Map" view alongside the existing detail list)
+- Also usable standalone if needed later
 
-### 2. Update PDF generator to handle the larger content
+## Technical Changes
 
-The current `masterPromptPdfGenerator.ts` already parses markdown sections. No structural changes needed — it auto-paginates. Just ensure the section parsing handles the new content correctly (tables, code blocks, nested lists).
+### New file: `src/components/BusinessPlanMindMap.tsx`
+- Accepts a business idea object (business_name, niche, target_audience, value_proposition, service_offering, revenue_math, validation_path, ai_automation_strategy)
+- Renders an SVG mind map with:
+  - Central circle node with business name
+  - 7 branch nodes positioned radially (evenly spaced at ~51-degree intervals)
+  - Curved SVG path connectors from center to each branch
+  - Each branch node shows an icon and short label
+  - Clicking a branch node opens a popover/tooltip with the full section text
+- Responsive: scales within its container
+- Uses existing Tailwind colors and Lucide icons matching `detailItems` definitions (Target, Users, Sparkles, CheckCircle2, DollarSign, Zap, Bot)
 
-### 3. No changes to `ExportPrompt.tsx`
+### Modified file: `src/components/BusinessIdeaDialog.tsx`
+- Add a toggle button (e.g., "Mind Map" / "Details" view switcher) near the top of the dialog content
+- When "Mind Map" is selected, render `BusinessPlanMindMap` instead of the linear detail list
+- Default view remains the existing detail list
 
-The page already has PDF, Markdown, Text, and Clipboard export. The UI description already says "complete app specification." No changes needed.
+### No database changes needed
+All data already exists in the `business_ideas` table.
 
-## Files Changed
-
-| File | Action |
-|------|--------|
-| `src/lib/masterPromptContent.ts` | Expand with implementation patterns, hook interfaces, edge function specs, RLS policies, Lovable formatting instructions |
-
-## No database or backend changes needed.
+### No new dependencies needed
+SVG rendering is native; popovers use existing Radix `Popover` component.
 
