@@ -1,45 +1,57 @@
 
 
-# Update Master Prompt + PDF Export + Fix Build Errors
+# Mind Map for Business Plan
 
-## 1. Fix Build Errors (Critical)
+## Overview
+Create an interactive, visual mind map component that displays a business plan's key sections (Niche, Target Audience, Value Proposition, Service Offering, Revenue Math, Validation Path, AI Automation Strategy) as nodes radiating from a central hub. This gives users a bird's-eye view of their business concept.
 
-The previous edit added `"types": ["vitest/globals"]` to `tsconfig.app.json`, which restricts TypeScript's type resolution and breaks all module imports. Fix: remove the `types` field so TypeScript discovers types from `node_modules/@types` normally.
+## Design
 
-## 2. Update Master Prompt Content
+The mind map will be an SVG-based radial layout with:
+- A **central node** showing the business name
+- **7 branch nodes** arranged in a circle, each representing one plan section
+- Curved connector lines from center to each branch
+- Click-to-expand behavior: clicking a branch reveals the full text in a popover or expanded card
+- Color-coded branches matching existing purple brand palette with distinct accent tones per section
 
-The current `MASTER_PROMPT` in both `MASTER_PROMPT.md` and `src/pages/ExportPrompt.tsx` is outdated (still references "IdeaForge AI"). Update to reflect the current app name **"Business Builder AI"** and all current features:
+```text
+                    [Niche]
+                   /
+    [AI Strategy]--     --[Target Audience]
+                  \   /
+              [Business Name]
+                  /   \
+  [Validation]--       --[Value Proposition]
+                   \
+    [Revenue Math]--[Service Offering]
+```
 
-- Mission Control (gamified dashboard with quests, XP, daily briefings)
-- Mya AI consultant (voice chat, cowork mode)
-- Lead CRM pipeline
-- Workflow Builder (visual canvas)
-- Template Library
-- Competitor Analysis
-- Mind Map visualization
-- Automation Engine (n8n, Browserbase)
-- Business Plan Bundle export (PDF + n8n workflows)
-- Master Implementation Prompt generation
+## Where It Lives
 
-The prompt will be structured for Lovable-style consumption: clear feature specs, database schema, design system, edge functions, and a quick-start section.
+- Accessible from the **Business Idea Detail Dialog** (`BusinessIdeaDialog.tsx`) as a new tab or toggle ("Mind Map" view alongside the existing detail list)
+- Also usable standalone if needed later
 
-## 3. Add PDF Export
+## Technical Changes
 
-Add a "Download as PDF" button to `ExportPrompt.tsx` using the same branded PDF pattern from `pdfGenerator.ts` (dark header, purple accents, MYA branding). The PDF will render the master prompt as a structured multi-page document with:
-- Branded header
-- Table of contents
-- Sections for each feature area
-- Database schema table
-- Tech stack summary
+### New file: `src/components/BusinessPlanMindMap.tsx`
+- Accepts a business idea object (business_name, niche, target_audience, value_proposition, service_offering, revenue_math, validation_path, ai_automation_strategy)
+- Renders an SVG mind map with:
+  - Central circle node with business name
+  - 7 branch nodes positioned radially (evenly spaced at ~51-degree intervals)
+  - Curved SVG path connectors from center to each branch
+  - Each branch node shows an icon and short label
+  - Clicking a branch node opens a popover/tooltip with the full section text
+- Responsive: scales within its container
+- Uses existing Tailwind colors and Lucide icons matching `detailItems` definitions (Target, Users, Sparkles, CheckCircle2, DollarSign, Zap, Bot)
 
-### Files Changed
+### Modified file: `src/components/BusinessIdeaDialog.tsx`
+- Add a toggle button (e.g., "Mind Map" / "Details" view switcher) near the top of the dialog content
+- When "Mind Map" is selected, render `BusinessPlanMindMap` instead of the linear detail list
+- Default view remains the existing detail list
 
-| File | Action |
-|------|--------|
-| `tsconfig.app.json` | Remove `types` field to fix build |
-| `MASTER_PROMPT.md` | Update with current app state |
-| `src/pages/ExportPrompt.tsx` | Update prompt content + add PDF download button |
-| `src/lib/masterPromptPdfGenerator.ts` | New - PDF generation for master prompt |
+### No database changes needed
+All data already exists in the `business_ideas` table.
 
-### No database changes needed.
+### No new dependencies needed
+SVG rendering is native; popovers use existing Radix `Popover` component.
 
