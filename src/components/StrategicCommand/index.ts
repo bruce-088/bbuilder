@@ -4,4 +4,3 @@ export { VisualStrategyRoadmap } from "./VisualStrategyRoadmap";
 export { StrategicCommandPanel } from "./StrategicCommandPanel";
 export { PerformanceIntelligence } from "./PerformanceIntelligence";
 export { GlobalPivotControl } from "./GlobalPivotControl";
-export { StrategicCommandPanel } from "./StrategicCommandPanel";
