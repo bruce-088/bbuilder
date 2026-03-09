@@ -16,6 +16,7 @@ export function StrategicCommandPanel() {
   const [businessName, setBusinessName] = useState("");
   const [niche, setNiche] = useState("");
   const [syncingPhaseId, setSyncingPhaseId] = useState<string | null>(null);
+  const [syncSecretMissing, setSyncSecretMissing] = useState(false);
   const { phases, isLoading: phasesLoading } = useRoadmapProgress();
 
   useEffect(() => {

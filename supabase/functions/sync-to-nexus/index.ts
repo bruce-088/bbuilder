@@ -19,7 +19,6 @@ const CAPABILITY_STEP_COUNTS: Record<string, number> = {
   "lead-gen": 5, pipeline: 5, outreach: 5, qualification: 5, closing: 5, automation: 6, analytics: 5,
 };
 
-// Phase definitions with tasks that map to the Visual Strategy Roadmap
 const PHASE_TASKS: Record<string, { name: string; description: string; tasks: { title: string }[] }> = {
   validation: {
     name: "Market Validation",
@@ -78,7 +77,6 @@ const PHASE_TASKS: Record<string, { name: string; description: string; tasks: { 
   },
 };
 
-// Compute phase status from setup_guide_progress data
 function getPhaseStatus(phaseId: string, progress: Record<string, boolean[]>): { status: string; percentage: number } {
   const caps = PHASE_CAPABILITY_MAP[phaseId] || [];
   let total = 0;
@@ -94,27 +92,25 @@ function getPhaseStatus(phaseId: string, progress: Record<string, boolean[]>): {
   return { status, percentage };
 }
 
-// Distribute phase-level progress across individual tasks
 function assignTaskStatuses(tasks: { title: string }[], phaseStatus: string, percentage: number): { title: string; status: string }[] {
   if (phaseStatus === "completed") return tasks.map((t) => ({ ...t, status: "completed" }));
   if (phaseStatus === "pending") return tasks.map((t) => ({ ...t, status: "pending" }));
-  // in-progress: mark proportional tasks as completed
   const doneCount = Math.floor((percentage / 100) * tasks.length);
   return tasks.map((t, i) => ({ ...t, status: i < doneCount ? "completed" : "pending" }));
 }
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // 1. Read secret from environment
+    // 1. Secret check — return structured error so UI can show warning
     const syncSecret = Deno.env.get("TRIAD_SYNC_SECRET");
-    console.log("Sending key with length:", syncSecret?.length);
-
     if (!syncSecret) {
+      console.error("TRIAD_SYNC_SECRET is missing from environment");
       return new Response(
-        JSON.stringify({ error: "Secret not found in environment." }),
+        JSON.stringify({ error: "SYNC_SECRET_MISSING", message: "Sync Disabled: Missing Secret" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -158,6 +154,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 4. URL check — validate NEXUS_API_URL
     const nexusApiUrl = (Deno.env.get("NEXUS_API_URL") || "").trim();
     if (!nexusApiUrl) {
       return new Response(JSON.stringify({ error: "NEXUS_API_URL is missing or empty" }), {
@@ -166,7 +163,19 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. Build manifest
+    // Block localhost / preview URLs — only allow published .app URLs
+    if (nexusApiUrl.includes("localhost") || nexusApiUrl.includes("127.0.0.1") || nexusApiUrl.includes("id-preview--")) {
+      console.error("NEXUS_API_URL points to a non-production URL:", nexusApiUrl);
+      return new Response(
+        JSON.stringify({
+          error: "INVALID_NEXUS_URL",
+          message: `Sync target is not a live URL: ${nexusApiUrl}. Update NEXUS_API_URL to the published app URL.`,
+        }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    // 5. Build manifest
     let manifest: Record<string, unknown>;
 
     if (incomingManifest) {
@@ -185,7 +194,6 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Fetch user's setup guide progress
       let userProgress: Record<string, boolean[]> = {};
       try {
         const { data: progressData } = await supabase
@@ -200,7 +208,6 @@ Deno.serve(async (req) => {
         console.warn("Could not fetch setup_guide_progress, defaulting to pending:", e);
       }
 
-      // Build tasks with real progress statuses
       let tasks: { title: string; status: string; phase: string; phase_name: string }[] = [];
 
       if (phase_id && PHASE_TASKS[phase_id]) {
@@ -239,20 +246,31 @@ Deno.serve(async (req) => {
       };
     }
 
-    // 5. Validate manifest has tasks
-    const manifestTasks = (manifest as any).tasks;
-    if (!manifestTasks || (Array.isArray(manifestTasks) && manifestTasks.length === 0)) {
+    // 6. Payload validation — abort if manifest is empty or has no tasks
+    if (!manifest || Object.keys(manifest).length === 0) {
+      console.error("Manifest is empty or undefined. Aborting sync.");
       return new Response(
-        JSON.stringify({ error: "Manifest has no tasks. Skipping sync." }),
+        JSON.stringify({ error: "EMPTY_MANIFEST", message: "Manifest is empty. Sync aborted." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // 6. Send to Nexus
-    console.log("Sending manifest to:", nexusApiUrl);
-    console.log("Tasks count:", Array.isArray(manifestTasks) ? manifestTasks.length : "N/A");
-    console.log("Payload:", JSON.stringify(manifest));
+    const manifestTasks = (manifest as any).tasks;
+    if (!manifestTasks || (Array.isArray(manifestTasks) && manifestTasks.length === 0)) {
+      console.error("Manifest has zero tasks. Aborting sync.");
+      return new Response(
+        JSON.stringify({ error: "NO_TASKS", message: "Manifest has no tasks. Sync aborted." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
 
+    // 7. Log full payload before sending
+    console.log("=== SYNC-TO-NEXUS PRE-SEND ===");
+    console.log("Target URL:", nexusApiUrl);
+    console.log("Tasks count:", Array.isArray(manifestTasks) ? manifestTasks.length : "N/A");
+    console.log("Manifest:", JSON.stringify(manifest, null, 2));
+
+    // 8. Send to Nexus
     const res = await fetch(nexusApiUrl, {
       method: "POST",
       headers: {
@@ -264,20 +282,58 @@ Deno.serve(async (req) => {
 
     const responseText = await res.text();
 
+    // 9. Strict success check — surface exact error text
     if (!res.ok) {
-      console.error(`Nexus error [${res.status}]:`, responseText);
-      throw new Error(responseText || `Nexus returned ${res.status}`);
+      console.error(`Nexus rejected [${res.status}]:`, responseText);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "NEXUS_REJECTED",
+          status_code: res.status,
+          nexus_response: responseText,
+          message: `Nexus returned ${res.status}: ${responseText}`,
+        }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
-    return new Response(JSON.stringify({ success: true, tasks_sent: Array.isArray(manifestTasks) ? manifestTasks.length : 0 }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    // Even on 200, verify the response body indicates success
+    let parsedResponse: any = null;
+    try {
+      parsedResponse = JSON.parse(responseText);
+    } catch {
+      // Non-JSON 200 response — suspicious
+      console.warn("Nexus returned 200 but non-JSON body:", responseText);
+    }
+
+    if (parsedResponse && parsedResponse.error) {
+      console.error("Nexus returned 200 but with error in body:", parsedResponse.error);
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: "NEXUS_BODY_ERROR",
+          nexus_response: responseText,
+          message: `Nexus responded with error: ${parsedResponse.error}`,
+        }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    console.log("=== SYNC SUCCESS ===", responseText);
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        tasks_sent: Array.isArray(manifestTasks) ? manifestTasks.length : 0,
+        nexus_response: responseText,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (err) {
-    console.error("sync-to-nexus error:", err);
-    return new Response(JSON.stringify({ error: String(err) }), {
-      status: 502,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    console.error("sync-to-nexus critical error:", err);
+    return new Response(
+      JSON.stringify({ error: "INTERNAL_ERROR", message: String(err) }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });
