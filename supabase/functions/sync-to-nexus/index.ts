@@ -181,10 +181,10 @@ Deno.serve(async (req) => {
 
       manifest = {
         user_id: userId,
-        business_name: idea.business_name,
-        niche: idea.niche,
-        target_audience: idea.target_audience,
-        value_proposition: idea.value_proposition,
+        business_name: idea.business_name || "My Business",
+        niche: idea.niche || "general",
+        target_audience: idea.target_audience || "small business owners",
+        value_proposition: idea.value_proposition || "",
         content_pillars,
         phase_id: phase_id || "all",
         phase_name: phase_id ? PHASE_TASKS[phase_id]?.name : "All Phases",
