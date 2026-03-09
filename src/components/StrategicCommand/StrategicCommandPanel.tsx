@@ -135,6 +135,12 @@ export function StrategicCommandPanel() {
         </TabsList>
 
         <TabsContent value="roadmap" className="mt-4">
+          {syncSecretMissing && (
+            <div className="mb-4 p-3 rounded-lg bg-destructive/15 border border-destructive text-destructive flex items-center gap-2 text-sm font-medium">
+              <span className="inline-block h-2 w-2 rounded-full bg-destructive animate-pulse" />
+              Sync Disabled: Missing Secret — TRIAD_SYNC_SECRET is not configured.
+            </div>
+          )}
           {phasesLoading ? (
             <Card className="p-6 bg-emerald-950/50 border-emerald-800">
               <Skeleton className="h-6 w-48 mb-4 bg-emerald-800/50" />
