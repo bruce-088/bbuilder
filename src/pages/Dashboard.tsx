@@ -1014,6 +1014,13 @@ export default function Dashboard() {
             ))}
           </div>
 
+          {/* Strategic Command Center */}
+          {businessIdeas.length > 0 && (
+            <div className="mb-8">
+              <StrategicCommandPanel />
+            </div>
+          )}
+
           {/* Recent Content */}
           <div className="grid md:grid-cols-2 gap-8">
             {/* Recent Conversations */}
