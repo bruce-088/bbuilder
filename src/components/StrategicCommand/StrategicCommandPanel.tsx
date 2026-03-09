@@ -5,6 +5,8 @@ import { VisualStrategyRoadmap, PerformanceIntelligence, GlobalPivotControl } fr
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
+import { useRoadmapProgress } from "@/hooks/useRoadmapProgress";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function StrategicCommandPanel() {
   const { user } = useAuth();
@@ -12,6 +14,7 @@ export function StrategicCommandPanel() {
   const [activeBusinessId, setActiveBusinessId] = useState<string | undefined>();
   const [businessName, setBusinessName] = useState("");
   const [niche, setNiche] = useState("");
+  const { phases, isLoading: phasesLoading } = useRoadmapProgress();
 
   useEffect(() => {
     if (!user) return;
@@ -36,39 +39,16 @@ export function StrategicCommandPanel() {
     fetchActiveIdea();
   }, [user]);
 
-  const mockPhases = [
-    {
-      id: "validation",
-      name: "Market Validation",
-      description: "Validate your niche and target audience",
-      status: "completed" as const,
-    },
-    {
-      id: "landing",
-      name: "Landing Page",
-      description: "Build your online presence",
-      status: "in-progress" as const,
-      completionPercentage: 60,
-    },
-    {
-      id: "offer",
-      name: "Offer Creation",
-      description: "Define your service and pricing",
-      status: "pending" as const,
-    },
-    {
-      id: "outreach",
-      name: "Lead Outreach",
-      description: "Start reaching out to prospects",
-      status: "pending" as const,
-    },
-    {
-      id: "sale",
-      name: "First Sale",
-      description: "Close your first customer",
-      status: "pending" as const,
-    },
-  ];
+  const handlePhaseClick = (phaseId: string) => {
+    const routeMap: Record<string, string> = {
+      validation: "/leads",
+      landing: "/leads",
+      offer: "/leads",
+      outreach: "/workflows",
+      sale: "/leads",
+    };
+    navigate(routeMap[phaseId] || "/dashboard");
+  };
 
   return (
     <div className="space-y-6">
@@ -99,18 +79,23 @@ export function StrategicCommandPanel() {
         </TabsList>
 
         <TabsContent value="roadmap" className="mt-4">
-          {activeBusinessId ? (
+          {phasesLoading ? (
+            <Card className="p-6 bg-emerald-950/50 border-emerald-800">
+              <Skeleton className="h-6 w-48 mb-4 bg-emerald-800/50" />
+              <div className="space-y-4">
+                {[1, 2, 3, 4, 5].map((i) => (
+                  <Skeleton key={i} className="h-20 w-full bg-emerald-800/50" />
+                ))}
+              </div>
+            </Card>
+          ) : activeBusinessId ? (
             <VisualStrategyRoadmap
               businessName={businessName}
               niche={niche}
-              phases={mockPhases}
-              onPhaseClick={(phaseId) => {
-                console.log("Phase clicked:", phaseId);
-                // Navigate to relevant action
-              }}
+              phases={phases}
+              onPhaseClick={handlePhaseClick}
               onSyncPhase={(phaseId) => {
-                console.log("Sync phase:", phaseId);
-                // Trigger phase sync
+                navigate("/dashboard");
               }}
             />
           ) : (
