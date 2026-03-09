@@ -12,6 +12,10 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (!Deno.env.get("TRIAD_SYNC_SECRET")) {
+      throw new Error("TRIAD_SYNC_SECRET is not set in Lovable Secrets");
+    }
+
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -52,14 +56,6 @@ Deno.serve(async (req) => {
     const nexusApiUrl = (Deno.env.get("NEXUS_API_URL") || "").trim();
     if (!nexusApiUrl) {
       return new Response(JSON.stringify({ error: "NEXUS_API_URL is missing or empty" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const triadSyncSecret = (Deno.env.get("TRIAD_SYNC_SECRET") || "").trim();
-    if (!triadSyncSecret) {
-      return new Response(JSON.stringify({ error: "TRIAD_SYNC_SECRET is missing or empty" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
