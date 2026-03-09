@@ -12,16 +12,18 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const triadSecret = Deno.env.get("TRIAD_SYNC_SECRET");
-    console.log("Sending Key Length:", triadSecret?.length || 0);
+    // 1. Read secret from environment
+    const syncSecret = Deno.env.get("TRIAD_SYNC_SECRET");
+    console.log("Sending key with length:", syncSecret?.length);
 
-    if (!triadSecret) {
+    if (!syncSecret) {
       return new Response(
-        JSON.stringify({ error: "TRIAD_SYNC_SECRET is missing from Lovable Secrets." }),
+        JSON.stringify({ error: "Secret not found in environment." }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
+    // 2. Auth check
     const authHeader = req.headers.get("Authorization");
     if (!authHeader?.startsWith("Bearer ")) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -37,17 +39,17 @@ Deno.serve(async (req) => {
       global: { headers: { Authorization: authHeader } },
     });
 
-    const token = authHeader.replace("Bearer ", "");
-    const { data: claimsData, error: claimsError } = await supabase.auth.getClaims(token);
-    if (claimsError || !claimsData?.claims?.sub) {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const userId = claimsData.claims.sub;
+    const userId = user.id;
 
+    // 3. Parse body
     const body = await req.json().catch(() => ({}));
     const business_idea_id = body?.business_idea_id as string | undefined;
     const incomingManifest = body?.manifest as Record<string, unknown> | undefined;
@@ -67,6 +69,7 @@ Deno.serve(async (req) => {
       });
     }
 
+    // 4. Build manifest
     let manifest: Record<string, unknown>;
 
     if (incomingManifest) {
@@ -103,7 +106,7 @@ Deno.serve(async (req) => {
       };
     }
 
-    // Validate manifest has meaningful content
+    // 5. Validate manifest
     if (!manifest || (Array.isArray((manifest as any).tasks) && (manifest as any).tasks.length === 0)) {
       return new Response(
         JSON.stringify({ error: "Manifest is empty or has no tasks. Skipping sync." }),
@@ -111,7 +114,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Deep logging for debugging
+    // 6. Send to Nexus
     console.log("Sending manifest to:", nexusApiUrl);
     console.log("Payload:", JSON.stringify(manifest));
 
@@ -119,7 +122,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-triad-key": triadSecret,
+        "x-triad-key": syncSecret,
       },
       body: JSON.stringify(manifest),
     });
