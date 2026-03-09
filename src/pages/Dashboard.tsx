@@ -90,6 +90,7 @@ import { LeadStatsCard } from "@/components/LeadCRM";
 import OnboardingTour, { useOnboardingTour } from "@/components/OnboardingTour";
 import { celebrateFirstIdea } from "@/lib/confetti";
 import { RevenueCard } from "@/components/RevenueCard";
+import { StrategicCommandPanel } from "@/components/StrategicCommand";
 interface BusinessIdea {
   id: string;
   business_name: string;
@@ -1012,6 +1013,13 @@ export default function Dashboard() {
               </Card>
             ))}
           </div>
+
+          {/* Strategic Command Center */}
+          {businessIdeas.length > 0 && (
+            <div className="mb-8">
+              <StrategicCommandPanel />
+            </div>
+          )}
 
           {/* Recent Content */}
           <div className="grid md:grid-cols-2 gap-8">
