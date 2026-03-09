@@ -105,9 +105,9 @@ export default {
         "scale-in": "scale-in 0.3s ease-out forwards",
       },
       backgroundImage: {
-        'gradient-primary': 'linear-gradient(135deg, hsl(239 84% 67%), hsl(270 84% 60%))',
+        'gradient-primary': 'linear-gradient(135deg, hsl(151 55% 41.5%), hsl(160 70% 45%))',
         'gradient-accent': 'linear-gradient(135deg, hsl(38 92% 50%), hsl(28 92% 55%))',
-        'gradient-glow': 'radial-gradient(ellipse at center, hsl(239 84% 67% / 0.15), transparent 70%)',
+        'gradient-glow': 'radial-gradient(ellipse at center, hsl(151 55% 41.5% / 0.15), transparent 70%)',
       },
     },
   },
