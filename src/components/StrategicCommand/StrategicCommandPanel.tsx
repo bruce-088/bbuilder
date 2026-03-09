@@ -70,11 +70,28 @@ export function StrategicCommandPanel() {
       });
 
       if (error) throw new Error(error.message);
-      if (!data?.success) throw new Error(data?.error || "Unknown error");
+
+      // Handle structured error codes from the edge function
+      if (data?.error === "SYNC_SECRET_MISSING") {
+        setSyncSecretMissing(true);
+        throw new Error(data.message);
+      }
+
+      if (data?.error === "INVALID_NEXUS_URL") {
+        throw new Error(data.message);
+      }
+
+      if (data?.error === "NEXUS_REJECTED" || data?.error === "NEXUS_BODY_ERROR") {
+        throw new Error(data.message || `Nexus error: ${data.nexus_response}`);
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.message || data?.error || "Unknown sync error");
+      }
 
       toast({
         title: "Phase Synced to Nexus!",
-        description: `${phases.find((p) => p.id === phaseId)?.name || "Phase"} has been synced successfully.`,
+        description: `${phases.find((p) => p.id === phaseId)?.name || "Phase"} synced (${data.tasks_sent} tasks). Response: ${data.nexus_response?.substring(0, 100) || "OK"}`,
       });
     } catch (err: any) {
       console.error("Sync error:", err);
