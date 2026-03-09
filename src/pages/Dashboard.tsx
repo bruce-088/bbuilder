@@ -90,6 +90,7 @@ import { LeadStatsCard } from "@/components/LeadCRM";
 import OnboardingTour, { useOnboardingTour } from "@/components/OnboardingTour";
 import { celebrateFirstIdea } from "@/lib/confetti";
 import { RevenueCard } from "@/components/RevenueCard";
+import { StrategicCommandPanel } from "@/components/StrategicCommand";
 interface BusinessIdea {
   id: string;
   business_name: string;
