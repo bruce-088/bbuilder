@@ -12,8 +12,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (!Deno.env.get("TRIAD_SYNC_SECRET")) {
-      throw new Error("TRIAD_SYNC_SECRET is not set in Lovable Secrets");
+    const triadSecret = Deno.env.get("TRIAD_SYNC_SECRET");
+    console.log("Sending Key Length:", triadSecret?.length || 0);
+
+    if (!triadSecret) {
+      return new Response(
+        JSON.stringify({ error: "TRIAD_SYNC_SECRET is missing from Lovable Secrets." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const authHeader = req.headers.get("Authorization");
