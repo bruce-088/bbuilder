@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-triad-key": triadSyncSecret,
+        "x-triad-key": Deno.env.get("TRIAD_SYNC_SECRET")!,
       },
       body: JSON.stringify(manifest),
     });
