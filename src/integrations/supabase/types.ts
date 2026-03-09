@@ -147,6 +147,7 @@ export type Database = {
       business_ideas: {
         Row: {
           ai_automation_strategy: Json
+          archived: boolean
           business_name: string
           conversation_id: string | null
           created_at: string
@@ -163,6 +164,7 @@ export type Database = {
         }
         Insert: {
           ai_automation_strategy?: Json
+          archived?: boolean
           business_name: string
           conversation_id?: string | null
           created_at?: string
@@ -179,6 +181,7 @@ export type Database = {
         }
         Update: {
           ai_automation_strategy?: Json
+          archived?: boolean
           business_name?: string
           conversation_id?: string | null
           created_at?: string
