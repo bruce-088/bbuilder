@@ -68,3 +68,6 @@ verify_jwt = false
 
 [functions.sync-to-triad]
 verify_jwt = false
+
+[functions.sync-to-nexus]
+verify_jwt = false
