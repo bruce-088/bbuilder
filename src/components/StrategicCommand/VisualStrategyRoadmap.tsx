@@ -120,7 +120,7 @@ export function VisualStrategyRoadmap({
                         e.stopPropagation();
                         onSyncPhase(phase.id);
                       }}
-                      className="bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 gap-1.5"
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 shrink-0 gap-1.5"
                     >
                       {syncingPhaseId === phase.id ? (
                         <>

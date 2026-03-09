@@ -53,7 +53,7 @@ export function StrategicCommandPanel() {
   };
 
   const handleSyncPhase = async (phaseId: string) => {
-    if (!activeBusinessId || !user) {
+    if (!activeBusinessId) {
       toast({
         title: "Sync Failed",
         description: "No active business idea found.",
@@ -65,27 +65,22 @@ export function StrategicCommandPanel() {
     setSyncingPhaseId(phaseId);
 
     try {
-      const { data, error } = await supabase.functions.invoke("sync-to-triad", {
-        body: { business_idea_id: activeBusinessId },
+      const { data, error } = await supabase.functions.invoke("sync-to-nexus", {
+        body: { business_idea_id: activeBusinessId, phase_id: phaseId },
       });
 
-      if (error) {
-        throw new Error(error.message);
-      }
-
-      if (data?.error) {
-        throw new Error(data.error);
-      }
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Unknown error");
 
       toast({
         title: "Phase Synced to Nexus!",
-        description: `${phases.find(p => p.id === phaseId)?.name || "Phase"} has been synced successfully.`,
+        description: `${phases.find((p) => p.id === phaseId)?.name || "Phase"} has been synced successfully.`,
       });
     } catch (err: any) {
       console.error("Sync error:", err);
       toast({
         title: "Sync Failed",
-        description: err.message || "An unexpected error occurred.",
+        description: err?.message || "An unexpected error occurred.",
         variant: "destructive",
       });
     } finally {
