@@ -12,8 +12,14 @@ Deno.serve(async (req) => {
   }
 
   try {
-    if (!Deno.env.get("TRIAD_SYNC_SECRET")) {
-      throw new Error("TRIAD_SYNC_SECRET is not set in Lovable Secrets");
+    const triadSecret = Deno.env.get("TRIAD_SYNC_SECRET");
+    console.log("Sending Key Length:", triadSecret?.length || 0);
+
+    if (!triadSecret) {
+      return new Response(
+        JSON.stringify({ error: "TRIAD_SYNC_SECRET is missing from Lovable Secrets." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
     const authHeader = req.headers.get("Authorization");
@@ -97,6 +103,14 @@ Deno.serve(async (req) => {
       };
     }
 
+    // Validate manifest has meaningful content
+    if (!manifest || (Array.isArray((manifest as any).tasks) && (manifest as any).tasks.length === 0)) {
+      return new Response(
+        JSON.stringify({ error: "Manifest is empty or has no tasks. Skipping sync." }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     // Deep logging for debugging
     console.log("Sending manifest to:", nexusApiUrl);
     console.log("Payload:", JSON.stringify(manifest));
@@ -105,7 +119,7 @@ Deno.serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "x-triad-key": Deno.env.get("TRIAD_SYNC_SECRET")!,
+        "x-triad-key": triadSecret,
       },
       body: JSON.stringify(manifest),
     });
