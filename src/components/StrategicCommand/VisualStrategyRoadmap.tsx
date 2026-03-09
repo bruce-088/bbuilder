@@ -1,5 +1,6 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { CheckCircle2, Circle, ArrowRight, Sparkles } from "lucide-react";
+import { CheckCircle2, Circle, Sparkles, Loader2, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
@@ -16,7 +17,8 @@ interface VisualStrategyRoadmapProps {
   niche: string;
   phases: Phase[];
   onPhaseClick: (phaseId: string) => void;
-  onSyncPhase?: (phaseId: string) => void;
+  onSyncPhase?: (phaseId: string) => Promise<void>;
+  syncingPhaseId?: string | null;
 }
 
 export function VisualStrategyRoadmap({
@@ -25,6 +27,7 @@ export function VisualStrategyRoadmap({
   phases,
   onPhaseClick,
   onSyncPhase,
+  syncingPhaseId,
 }: VisualStrategyRoadmapProps) {
   return (
     <Card className="p-6 bg-gradient-to-br from-emerald-950 to-emerald-900 border-emerald-800">
@@ -107,18 +110,29 @@ export function VisualStrategyRoadmap({
                     )}
                   </div>
 
-                  {/* Sync Button */}
+                  {/* Sync to Nexus Button */}
                   {onSyncPhase && phase.status !== "completed" && (
                     <Button
-                      variant="ghost"
+                      variant="default"
                       size="sm"
+                      disabled={syncingPhaseId === phase.id}
                       onClick={(e) => {
                         e.stopPropagation();
                         onSyncPhase(phase.id);
                       }}
-                      className="text-emerald-400 hover:text-emerald-100 hover:bg-emerald-800"
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white shrink-0 gap-1.5"
                     >
-                      <ArrowRight className="h-4 w-4" />
+                      {syncingPhaseId === phase.id ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Syncing...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="h-4 w-4" />
+                          Sync to Nexus
+                        </>
+                      )}
                     </Button>
                   )}
                 </div>

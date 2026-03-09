@@ -7,6 +7,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useNavigate } from "react-router-dom";
 import { useRoadmapProgress } from "@/hooks/useRoadmapProgress";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "@/hooks/use-toast";
 
 export function StrategicCommandPanel() {
   const { user } = useAuth();
@@ -14,6 +15,7 @@ export function StrategicCommandPanel() {
   const [activeBusinessId, setActiveBusinessId] = useState<string | undefined>();
   const [businessName, setBusinessName] = useState("");
   const [niche, setNiche] = useState("");
+  const [syncingPhaseId, setSyncingPhaseId] = useState<string | null>(null);
   const { phases, isLoading: phasesLoading } = useRoadmapProgress();
 
   useEffect(() => {
@@ -48,6 +50,47 @@ export function StrategicCommandPanel() {
       sale: "/leads",
     };
     navigate(routeMap[phaseId] || "/dashboard");
+  };
+
+  const handleSyncPhase = async (phaseId: string) => {
+    if (!activeBusinessId || !user) {
+      toast({
+        title: "Sync Failed",
+        description: "No active business idea found.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setSyncingPhaseId(phaseId);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("sync-to-triad", {
+        body: { business_idea_id: activeBusinessId },
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      toast({
+        title: "Phase Synced to Nexus!",
+        description: `${phases.find(p => p.id === phaseId)?.name || "Phase"} has been synced successfully.`,
+      });
+    } catch (err: any) {
+      console.error("Sync error:", err);
+      toast({
+        title: "Sync Failed",
+        description: err.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setSyncingPhaseId(null);
+    }
   };
 
   return (
@@ -94,9 +137,8 @@ export function StrategicCommandPanel() {
               niche={niche}
               phases={phases}
               onPhaseClick={handlePhaseClick}
-              onSyncPhase={(phaseId) => {
-                navigate("/dashboard");
-              }}
+              onSyncPhase={handleSyncPhase}
+              syncingPhaseId={syncingPhaseId}
             />
           ) : (
             <Card className="p-6 bg-emerald-950/50 border-emerald-800 text-center">
