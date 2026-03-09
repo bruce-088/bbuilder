@@ -16,6 +16,7 @@ export function StrategicCommandPanel() {
   const [businessName, setBusinessName] = useState("");
   const [niche, setNiche] = useState("");
   const [syncingPhaseId, setSyncingPhaseId] = useState<string | null>(null);
+  const [syncSecretMissing, setSyncSecretMissing] = useState(false);
   const { phases, isLoading: phasesLoading } = useRoadmapProgress();
 
   useEffect(() => {
@@ -70,11 +71,28 @@ export function StrategicCommandPanel() {
       });
 
       if (error) throw new Error(error.message);
-      if (!data?.success) throw new Error(data?.error || "Unknown error");
+
+      // Handle structured error codes from the edge function
+      if (data?.error === "SYNC_SECRET_MISSING") {
+        setSyncSecretMissing(true);
+        throw new Error(data.message);
+      }
+
+      if (data?.error === "INVALID_NEXUS_URL") {
+        throw new Error(data.message);
+      }
+
+      if (data?.error === "NEXUS_REJECTED" || data?.error === "NEXUS_BODY_ERROR") {
+        throw new Error(data.message || `Nexus error: ${data.nexus_response}`);
+      }
+
+      if (!data?.success) {
+        throw new Error(data?.message || data?.error || "Unknown sync error");
+      }
 
       toast({
         title: "Phase Synced to Nexus!",
-        description: `${phases.find((p) => p.id === phaseId)?.name || "Phase"} has been synced successfully.`,
+        description: `${phases.find((p) => p.id === phaseId)?.name || "Phase"} synced (${data.tasks_sent} tasks). Response: ${data.nexus_response?.substring(0, 100) || "OK"}`,
       });
     } catch (err: any) {
       console.error("Sync error:", err);
@@ -117,6 +135,12 @@ export function StrategicCommandPanel() {
         </TabsList>
 
         <TabsContent value="roadmap" className="mt-4">
+          {syncSecretMissing && (
+            <div className="mb-4 p-3 rounded-lg bg-destructive/15 border border-destructive text-destructive flex items-center gap-2 text-sm font-medium">
+              <span className="inline-block h-2 w-2 rounded-full bg-destructive animate-pulse" />
+              Sync Disabled: Missing Secret — TRIAD_SYNC_SECRET is not configured.
+            </div>
+          )}
           {phasesLoading ? (
             <Card className="p-6 bg-emerald-950/50 border-emerald-800">
               <Skeleton className="h-6 w-48 mb-4 bg-emerald-800/50" />
