@@ -12,30 +12,30 @@
 
 @layer base {
   :root {
-    /* Core palette - Rich dark with indigo accents */
-    --background: 222 47% 6%;
-    --foreground: 210 40% 96%;
+    /* Core palette - Strategic Command Center with Emerald Green */
+    --background: 156 72% 3%;
+    --foreground: 151 50% 95%;
     
-    --card: 222 47% 9%;
-    --card-foreground: 210 40% 96%;
+    --card: 156 72% 6%;
+    --card-foreground: 151 50% 95%;
     
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 156 72% 5%;
+    --popover-foreground: 151 50% 95%;
     
-    /* Primary - Deep indigo */
-    --primary: 239 84% 67%;
+    /* Primary - Emerald Green (#10b981) */
+    --primary: 151 55% 41.5%;
     --primary-foreground: 0 0% 100%;
     
-    /* Secondary - Muted slate */
-    --secondary: 217 33% 17%;
-    --secondary-foreground: 210 40% 96%;
+    /* Secondary - Deep emerald */
+    --secondary: 156 72% 10%;
+    --secondary-foreground: 151 50% 95%;
     
-    --muted: 217 33% 17%;
-    --muted-foreground: 215 20% 55%;
+    --muted: 156 40% 15%;
+    --muted-foreground: 151 20% 60%;
     
     /* Accent - Warm amber for CTAs */
     --accent: 38 92% 50%;
-    --accent-foreground: 222 47% 6%;
+    --accent-foreground: 156 72% 3%;
     
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
