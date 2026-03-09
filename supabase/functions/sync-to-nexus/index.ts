@@ -6,65 +6,102 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// Map phases to setup guide capability IDs (mirrors useRoadmapProgress)
+const PHASE_CAPABILITY_MAP: Record<string, string[]> = {
+  validation: ["qualification"],
+  landing: ["pipeline"],
+  offer: ["closing"],
+  outreach: ["lead-gen", "outreach"],
+  sale: ["closing", "analytics"],
+};
+
+const CAPABILITY_STEP_COUNTS: Record<string, number> = {
+  "lead-gen": 5, pipeline: 5, outreach: 5, qualification: 5, closing: 5, automation: 6, analytics: 5,
+};
+
 // Phase definitions with tasks that map to the Visual Strategy Roadmap
-const PHASE_TASKS: Record<string, { name: string; description: string; tasks: { title: string; status: string }[] }> = {
+const PHASE_TASKS: Record<string, { name: string; description: string; tasks: { title: string }[] }> = {
   validation: {
     name: "Market Validation",
     description: "Validate your niche and target audience",
     tasks: [
-      { title: "Define target audience persona", status: "pending" },
-      { title: "Research competitor positioning", status: "pending" },
-      { title: "Identify 3 key pain points", status: "pending" },
-      { title: "Validate demand with 5 prospect conversations", status: "pending" },
-      { title: "Document unique value proposition", status: "pending" },
+      { title: "Define target audience persona" },
+      { title: "Research competitor positioning" },
+      { title: "Identify 3 key pain points" },
+      { title: "Validate demand with 5 prospect conversations" },
+      { title: "Document unique value proposition" },
     ],
   },
   landing: {
     name: "Landing Page",
     description: "Build your online presence",
     tasks: [
-      { title: "Choose domain and hosting", status: "pending" },
-      { title: "Write headline and hero copy", status: "pending" },
-      { title: "Create lead capture form", status: "pending" },
-      { title: "Add social proof section", status: "pending" },
-      { title: "Set up analytics tracking", status: "pending" },
+      { title: "Choose domain and hosting" },
+      { title: "Write headline and hero copy" },
+      { title: "Create lead capture form" },
+      { title: "Add social proof section" },
+      { title: "Set up analytics tracking" },
     ],
   },
   offer: {
     name: "Offer Creation",
     description: "Define your service and pricing",
     tasks: [
-      { title: "Define core service package", status: "pending" },
-      { title: "Set pricing strategy", status: "pending" },
-      { title: "Create proposal template", status: "pending" },
-      { title: "Build onboarding checklist", status: "pending" },
-      { title: "Prepare contract template", status: "pending" },
+      { title: "Define core service package" },
+      { title: "Set pricing strategy" },
+      { title: "Create proposal template" },
+      { title: "Build onboarding checklist" },
+      { title: "Prepare contract template" },
     ],
   },
   outreach: {
     name: "Lead Outreach",
     description: "Start reaching out to prospects",
     tasks: [
-      { title: "Build prospect list of 50 leads", status: "pending" },
-      { title: "Write cold outreach templates", status: "pending" },
-      { title: "Set up email sequences", status: "pending" },
-      { title: "Launch LinkedIn outreach campaign", status: "pending" },
-      { title: "Schedule 10 discovery calls", status: "pending" },
+      { title: "Build prospect list of 50 leads" },
+      { title: "Write cold outreach templates" },
+      { title: "Set up email sequences" },
+      { title: "Launch LinkedIn outreach campaign" },
+      { title: "Schedule 10 discovery calls" },
     ],
   },
   sale: {
     name: "First Sale",
     description: "Close your first customer",
     tasks: [
-      { title: "Send 3 personalized proposals", status: "pending" },
-      { title: "Follow up on open proposals", status: "pending" },
-      { title: "Negotiate and close first deal", status: "pending" },
-      { title: "Collect first payment", status: "pending" },
-      { title: "Deliver onboarding experience", status: "pending" },
+      { title: "Send 3 personalized proposals" },
+      { title: "Follow up on open proposals" },
+      { title: "Negotiate and close first deal" },
+      { title: "Collect first payment" },
+      { title: "Deliver onboarding experience" },
     ],
   },
 };
 
+// Compute phase status from setup_guide_progress data
+function getPhaseStatus(phaseId: string, progress: Record<string, boolean[]>): { status: string; percentage: number } {
+  const caps = PHASE_CAPABILITY_MAP[phaseId] || [];
+  let total = 0;
+  let completed = 0;
+  for (const capId of caps) {
+    const stepCount = CAPABILITY_STEP_COUNTS[capId] ?? 0;
+    total += stepCount;
+    const arr = progress[capId];
+    if (arr) completed += arr.filter(Boolean).length;
+  }
+  const percentage = total > 0 ? Math.round((completed / total) * 100) : 0;
+  const status = percentage === 100 ? "completed" : percentage > 0 ? "in-progress" : "pending";
+  return { status, percentage };
+}
+
+// Distribute phase-level progress across individual tasks
+function assignTaskStatuses(tasks: { title: string }[], phaseStatus: string, percentage: number): { title: string; status: string }[] {
+  if (phaseStatus === "completed") return tasks.map((t) => ({ ...t, status: "completed" }));
+  if (phaseStatus === "pending") return tasks.map((t) => ({ ...t, status: "pending" }));
+  // in-progress: mark proportional tasks as completed
+  const doneCount = Math.floor((percentage / 100) * tasks.length);
+  return tasks.map((t, i) => ({ ...t, status: i < doneCount ? "completed" : "pending" }));
+}
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
