@@ -185,26 +185,35 @@ Deno.serve(async (req) => {
         });
       }
 
-      // Build tasks from phase definitions
+      // Fetch user's setup guide progress
+      let userProgress: Record<string, boolean[]> = {};
+      try {
+        const { data: progressData } = await supabase
+          .from("setup_guide_progress")
+          .select("progress")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (progressData?.progress) {
+          userProgress = progressData.progress as Record<string, boolean[]>;
+        }
+      } catch (e) {
+        console.warn("Could not fetch setup_guide_progress, defaulting to pending:", e);
+      }
+
+      // Build tasks with real progress statuses
       let tasks: { title: string; status: string; phase: string; phase_name: string }[] = [];
 
       if (phase_id && PHASE_TASKS[phase_id]) {
-        // Sync a specific phase
         const phaseDef = PHASE_TASKS[phase_id];
-        tasks = phaseDef.tasks.map((t) => ({
-          ...t,
-          phase: phase_id,
-          phase_name: phaseDef.name,
-        }));
+        const { status, percentage } = getPhaseStatus(phase_id, userProgress);
+        const statusedTasks = assignTaskStatuses(phaseDef.tasks, status, percentage);
+        tasks = statusedTasks.map((t) => ({ ...t, phase: phase_id, phase_name: phaseDef.name }));
       } else {
-        // Sync all phases
         for (const [pid, phaseDef] of Object.entries(PHASE_TASKS)) {
-          for (const task of phaseDef.tasks) {
-            tasks.push({
-              ...task,
-              phase: pid,
-              phase_name: phaseDef.name,
-            });
+          const { status, percentage } = getPhaseStatus(pid, userProgress);
+          const statusedTasks = assignTaskStatuses(phaseDef.tasks, status, percentage);
+          for (const task of statusedTasks) {
+            tasks.push({ ...task, phase: pid, phase_name: phaseDef.name });
           }
         }
       }
