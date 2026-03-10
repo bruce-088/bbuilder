@@ -355,6 +355,26 @@ function scheduleToCron(schedule: string): string {
   return `0 ${hour} * * *`;
 }
 
+// ─── Helper: broadcast triad event (fire-and-forget) ───
+async function broadcastTriadEvent(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  userId: string,
+  eventType: string,
+  sourceApp: string,
+  payload: Record<string, unknown>,
+) {
+  try {
+    await supabaseAdmin.from("triad_events").insert({
+      user_id: userId,
+      event_type: eventType,
+      source_app: sourceApp,
+      payload,
+    });
+  } catch (e) {
+    console.warn("Triad event broadcast failed:", e);
+  }
+}
+
 // ─── Tool Execution ───
 async function executeTool(
   toolName: string,
