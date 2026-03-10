@@ -718,7 +718,7 @@ async function executeTool(
         });
 
         // Broadcast to NexusAI
-        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+        const sync = await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
           action: "update_lead",
           lead_id: lead.id,
           lead_name: lead.name,
@@ -726,7 +726,7 @@ async function executeTool(
           updates,
         });
 
-        return { success: true, data: { lead_id: lead.id, name: lead.name, updated_fields: Object.keys(updates) } };
+        return { success: true, data: { lead_id: lead.id, name: lead.name, updated_fields: Object.keys(updates) }, triad_sync: sync };
       }
 
       case "move_lead_stage": {
