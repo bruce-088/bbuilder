@@ -74,32 +74,39 @@ export function StrategicCommandPanel() {
 
       if (error) throw new Error(error.message);
 
-      // Handle structured error codes from the edge function
       if (data?.error === "SYNC_SECRET_MISSING") {
         setSyncSecretMissing(true);
         throw new Error(data.message);
       }
 
-      if (data?.error === "INVALID_NEXUS_URL") {
+      if (data?.error === "NO_SYNC_TARGETS" || data?.error === "INVALID_NEXUS_URL") {
         throw new Error(data.message);
       }
 
-      if (data?.error === "FETCH_ERROR" || data?.error === "NEXUS_REJECTED" || data?.error === "NEXUS_BODY_ERROR") {
-        const source = data.source || "Nexus";
-        const errorMsg = data.message || data.nexus_response || "Unknown error";
-        setSyncError({ source, message: errorMsg });
-        throw new Error(errorMsg);
+      // Check per-target results
+      const results = data?.results as { label: string; success: boolean; status_code: number; response_text: string; error?: string }[] | undefined;
+
+      if (results) {
+        const failures = results.filter(r => !r.success);
+        if (failures.length > 0) {
+          const errorDetail = results.map(r => `${r.label}: ${r.success ? "✅ OK" : `❌ ${r.error || r.response_text}`}`).join("\n\n");
+          setSyncError({ source: "Sync Results", message: errorDetail });
+          if (!data?.success) {
+            throw new Error(`${failures.length} target(s) failed`);
+          }
+        }
       }
 
       if (!data?.success) {
         const errorMsg = data?.message || data?.error || "Unknown sync error";
-        setSyncError({ source: "Nexus", message: errorMsg });
+        setSyncError({ source: "Sync", message: errorMsg });
         throw new Error(errorMsg);
       }
 
+      const successDetail = results?.map(r => `${r.label}: ✅`).join(", ") || "OK";
       toast({
-        title: "Phase Synced to Nexus!",
-        description: `${phases.find((p) => p.id === phaseId)?.name || "Phase"} synced (${data.tasks_sent} tasks). Response: ${data.nexus_response?.substring(0, 100) || "OK"}`,
+        title: "Phase Synced Successfully!",
+        description: `${phases.find((p) => p.id === phaseId)?.name || "Phase"} synced (${data.tasks_sent} tasks) → ${successDetail}`,
       });
     } catch (err: any) {
       console.error("Sync error:", err);
