@@ -355,6 +355,26 @@ function scheduleToCron(schedule: string): string {
   return `0 ${hour} * * *`;
 }
 
+// ─── Helper: broadcast triad event (fire-and-forget) ───
+async function broadcastTriadEvent(
+  supabaseAdmin: ReturnType<typeof createClient>,
+  userId: string,
+  eventType: string,
+  sourceApp: string,
+  payload: Record<string, unknown>,
+) {
+  try {
+    await supabaseAdmin.from("triad_events").insert({
+      user_id: userId,
+      event_type: eventType,
+      source_app: sourceApp,
+      payload,
+    });
+  } catch (e) {
+    console.warn("Triad event broadcast failed:", e);
+  }
+}
+
 // ─── Tool Execution ───
 async function executeTool(
   toolName: string,
@@ -396,6 +416,14 @@ async function executeTool(
           if (nodeError) console.error("Error adding nodes:", nodeError);
         }
 
+        // Broadcast to NexusAI
+        await broadcastTriadEvent(supabaseAdmin, userId, "WORKFLOW_ACTIVATED", "business_builder", {
+          action: "create_workflow",
+          workflow_id: workflow.id,
+          workflow_name: workflow.name,
+          node_count: nodes.length,
+        });
+
         return {
           success: true,
           data: { workflow_id: workflow.id, name: workflow.name, node_count: nodes.length },
@@ -426,6 +454,12 @@ async function executeTool(
           lead_id: lead.id,
           activity_type: "created",
           content: `Lead added via Mya Copilot`,
+        });
+
+        // Broadcast to NexusAI
+        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+          action: "add_lead",
+          lead,
         });
 
         return { success: true, data: lead };
@@ -463,6 +497,14 @@ async function executeTool(
           .single();
 
         if (execError) throw execError;
+
+        // Broadcast to NexusAI
+        await broadcastTriadEvent(supabaseAdmin, userId, "WORKFLOW_ACTIVATED", "business_builder", {
+          action: "trigger_workflow",
+          execution_id: execution.id,
+          workflow_id: wf.id,
+          workflow_name: wf.name,
+        });
 
         return {
           success: true,
@@ -529,6 +571,16 @@ async function executeTool(
           .single();
 
         if (error) throw error;
+
+        // Broadcast to NexusVocal for celebration post
+        await broadcastTriadEvent(supabaseAdmin, userId, "REVENUE_MILESTONE", "business_builder", {
+          action: "log_revenue",
+          amount: args.amount,
+          source: (args.source as string) || "manual",
+          is_recurring: (args.is_recurring as boolean) || false,
+          revenue_id: data.id,
+        });
+
         return { success: true, data };
       }
 
@@ -553,6 +605,18 @@ async function executeTool(
         }
 
         const goal = 10000;
+
+        // Also pull triad event counts for cross-system awareness
+        let triadRevenueEvents = 0;
+        try {
+          const { data: triadEvents } = await supabaseAdmin
+            .from("triad_events")
+            .select("payload")
+            .eq("user_id", userId)
+            .eq("event_type", "REVENUE_MILESTONE");
+          triadRevenueEvents = triadEvents?.length || 0;
+        } catch { /* non-critical */ }
+
         return {
           success: true,
           data: {
@@ -563,6 +627,7 @@ async function executeTool(
             goal,
             progress_percent: Math.min(Math.round((monthlyRevenue / goal) * 100), 100),
             entry_count: entries?.length || 0,
+            triad_revenue_events: triadRevenueEvents,
           },
         };
       }
@@ -593,6 +658,15 @@ async function executeTool(
           content: `Updated: ${Object.keys(updates).join(", ")}`,
         });
 
+        // Broadcast to NexusAI
+        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+          action: "update_lead",
+          lead_id: lead.id,
+          lead_name: lead.name,
+          updated_fields: Object.keys(updates),
+          updates,
+        });
+
         return { success: true, data: { lead_id: lead.id, name: lead.name, updated_fields: Object.keys(updates) } };
       }
 
@@ -613,6 +687,15 @@ async function executeTool(
           activity_type: "stage_change",
           content: `Moved from ${oldStage} to ${newStage}`,
           metadata: { old_stage: oldStage, new_stage: newStage },
+        });
+
+        // Broadcast to NexusAI
+        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+          action: "move_lead_stage",
+          lead_id: lead.id,
+          lead_name: lead.name,
+          old_stage: oldStage,
+          new_stage: newStage,
         });
 
         return { success: true, data: { lead_id: lead.id, name: lead.name, old_stage: oldStage, new_stage: newStage } };
@@ -714,13 +797,39 @@ async function executeTool(
           .slice(0, 3)
           .map((l: any) => ({ name: l.name, value: Number(l.estimated_value || 0), stage: l.stage }));
 
+        // Enrich with triad event counts for cross-system awareness
+        let triadCrmEvents = 0;
+        try {
+          const { data: triadEvents } = await supabaseAdmin
+            .from("triad_events")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("event_type", "CRM_UPDATE");
+          triadCrmEvents = triadEvents?.length || 0;
+        } catch { /* non-critical */ }
+
         return {
           success: true,
-          data: { total_leads: total, leads_by_stage: byStage, pipeline_value: totalValue, conversion_rate: conversionRate, top_prospects: topProspects },
+          data: {
+            total_leads: total,
+            leads_by_stage: byStage,
+            pipeline_value: totalValue,
+            conversion_rate: conversionRate,
+            top_prospects: topProspects,
+            triad_crm_events: triadCrmEvents,
+          },
         };
       }
 
       case "get_business_summary": {
+        // Pull latest synced manifest from triad_manifests first
+        const { data: manifest } = await supabaseAdmin
+          .from("triad_manifests")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
+
+        // Fall back to business_ideas if no manifest exists
         const { data: ideas, error } = await supabaseAdmin
           .from("business_ideas")
           .select("id, business_name, niche, target_audience, value_proposition, service_offering, revenue_math, is_favorite")
@@ -730,11 +839,30 @@ async function executeTool(
           .limit(3);
 
         if (error) throw error;
+
+        if (manifest) {
+          return {
+            success: true,
+            data: {
+              source: "triad_manifest",
+              business_name: manifest.business_name,
+              niche: manifest.niche,
+              target_audience: manifest.target_audience,
+              content_pillars: manifest.content_pillars,
+              crm_stages: manifest.crm_stages,
+              status: manifest.status,
+              last_synced: manifest.updated_at,
+              ideas: ideas || [],
+              primary: ideas?.[0] || null,
+            },
+          };
+        }
+
         if (!ideas || ideas.length === 0) {
           return { success: true, data: { message: "No business ideas saved yet. Let's brainstorm one!" } };
         }
 
-        return { success: true, data: { ideas, primary: ideas[0] } };
+        return { success: true, data: { source: "business_ideas", ideas, primary: ideas[0] } };
       }
 
       default:
