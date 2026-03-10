@@ -557,7 +557,7 @@ async function executeTool(
         if (execError) throw execError;
 
         // Broadcast to NexusAI
-        await broadcastTriadEvent(supabaseAdmin, userId, "WORKFLOW_ACTIVATED", "business_builder", {
+        const sync = await broadcastTriadEvent(supabaseAdmin, userId, "WORKFLOW_ACTIVATED", "business_builder", {
           action: "trigger_workflow",
           execution_id: execution.id,
           workflow_id: wf.id,
@@ -567,6 +567,7 @@ async function executeTool(
         return {
           success: true,
           data: { execution_id: execution.id, workflow_name: wf.name, workflow_id: wf.id },
+          triad_sync: sync,
         };
       }
 
