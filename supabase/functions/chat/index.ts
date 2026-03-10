@@ -689,6 +689,15 @@ async function executeTool(
           metadata: { old_stage: oldStage, new_stage: newStage },
         });
 
+        // Broadcast to NexusAI
+        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+          action: "move_lead_stage",
+          lead_id: lead.id,
+          lead_name: lead.name,
+          old_stage: oldStage,
+          new_stage: newStage,
+        });
+
         return { success: true, data: { lead_id: lead.id, name: lead.name, old_stage: oldStage, new_stage: newStage } };
       }
 
