@@ -355,7 +355,7 @@ function scheduleToCron(schedule: string): string {
   return `0 ${hour} * * *`;
 }
 
-// ─── Helper: broadcast triad event (fire-and-forget) ───
+// ─── Helper: broadcast triad event (DB + external POST) ───
 async function broadcastTriadEvent(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string,
@@ -363,6 +363,7 @@ async function broadcastTriadEvent(
   sourceApp: string,
   payload: Record<string, unknown>,
 ) {
+  // 1. Persist event locally
   try {
     await supabaseAdmin.from("triad_events").insert({
       user_id: userId,
@@ -371,8 +372,46 @@ async function broadcastTriadEvent(
       payload,
     });
   } catch (e) {
-    console.warn("Triad event broadcast failed:", e);
+    console.warn("Triad DB insert failed:", e);
   }
+
+  // 2. Fan-out to external Triad endpoints (fire-and-forget, 8s timeout)
+  const syncSecret = Deno.env.get("TRIAD_SYNC_SECRET") || "";
+  const nexusUrl = (Deno.env.get("NEXUS_API_URL") || "").trim();
+  const vocalUrl = (Deno.env.get("WEATHERPOST_API_URL") || "").trim();
+
+  const eventPayload = { event_type: eventType, source_app: sourceApp, user_id: userId, payload, ts: new Date().toISOString() };
+
+  const targets: { label: string; url: string; body: string }[] = [];
+
+  if (nexusUrl && !nexusUrl.includes("localhost") && !nexusUrl.includes("127.0.0.1")) {
+    targets.push({ label: "NexusAI", url: nexusUrl, body: JSON.stringify(eventPayload) });
+  }
+  if (vocalUrl && !vocalUrl.includes("localhost") && !vocalUrl.includes("127.0.0.1")) {
+    targets.push({ label: "NexusVocal", url: vocalUrl, body: JSON.stringify({ action: "event", ...eventPayload }) });
+  }
+
+  // Send in parallel, swallow errors
+  await Promise.allSettled(
+    targets.map(async (t) => {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 8000);
+      try {
+        const res = await fetch(t.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-triad-key": syncSecret },
+          body: t.body,
+          signal: ctrl.signal,
+        });
+        clearTimeout(tid);
+        if (!res.ok) console.warn(`${t.label} broadcast [${res.status}]:`, await res.text().catch(() => ""));
+        else console.log(`${t.label} broadcast OK for ${eventType}`);
+      } catch (err) {
+        clearTimeout(tid);
+        console.warn(`${t.label} broadcast error:`, err);
+      }
+    })
+  );
 }
 
 // ─── Tool Execution ───
