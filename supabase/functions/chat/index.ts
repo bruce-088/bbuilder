@@ -448,6 +448,12 @@ async function executeTool(
           content: `Lead added via Mya Copilot`,
         });
 
+        // Broadcast to NexusAI
+        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+          action: "add_lead",
+          lead,
+        });
+
         return { success: true, data: lead };
       }
 
