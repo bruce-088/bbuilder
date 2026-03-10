@@ -304,15 +304,17 @@ Deno.serve(async (req) => {
     }
 
     // 9. Strict success check — surface exact error text
+    const sourceLabel = nexusApiUrl.includes("vxfjzpgwcbayyhqznnnq") ? "NexusVocal" : "Nexus";
     if (!res.ok) {
-      console.error(`Nexus rejected [${res.status}]:`, responseText);
+      console.error(`${sourceLabel} rejected [${res.status}]:`, responseText);
       return new Response(
         JSON.stringify({
           success: false,
           error: "NEXUS_REJECTED",
+          source: sourceLabel,
           status_code: res.status,
           nexus_response: responseText,
-          message: `Nexus returned ${res.status}: ${responseText}`,
+          message: `${sourceLabel} returned ${res.status}: ${responseText}`,
         }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );

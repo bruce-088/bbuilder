@@ -148,6 +148,15 @@ export function StrategicCommandPanel() {
               Sync Disabled: Missing Secret — TRIAD_SYNC_SECRET is not configured.
             </div>
           )}
+          {syncError && (
+            <div className="mb-4 p-4 rounded-lg bg-destructive/20 border-2 border-destructive text-destructive">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-lg font-bold">{syncError.source} Error</h4>
+                <button onClick={() => setSyncError(null)} className="text-destructive/70 hover:text-destructive text-sm">Dismiss</button>
+              </div>
+              <pre className="whitespace-pre-wrap break-all text-sm font-mono bg-destructive/10 p-3 rounded max-h-60 overflow-auto">{syncError.message}</pre>
+            </div>
+          )}
           {phasesLoading ? (
             <Card className="p-6 bg-emerald-950/50 border-emerald-800">
               <Skeleton className="h-6 w-48 mb-4 bg-emerald-800/50" />
