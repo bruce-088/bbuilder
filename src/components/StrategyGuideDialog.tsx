@@ -23,7 +23,7 @@ const sections = [
   {
     icon: RefreshCw,
     title: "1. Sync to Nexus & WeatherPost",
-    description: "When you click 'Sync' on a business idea card, the sync-to-triad function fires. It packages your business name, niche, audience, and content pillars into a manifest, then sends parallel POST requests to both NexusAI and WeatherPost using the x-triad-key header for authentication.",
+    description: "When you click 'Sync' on a business idea card, the sync-to-nexus function fires. It packages your business name, niche, audience, and content pillars into a manifest, saves it locally, then sends parallel POST requests to both NexusAI and NexusVocal using the x-triad-key header for authentication.",
     tips: [
       "Both services must confirm receipt for a successful sync",
       "The manifest is also saved to your Triad Manifests table as a local backup",
