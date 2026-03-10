@@ -605,6 +605,18 @@ async function executeTool(
         }
 
         const goal = 10000;
+
+        // Also pull triad event counts for cross-system awareness
+        let triadRevenueEvents = 0;
+        try {
+          const { data: triadEvents } = await supabaseAdmin
+            .from("triad_events")
+            .select("payload")
+            .eq("user_id", userId)
+            .eq("event_type", "REVENUE_MILESTONE");
+          triadRevenueEvents = triadEvents?.length || 0;
+        } catch { /* non-critical */ }
+
         return {
           success: true,
           data: {
@@ -615,6 +627,7 @@ async function executeTool(
             goal,
             progress_percent: Math.min(Math.round((monthlyRevenue / goal) * 100), 100),
             entry_count: entries?.length || 0,
+            triad_revenue_events: triadRevenueEvents,
           },
         };
       }
