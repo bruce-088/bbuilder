@@ -154,24 +154,37 @@ Deno.serve(async (req) => {
       });
     }
 
-    // 4. URL check — validate NEXUS_API_URL
+    // 4. URL checks — validate both target URLs
     const nexusApiUrl = (Deno.env.get("NEXUS_API_URL") || "").trim();
-    if (!nexusApiUrl) {
-      return new Response(JSON.stringify({ error: "NEXUS_API_URL is missing or empty" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    const vocalApiUrl = (Deno.env.get("WEATHERPOST_API_URL") || "").trim();
+
+    const targets: { label: string; url: string }[] = [];
+    const urlWarnings: string[] = [];
+
+    if (nexusApiUrl) {
+      if (nexusApiUrl.includes("localhost") || nexusApiUrl.includes("127.0.0.1") || nexusApiUrl.includes("id-preview--")) {
+        urlWarnings.push(`NexusAI URL is non-production: ${nexusApiUrl}`);
+      } else {
+        targets.push({ label: "NexusAI", url: nexusApiUrl });
+      }
+    } else {
+      urlWarnings.push("NEXUS_API_URL is missing or empty");
     }
 
-    // Block localhost / preview URLs — only allow published .app URLs
-    if (nexusApiUrl.includes("localhost") || nexusApiUrl.includes("127.0.0.1") || nexusApiUrl.includes("id-preview--")) {
-      console.error("NEXUS_API_URL points to a non-production URL:", nexusApiUrl);
+    if (vocalApiUrl) {
+      if (vocalApiUrl.includes("localhost") || vocalApiUrl.includes("127.0.0.1") || vocalApiUrl.includes("id-preview--")) {
+        urlWarnings.push(`NexusVocal URL is non-production: ${vocalApiUrl}`);
+      } else {
+        targets.push({ label: "NexusVocal", url: vocalApiUrl });
+      }
+    } else {
+      urlWarnings.push("WEATHERPOST_API_URL is missing or empty");
+    }
+
+    if (targets.length === 0) {
       return new Response(
-        JSON.stringify({
-          error: "INVALID_NEXUS_URL",
-          message: `Sync target is not a live URL: ${nexusApiUrl}. Update NEXUS_API_URL to the published app URL.`,
-        }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "NO_SYNC_TARGETS", message: `No valid sync targets. ${urlWarnings.join("; ")}` }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
@@ -246,9 +259,8 @@ Deno.serve(async (req) => {
       };
     }
 
-    // 6. Payload validation — abort if manifest is empty or has no tasks
+    // 6. Payload validation
     if (!manifest || Object.keys(manifest).length === 0) {
-      console.error("Manifest is empty or undefined. Aborting sync.");
       return new Response(
         JSON.stringify({ error: "EMPTY_MANIFEST", message: "Manifest is empty. Sync aborted." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
@@ -257,100 +269,87 @@ Deno.serve(async (req) => {
 
     const manifestTasks = (manifest as any).tasks;
     if (!manifestTasks || (Array.isArray(manifestTasks) && manifestTasks.length === 0)) {
-      console.error("Manifest has zero tasks. Aborting sync.");
       return new Response(
         JSON.stringify({ error: "NO_TASKS", message: "Manifest has no tasks. Sync aborted." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    // 7. Log full payload before sending
+    // 7. Log pre-send
     console.log("=== SYNC-TO-NEXUS PRE-SEND ===");
-    console.log("Target URL:", nexusApiUrl);
+    console.log("Targets:", targets.map(t => `${t.label}: ${t.url}`).join(" | "));
     console.log("Tasks count:", Array.isArray(manifestTasks) ? manifestTasks.length : "N/A");
-    console.log("Manifest:", JSON.stringify(manifest, null, 2));
 
-    // 8. Send to Nexus (with 10s timeout)
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
+    // 8. Send to ALL targets in parallel (10s timeout each)
+    const bodyStr = JSON.stringify(manifest);
 
-    let res: Response;
-    let responseText: string;
-    try {
-      res = await fetch(nexusApiUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-triad-key": syncSecret,
-        },
-        body: JSON.stringify(manifest),
-        signal: controller.signal,
-      });
-      responseText = await res.text();
-    } catch (fetchErr: any) {
-      clearTimeout(timeoutId);
-      const isTimeout = fetchErr?.name === "AbortError";
-      const errLabel = nexusApiUrl.includes("vxfjzpgwcbayyhqznnnq") ? "NexusVocal" : "Nexus";
-      const msg = isTimeout
-        ? `${errLabel} timeout after 10s — target may be down: ${nexusApiUrl}`
-        : `${errLabel} fetch failed: ${String(fetchErr)}`;
-      console.error(msg);
-      return new Response(
-        JSON.stringify({ success: false, error: "FETCH_ERROR", source: errLabel, message: msg }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    } finally {
-      clearTimeout(timeoutId);
+    async function syncToTarget(target: { label: string; url: string }): Promise<{
+      label: string;
+      success: boolean;
+      status_code: number;
+      response_text: string;
+      error?: string;
+    }> {
+      const ctrl = new AbortController();
+      const tid = setTimeout(() => ctrl.abort(), 10000);
+      try {
+        const res = await fetch(target.url, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-triad-key": syncSecret },
+          body: bodyStr,
+          signal: ctrl.signal,
+        });
+        const text = await res.text();
+        clearTimeout(tid);
+
+        if (!res.ok) {
+          console.error(`${target.label} rejected [${res.status}]:`, text);
+          return { label: target.label, success: false, status_code: res.status, response_text: text, error: `${target.label} returned ${res.status}: ${text}` };
+        }
+
+        // Check for error in body even on 200
+        try {
+          const parsed = JSON.parse(text);
+          if (parsed.error) {
+            console.error(`${target.label} 200 but body error:`, parsed.error);
+            return { label: target.label, success: false, status_code: 200, response_text: text, error: `${target.label} body error: ${parsed.error}` };
+          }
+        } catch { /* non-JSON 200 is fine */ }
+
+        console.log(`${target.label} SUCCESS:`, text.substring(0, 200));
+        return { label: target.label, success: true, status_code: 200, response_text: text };
+      } catch (fetchErr: any) {
+        clearTimeout(tid);
+        const isTimeout = fetchErr?.name === "AbortError";
+        const msg = isTimeout
+          ? `${target.label} timeout after 10s — target may be down`
+          : `${target.label} fetch failed: ${String(fetchErr)}`;
+        console.error(msg);
+        return { label: target.label, success: false, status_code: 0, response_text: "", error: msg };
+      }
     }
 
-    // 9. Strict success check — surface exact error text
-    const sourceLabel = nexusApiUrl.includes("vxfjzpgwcbayyhqznnnq") ? "NexusVocal" : "Nexus";
-    if (!res.ok) {
-      console.error(`${sourceLabel} rejected [${res.status}]:`, responseText);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "NEXUS_REJECTED",
-          source: sourceLabel,
-          status_code: res.status,
-          nexus_response: responseText,
-          message: `${sourceLabel} returned ${res.status}: ${responseText}`,
-        }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
+    const results = await Promise.all(targets.map(syncToTarget));
 
-    // Even on 200, verify the response body indicates success
-    let parsedResponse: any = null;
-    try {
-      parsedResponse = JSON.parse(responseText);
-    } catch {
-      // Non-JSON 200 response — suspicious
-      console.warn("Nexus returned 200 but non-JSON body:", responseText);
-    }
+    const allSuccess = results.every(r => r.success);
+    const tasksCount = Array.isArray(manifestTasks) ? manifestTasks.length : 0;
 
-    if (parsedResponse && parsedResponse.error) {
-      console.error("Nexus returned 200 but with error in body:", parsedResponse.error);
-      return new Response(
-        JSON.stringify({
-          success: false,
-          error: "NEXUS_BODY_ERROR",
-          nexus_response: responseText,
-          message: `Nexus responded with error: ${parsedResponse.error}`,
-        }),
-        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    console.log("=== SYNC SUCCESS ===", responseText);
+    console.log("=== SYNC RESULTS ===", JSON.stringify(results.map(r => ({ label: r.label, success: r.success, status: r.status_code }))));
 
     return new Response(
       JSON.stringify({
-        success: true,
-        tasks_sent: Array.isArray(manifestTasks) ? manifestTasks.length : 0,
-        nexus_response: responseText,
+        success: allSuccess,
+        tasks_sent: tasksCount,
+        url_warnings: urlWarnings.length > 0 ? urlWarnings : undefined,
+        results: results.map(r => ({
+          label: r.label,
+          success: r.success,
+          status_code: r.status_code,
+          response_text: r.response_text.substring(0, 500),
+          error: r.error,
+        })),
       }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: allSuccess ? 200 : 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (err) {
     console.error("sync-to-nexus critical error:", err);
