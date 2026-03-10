@@ -356,13 +356,16 @@ function scheduleToCron(schedule: string): string {
 }
 
 // ─── Helper: broadcast triad event (DB + external POST) ───
+// Returns { synced: boolean } so tool results can reflect sync status
 async function broadcastTriadEvent(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string,
   eventType: string,
   sourceApp: string,
   payload: Record<string, unknown>,
-) {
+): Promise<{ synced: boolean; targets_reached: string[] }> {
+  const result = { synced: false, targets_reached: [] as string[] };
+
   // 1. Persist event locally
   try {
     await supabaseAdmin.from("triad_events").insert({
@@ -391,8 +394,10 @@ async function broadcastTriadEvent(
     targets.push({ label: "NexusVocal", url: vocalUrl, body: JSON.stringify({ action: "event", ...eventPayload }) });
   }
 
-  // Send in parallel, swallow errors
-  await Promise.allSettled(
+  if (targets.length === 0) return result;
+
+  // Send in parallel, track successes
+  const results = await Promise.allSettled(
     targets.map(async (t) => {
       const ctrl = new AbortController();
       const tid = setTimeout(() => ctrl.abort(), 8000);
@@ -404,14 +409,27 @@ async function broadcastTriadEvent(
           signal: ctrl.signal,
         });
         clearTimeout(tid);
-        if (!res.ok) console.warn(`${t.label} broadcast [${res.status}]:`, await res.text().catch(() => ""));
-        else console.log(`${t.label} broadcast OK for ${eventType}`);
+        if (!res.ok) {
+          console.warn(`${t.label} broadcast [${res.status}]:`, await res.text().catch(() => ""));
+          return { label: t.label, ok: false };
+        }
+        console.log(`${t.label} broadcast OK for ${eventType}`);
+        return { label: t.label, ok: true };
       } catch (err) {
         clearTimeout(tid);
         console.warn(`${t.label} broadcast error:`, err);
+        return { label: t.label, ok: false };
       }
     })
   );
+
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value.ok) {
+      result.targets_reached.push(r.value.label);
+    }
+  }
+  result.synced = result.targets_reached.length > 0;
+  return result;
 }
 
 // ─── Tool Execution ───
