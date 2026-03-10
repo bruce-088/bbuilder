@@ -797,9 +797,27 @@ async function executeTool(
           .slice(0, 3)
           .map((l: any) => ({ name: l.name, value: Number(l.estimated_value || 0), stage: l.stage }));
 
+        // Enrich with triad event counts for cross-system awareness
+        let triadCrmEvents = 0;
+        try {
+          const { data: triadEvents } = await supabaseAdmin
+            .from("triad_events")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("event_type", "CRM_UPDATE");
+          triadCrmEvents = triadEvents?.length || 0;
+        } catch { /* non-critical */ }
+
         return {
           success: true,
-          data: { total_leads: total, leads_by_stage: byStage, pipeline_value: totalValue, conversion_rate: conversionRate, top_prospects: topProspects },
+          data: {
+            total_leads: total,
+            leads_by_stage: byStage,
+            pipeline_value: totalValue,
+            conversion_rate: conversionRate,
+            top_prospects: topProspects,
+            triad_crm_events: triadCrmEvents,
+          },
         };
       }
 
