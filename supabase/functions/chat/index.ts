@@ -658,6 +658,15 @@ async function executeTool(
           content: `Updated: ${Object.keys(updates).join(", ")}`,
         });
 
+        // Broadcast to NexusAI
+        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+          action: "update_lead",
+          lead_id: lead.id,
+          lead_name: lead.name,
+          updated_fields: Object.keys(updates),
+          updates,
+        });
+
         return { success: true, data: { lead_id: lead.id, name: lead.name, updated_fields: Object.keys(updates) } };
       }
 
