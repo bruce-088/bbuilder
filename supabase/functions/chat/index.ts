@@ -416,6 +416,14 @@ async function executeTool(
           if (nodeError) console.error("Error adding nodes:", nodeError);
         }
 
+        // Broadcast to NexusAI
+        await broadcastTriadEvent(supabaseAdmin, userId, "WORKFLOW_ACTIVATED", "business_builder", {
+          action: "create_workflow",
+          workflow_id: workflow.id,
+          workflow_name: workflow.name,
+          node_count: nodes.length,
+        });
+
         return {
           success: true,
           data: { workflow_id: workflow.id, name: workflow.name, node_count: nodes.length },
