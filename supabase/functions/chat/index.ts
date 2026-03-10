@@ -571,6 +571,16 @@ async function executeTool(
           .single();
 
         if (error) throw error;
+
+        // Broadcast to NexusVocal for celebration post
+        await broadcastTriadEvent(supabaseAdmin, userId, "REVENUE_MILESTONE", "business_builder", {
+          action: "log_revenue",
+          amount: args.amount,
+          source: (args.source as string) || "manual",
+          is_recurring: (args.is_recurring as boolean) || false,
+          revenue_id: data.id,
+        });
+
         return { success: true, data };
       }
 
