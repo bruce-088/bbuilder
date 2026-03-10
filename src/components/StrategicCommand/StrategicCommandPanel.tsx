@@ -17,6 +17,7 @@ export function StrategicCommandPanel() {
   const [niche, setNiche] = useState("");
   const [syncingPhaseId, setSyncingPhaseId] = useState<string | null>(null);
   const [syncSecretMissing, setSyncSecretMissing] = useState(false);
+  const [syncError, setSyncError] = useState<{ source: string; message: string } | null>(null);
   const { phases, isLoading: phasesLoading } = useRoadmapProgress();
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export function StrategicCommandPanel() {
     }
 
     setSyncingPhaseId(phaseId);
+    setSyncError(null);
 
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-nexus", {
@@ -82,12 +84,17 @@ export function StrategicCommandPanel() {
         throw new Error(data.message);
       }
 
-      if (data?.error === "NEXUS_REJECTED" || data?.error === "NEXUS_BODY_ERROR") {
-        throw new Error(data.message || `Nexus error: ${data.nexus_response}`);
+      if (data?.error === "FETCH_ERROR" || data?.error === "NEXUS_REJECTED" || data?.error === "NEXUS_BODY_ERROR") {
+        const source = data.source || "Nexus";
+        const errorMsg = data.message || data.nexus_response || "Unknown error";
+        setSyncError({ source, message: errorMsg });
+        throw new Error(errorMsg);
       }
 
       if (!data?.success) {
-        throw new Error(data?.message || data?.error || "Unknown sync error");
+        const errorMsg = data?.message || data?.error || "Unknown sync error";
+        setSyncError({ source: "Nexus", message: errorMsg });
+        throw new Error(errorMsg);
       }
 
       toast({
@@ -139,6 +146,15 @@ export function StrategicCommandPanel() {
             <div className="mb-4 p-3 rounded-lg bg-destructive/15 border border-destructive text-destructive flex items-center gap-2 text-sm font-medium">
               <span className="inline-block h-2 w-2 rounded-full bg-destructive animate-pulse" />
               Sync Disabled: Missing Secret — TRIAD_SYNC_SECRET is not configured.
+            </div>
+          )}
+          {syncError && (
+            <div className="mb-4 p-4 rounded-lg bg-destructive/20 border-2 border-destructive text-destructive">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-lg font-bold">{syncError.source} Error</h4>
+                <button onClick={() => setSyncError(null)} className="text-destructive/70 hover:text-destructive text-sm">Dismiss</button>
+              </div>
+              <pre className="whitespace-pre-wrap break-all text-sm font-mono bg-destructive/10 p-3 rounded max-h-60 overflow-auto">{syncError.message}</pre>
             </div>
           )}
           {phasesLoading ? (

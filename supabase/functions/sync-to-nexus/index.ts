@@ -270,28 +270,51 @@ Deno.serve(async (req) => {
     console.log("Tasks count:", Array.isArray(manifestTasks) ? manifestTasks.length : "N/A");
     console.log("Manifest:", JSON.stringify(manifest, null, 2));
 
-    // 8. Send to Nexus
-    const res = await fetch(nexusApiUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-triad-key": syncSecret,
-      },
-      body: JSON.stringify(manifest),
-    });
+    // 8. Send to Nexus (with 10s timeout)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
-    const responseText = await res.text();
+    let res: Response;
+    let responseText: string;
+    try {
+      res = await fetch(nexusApiUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-triad-key": syncSecret,
+        },
+        body: JSON.stringify(manifest),
+        signal: controller.signal,
+      });
+      responseText = await res.text();
+    } catch (fetchErr: any) {
+      clearTimeout(timeoutId);
+      const isTimeout = fetchErr?.name === "AbortError";
+      const errLabel = nexusApiUrl.includes("vxfjzpgwcbayyhqznnnq") ? "NexusVocal" : "Nexus";
+      const msg = isTimeout
+        ? `${errLabel} timeout after 10s — target may be down: ${nexusApiUrl}`
+        : `${errLabel} fetch failed: ${String(fetchErr)}`;
+      console.error(msg);
+      return new Response(
+        JSON.stringify({ success: false, error: "FETCH_ERROR", source: errLabel, message: msg }),
+        { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     // 9. Strict success check — surface exact error text
+    const sourceLabel = nexusApiUrl.includes("vxfjzpgwcbayyhqznnnq") ? "NexusVocal" : "Nexus";
     if (!res.ok) {
-      console.error(`Nexus rejected [${res.status}]:`, responseText);
+      console.error(`${sourceLabel} rejected [${res.status}]:`, responseText);
       return new Response(
         JSON.stringify({
           success: false,
           error: "NEXUS_REJECTED",
+          source: sourceLabel,
           status_code: res.status,
           nexus_response: responseText,
-          message: `Nexus returned ${res.status}: ${responseText}`,
+          message: `${sourceLabel} returned ${res.status}: ${responseText}`,
         }),
         { status: 502, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
