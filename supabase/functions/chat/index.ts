@@ -632,7 +632,7 @@ async function executeTool(
         if (error) throw error;
 
         // Broadcast to NexusVocal for celebration post
-        await broadcastTriadEvent(supabaseAdmin, userId, "REVENUE_MILESTONE", "business_builder", {
+        const sync = await broadcastTriadEvent(supabaseAdmin, userId, "REVENUE_MILESTONE", "business_builder", {
           action: "log_revenue",
           amount: args.amount,
           source: (args.source as string) || "manual",
@@ -640,7 +640,7 @@ async function executeTool(
           revenue_id: data.id,
         });
 
-        return { success: true, data };
+        return { success: true, data, triad_sync: sync };
       }
 
       case "get_revenue_stats": {
