@@ -17,6 +17,7 @@ export function StrategicCommandPanel() {
   const [niche, setNiche] = useState("");
   const [syncingPhaseId, setSyncingPhaseId] = useState<string | null>(null);
   const [syncSecretMissing, setSyncSecretMissing] = useState(false);
+  const [syncError, setSyncError] = useState<{ source: string; message: string } | null>(null);
   const { phases, isLoading: phasesLoading } = useRoadmapProgress();
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export function StrategicCommandPanel() {
     }
 
     setSyncingPhaseId(phaseId);
+    setSyncError(null);
 
     try {
       const { data, error } = await supabase.functions.invoke("sync-to-nexus", {
@@ -82,12 +84,17 @@ export function StrategicCommandPanel() {
         throw new Error(data.message);
       }
 
-      if (data?.error === "NEXUS_REJECTED" || data?.error === "NEXUS_BODY_ERROR") {
-        throw new Error(data.message || `Nexus error: ${data.nexus_response}`);
+      if (data?.error === "FETCH_ERROR" || data?.error === "NEXUS_REJECTED" || data?.error === "NEXUS_BODY_ERROR") {
+        const source = data.source || "Nexus";
+        const errorMsg = data.message || data.nexus_response || "Unknown error";
+        setSyncError({ source, message: errorMsg });
+        throw new Error(errorMsg);
       }
 
       if (!data?.success) {
-        throw new Error(data?.message || data?.error || "Unknown sync error");
+        const errorMsg = data?.message || data?.error || "Unknown sync error";
+        setSyncError({ source: "Nexus", message: errorMsg });
+        throw new Error(errorMsg);
       }
 
       toast({
