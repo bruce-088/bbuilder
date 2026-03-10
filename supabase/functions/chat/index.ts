@@ -356,13 +356,16 @@ function scheduleToCron(schedule: string): string {
 }
 
 // ─── Helper: broadcast triad event (DB + external POST) ───
+// Returns { synced: boolean } so tool results can reflect sync status
 async function broadcastTriadEvent(
   supabaseAdmin: ReturnType<typeof createClient>,
   userId: string,
   eventType: string,
   sourceApp: string,
   payload: Record<string, unknown>,
-) {
+): Promise<{ synced: boolean; targets_reached: string[] }> {
+  const result = { synced: false, targets_reached: [] as string[] };
+
   // 1. Persist event locally
   try {
     await supabaseAdmin.from("triad_events").insert({
@@ -391,8 +394,10 @@ async function broadcastTriadEvent(
     targets.push({ label: "NexusVocal", url: vocalUrl, body: JSON.stringify({ action: "event", ...eventPayload }) });
   }
 
-  // Send in parallel, swallow errors
-  await Promise.allSettled(
+  if (targets.length === 0) return result;
+
+  // Send in parallel, track successes
+  const results = await Promise.allSettled(
     targets.map(async (t) => {
       const ctrl = new AbortController();
       const tid = setTimeout(() => ctrl.abort(), 8000);
@@ -404,14 +409,27 @@ async function broadcastTriadEvent(
           signal: ctrl.signal,
         });
         clearTimeout(tid);
-        if (!res.ok) console.warn(`${t.label} broadcast [${res.status}]:`, await res.text().catch(() => ""));
-        else console.log(`${t.label} broadcast OK for ${eventType}`);
+        if (!res.ok) {
+          console.warn(`${t.label} broadcast [${res.status}]:`, await res.text().catch(() => ""));
+          return { label: t.label, ok: false };
+        }
+        console.log(`${t.label} broadcast OK for ${eventType}`);
+        return { label: t.label, ok: true };
       } catch (err) {
         clearTimeout(tid);
         console.warn(`${t.label} broadcast error:`, err);
+        return { label: t.label, ok: false };
       }
     })
   );
+
+  for (const r of results) {
+    if (r.status === "fulfilled" && r.value.ok) {
+      result.targets_reached.push(r.value.label);
+    }
+  }
+  result.synced = result.targets_reached.length > 0;
+  return result;
 }
 
 // ─── Tool Execution ───
@@ -456,7 +474,7 @@ async function executeTool(
         }
 
         // Broadcast to NexusAI
-        await broadcastTriadEvent(supabaseAdmin, userId, "WORKFLOW_ACTIVATED", "business_builder", {
+        const sync = await broadcastTriadEvent(supabaseAdmin, userId, "WORKFLOW_ACTIVATED", "business_builder", {
           action: "create_workflow",
           workflow_id: workflow.id,
           workflow_name: workflow.name,
@@ -466,6 +484,7 @@ async function executeTool(
         return {
           success: true,
           data: { workflow_id: workflow.id, name: workflow.name, node_count: nodes.length },
+          triad_sync: sync,
         };
       }
 
@@ -496,12 +515,12 @@ async function executeTool(
         });
 
         // Broadcast to NexusAI
-        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+        const sync = await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
           action: "add_lead",
           lead,
         });
 
-        return { success: true, data: lead };
+        return { success: true, data: lead, triad_sync: sync };
       }
 
       case "trigger_workflow": {
@@ -538,7 +557,7 @@ async function executeTool(
         if (execError) throw execError;
 
         // Broadcast to NexusAI
-        await broadcastTriadEvent(supabaseAdmin, userId, "WORKFLOW_ACTIVATED", "business_builder", {
+        const sync = await broadcastTriadEvent(supabaseAdmin, userId, "WORKFLOW_ACTIVATED", "business_builder", {
           action: "trigger_workflow",
           execution_id: execution.id,
           workflow_id: wf.id,
@@ -548,6 +567,7 @@ async function executeTool(
         return {
           success: true,
           data: { execution_id: execution.id, workflow_name: wf.name, workflow_id: wf.id },
+          triad_sync: sync,
         };
       }
 
@@ -612,7 +632,7 @@ async function executeTool(
         if (error) throw error;
 
         // Broadcast to NexusVocal for celebration post
-        await broadcastTriadEvent(supabaseAdmin, userId, "REVENUE_MILESTONE", "business_builder", {
+        const sync = await broadcastTriadEvent(supabaseAdmin, userId, "REVENUE_MILESTONE", "business_builder", {
           action: "log_revenue",
           amount: args.amount,
           source: (args.source as string) || "manual",
@@ -620,7 +640,7 @@ async function executeTool(
           revenue_id: data.id,
         });
 
-        return { success: true, data };
+        return { success: true, data, triad_sync: sync };
       }
 
       case "get_revenue_stats": {
@@ -698,7 +718,7 @@ async function executeTool(
         });
 
         // Broadcast to NexusAI
-        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+        const sync = await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
           action: "update_lead",
           lead_id: lead.id,
           lead_name: lead.name,
@@ -706,7 +726,7 @@ async function executeTool(
           updates,
         });
 
-        return { success: true, data: { lead_id: lead.id, name: lead.name, updated_fields: Object.keys(updates) } };
+        return { success: true, data: { lead_id: lead.id, name: lead.name, updated_fields: Object.keys(updates) }, triad_sync: sync };
       }
 
       case "move_lead_stage": {
@@ -729,7 +749,7 @@ async function executeTool(
         });
 
         // Broadcast to NexusAI
-        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+        const sync = await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
           action: "move_lead_stage",
           lead_id: lead.id,
           lead_name: lead.name,
@@ -737,7 +757,7 @@ async function executeTool(
           new_stage: newStage,
         });
 
-        return { success: true, data: { lead_id: lead.id, name: lead.name, old_stage: oldStage, new_stage: newStage } };
+        return { success: true, data: { lead_id: lead.id, name: lead.name, old_stage: oldStage, new_stage: newStage }, triad_sync: sync };
       }
 
       case "log_lead_activity": {
@@ -988,7 +1008,10 @@ You are the command center of the Triad. Every action you take ripples across th
 - **Workflow activations** → NexusAI tracks execution status in real-time
 - **Stats & summaries** → pull live data from the unified Triad event stream
 
-When you execute a tool with a Triad effect, the broadcast happens automatically. You don't need to do anything extra — just acknowledge it naturally in your response.
+When you execute a tool with a Triad effect, the broadcast happens automatically. Your tool result will include a \`triad_sync\` field:
+- If \`triad_sync.synced\` is true → confirm it: "I've updated your NexusAI pipeline and notified NexusVocal. We're one step closer to that $10K goal! 🚀"
+- If \`triad_sync.synced\` is false → still celebrate the local action, but add: "The sync to Nexus is pending, but I've saved it here for now!"
+- If \`triad_sync.targets_reached\` lists specific targets, mention them by name (NexusAI, NexusVocal)
 
 ## RESPONSE STYLE
 - Use markdown formatting with strategic emoji — not emoji soup
