@@ -515,12 +515,12 @@ async function executeTool(
         });
 
         // Broadcast to NexusAI
-        await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
+        const sync = await broadcastTriadEvent(supabaseAdmin, userId, "CRM_UPDATE", "business_builder", {
           action: "add_lead",
           lead,
         });
 
-        return { success: true, data: lead };
+        return { success: true, data: lead, triad_sync: sync };
       }
 
       case "trigger_workflow": {
