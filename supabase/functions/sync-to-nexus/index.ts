@@ -105,7 +105,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // 1. Secret check — return structured error so UI can show warning
+    // 1. Secret check
     const syncSecret = Deno.env.get("TRIAD_SYNC_SECRET");
     if (!syncSecret) {
       console.error("TRIAD_SYNC_SECRET is missing from environment");
@@ -190,6 +190,7 @@ Deno.serve(async (req) => {
 
     // 5. Build manifest
     let manifest: Record<string, unknown>;
+    let ideaData: { business_name: string; niche: string; target_audience: string; value_proposition: string; service_offering: string } | null = null;
 
     if (incomingManifest) {
       manifest = incomingManifest;
@@ -206,6 +207,8 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
+
+      ideaData = idea;
 
       let userProgress: Record<string, boolean[]> = {};
       try {
@@ -273,6 +276,41 @@ Deno.serve(async (req) => {
         JSON.stringify({ error: "NO_TASKS", message: "Manifest has no tasks. Sync aborted." }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
+    }
+
+    // 6b. Persist manifest locally (upsert triad_manifests) — merged from sync-to-triad
+    if (ideaData) {
+      const content_pillars = manifest.content_pillars as string[] || [];
+      const crmStages = ["captured", "qualified", "proposal", "negotiation", "won", "lost"];
+
+      const { error: upsertError } = await supabase
+        .from("triad_manifests")
+        .upsert(
+          {
+            id: userId,
+            business_name: ideaData.business_name,
+            niche: ideaData.niche,
+            target_audience: ideaData.target_audience,
+            content_pillars,
+            crm_stages: crmStages,
+            status: "active",
+            metadata: { source_idea_id: business_idea_id, synced_at: new Date().toISOString() },
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "id" }
+        );
+
+      if (upsertError) {
+        console.warn("Manifest upsert warning:", upsertError.message);
+      }
+
+      // Log sync event
+      await supabase.from("triad_events").insert({
+        user_id: userId,
+        event_type: "MANIFEST_SYNCED",
+        source_app: "business_builder",
+        payload: { business_idea_id, business_name: ideaData.business_name, phase_id: phase_id || "all" },
+      });
     }
 
     // 7. Log pre-send
@@ -344,6 +382,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: allSuccess,
+        manifest_saved: !!ideaData,
         tasks_sent: tasksCount,
         url_warnings: urlWarnings.length > 0 ? urlWarnings : undefined,
         results: results.map(r => ({

@@ -495,34 +495,33 @@ export default function Dashboard() {
     if (!user) return;
     setSyncingIdeaId(ideaId);
     try {
-      const { data, error } = await supabase.functions.invoke("sync-to-triad", {
+      const { data, error } = await supabase.functions.invoke("sync-to-nexus", {
         body: { business_idea_id: ideaId },
       });
       if (error) throw error;
 
-      const nexusOk = data?.nexus_sync?.sent && data.nexus_sync.message === "ok";
-      const wpOk = data?.weatherpost_sync?.sent && data.weatherpost_sync.message === "ok";
+      if (data?.error === "SYNC_SECRET_MISSING") {
+        toast.error("Sync Disabled: Missing TRIAD_SYNC_SECRET", { duration: 10000 });
+        return;
+      }
 
-      if (nexusOk && wpOk) {
-        toast.success("Synced to Nexus & WeatherPost successfully!");
+      const results = data?.results as { label: string; success: boolean; status_code: number; response_text: string; error?: string }[] | undefined;
+      const allSuccess = data?.success;
+
+      if (allSuccess) {
+        const detail = results?.map(r => `${r.label}: ✅`).join(", ") || "OK";
+        toast.success(`Synced successfully! ${detail}`);
       } else {
-        const failures: string[] = [];
-        if (!nexusOk) {
-          const detail = data?.nexus_sync?.response_body || data?.nexus_sync?.message || "not configured";
-          failures.push(`Nexus: ${detail}`);
-        }
-        if (!wpOk) {
-          const detail = data?.weatherpost_sync?.response_body || data?.weatherpost_sync?.message || "not configured";
-          failures.push(`WeatherPost: ${detail}`);
-        }
+        const failures = results?.filter(r => !r.success) || [];
+        const detail = results?.map(r => `${r.label}: ${r.success ? "✅" : `❌ ${r.error || r.response_text}`}`).join(" | ") || "Unknown error";
         if (data?.manifest_saved) {
-          toast.error(`Manifest saved but sync issues — ${failures.join(" | ")}`, { duration: 10000 });
+          toast.error(`Manifest saved but sync issues — ${detail}`, { duration: 10000 });
         } else {
-          toast.error(`Sync failed — ${failures.join(" | ")}`, { duration: 10000 });
+          toast.error(`Sync failed — ${detail}`, { duration: 10000 });
         }
       }
     } catch (err: any) {
-      console.error("Sync to Triad error:", err);
+      console.error("Sync error:", err);
       toast.error("Failed to sync: " + (err.message || "Unknown error"), { duration: 10000 });
     } finally {
       setSyncingIdeaId(null);
