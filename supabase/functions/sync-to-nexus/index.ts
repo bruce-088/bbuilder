@@ -293,10 +293,15 @@ Deno.serve(async (req) => {
       const ctrl = new AbortController();
       const tid = setTimeout(() => ctrl.abort(), 10000);
       try {
+        // NexusVocal requires an "action" field to route the request
+        const payload = target.label === "NexusVocal"
+          ? JSON.stringify({ action: "manifest", ...manifest })
+          : bodyStr;
+
         const res = await fetch(target.url, {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-triad-key": syncSecret },
-          body: bodyStr,
+          body: payload,
           signal: ctrl.signal,
         });
         const text = await res.text();
