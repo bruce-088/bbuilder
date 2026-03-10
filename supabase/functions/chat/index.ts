@@ -822,6 +822,14 @@ async function executeTool(
       }
 
       case "get_business_summary": {
+        // Pull latest synced manifest from triad_manifests first
+        const { data: manifest } = await supabaseAdmin
+          .from("triad_manifests")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
+
+        // Fall back to business_ideas if no manifest exists
         const { data: ideas, error } = await supabaseAdmin
           .from("business_ideas")
           .select("id, business_name, niche, target_audience, value_proposition, service_offering, revenue_math, is_favorite")
@@ -831,11 +839,30 @@ async function executeTool(
           .limit(3);
 
         if (error) throw error;
+
+        if (manifest) {
+          return {
+            success: true,
+            data: {
+              source: "triad_manifest",
+              business_name: manifest.business_name,
+              niche: manifest.niche,
+              target_audience: manifest.target_audience,
+              content_pillars: manifest.content_pillars,
+              crm_stages: manifest.crm_stages,
+              status: manifest.status,
+              last_synced: manifest.updated_at,
+              ideas: ideas || [],
+              primary: ideas?.[0] || null,
+            },
+          };
+        }
+
         if (!ideas || ideas.length === 0) {
           return { success: true, data: { message: "No business ideas saved yet. Let's brainstorm one!" } };
         }
 
-        return { success: true, data: { ideas, primary: ideas[0] } };
+        return { success: true, data: { source: "business_ideas", ideas, primary: ideas[0] } };
       }
 
       default:
