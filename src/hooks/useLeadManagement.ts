@@ -3,6 +3,7 @@
  import { useAuth } from "@/contexts/AuthContext";
  import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
+import { celebrateFirstIdea } from "@/lib/confetti";
  
  export type LeadStage = "captured" | "qualified" | "outreach" | "nurturing" | "won" | "lost";
  export type LeadSource = "landing_page" | "referral" | "n8n_webhook" | "manual";
