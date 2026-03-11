@@ -295,10 +295,21 @@ import { celebrateFirstIdea } from "@/lib/confetti";
           .reduce((sum, l) => sum + (l.estimated_value || 0), 0);
         
         // Broadcast pipeline total for dashboard consumption
-        window.dispatchEvent(new CustomEvent('pipeline-value-updated', {
-          detail: { total: pipelineTotal },
-        }));
-         
+         window.dispatchEvent(new CustomEvent('pipeline-value-updated', {
+           detail: { total: pipelineTotal },
+         }));
+
+        // ── Mya's Memory (Mem0): save stage change context ──
+        supabase.functions.invoke("mem0", {
+          body: {
+            action: "add",
+            messages: [{
+              role: "system" as const,
+              content: `Lead "${lead.name}"${lead.company ? ` (${lead.company})` : ''} moved from ${oldStage} to ${newStage}. Pipeline value: $${pipelineTotal.toLocaleString()}. Estimated deal value: $${(lead.estimated_value || 0).toLocaleString()}.${newStage === 'won' ? ' 🏆 DEAL WON! This is a major milestone toward the $10K/month goal.' : ''}`,
+            }],
+          },
+        }).catch(err => console.warn("Mem0 save (stage change) failed:", err));
+          
          toast.success(`Lead moved to ${newStage}`);
         return true;
       } catch (error) {
