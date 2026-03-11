@@ -100,6 +100,7 @@ export default function WorkflowEditor() {
         scheduleSaving={scheduleSaving}
         onScheduleSave={saveSchedule}
         onScheduleToggle={toggleEnabled}
+        nexusStatus={nexusStatus}
       />
       <div className="flex-1 flex overflow-hidden relative">
         <NodePalette onDragStart={() => {}} />
