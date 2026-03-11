@@ -54,6 +54,15 @@ export function useWorkflowBuilder(workflowId?: string) {
       return null;
     }
     setWorkflow(data as unknown as Workflow);
+
+    // ── Gamification: 200 XP for creating a workflow ('Setup Automation' quest) ──
+    if ((window as any).__emitMissionEvent) {
+      (window as any).__emitMissionEvent('workflow_deployed', {
+        workflowId: data.id,
+        workflowName: name,
+      });
+    }
+
     return data.id as string;
   }, [user]);
 
