@@ -34,7 +34,7 @@ export default function WorkflowEditor() {
   } = useWorkflowExecution(workflow?.id);
 
   const { schedule, saving: scheduleSaving, saveSchedule, toggleEnabled } = useWorkflowSchedule(workflow?.id);
-
+  const nexusStatus = useNexusWorkflowStatus(workflow?.id);
   useEffect(() => {
     if (authLoading) return;
     if (!user) { navigate("/auth"); return; }
