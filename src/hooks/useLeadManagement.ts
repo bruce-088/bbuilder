@@ -236,7 +236,7 @@ import { celebrateFirstIdea } from "@/lib/confetti";
             to_stage: newStage,
             estimated_value: lead.estimated_value,
           } as unknown as Json,
-        }).then(() => {}).catch(() => {});
+        }).then(({ error: insertErr }) => { if (insertErr) console.warn('triad_events insert:', insertErr); });
 
         // ── Gamification: emit mission events with stage-specific XP ──
         if ((window as any).__emitMissionEvent) {
