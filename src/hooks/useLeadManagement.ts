@@ -136,9 +136,20 @@ import { celebrateFirstIdea } from "@/lib/confetti";
             name: newLead.name, 
             leadId: newLead.id 
           });
-        }
-        
-        toast.success("Lead created successfully");
+         }
+
+         // ── Mya's Memory (Mem0): save lead context ──
+         supabase.functions.invoke("mem0", {
+           body: {
+             action: "add",
+             messages: [{
+               role: "system" as const,
+               content: `New lead added: ${newLead.name}${newLead.company ? ` from ${newLead.company}` : ''}. Email: ${newLead.email || 'N/A'}. Stage: ${newLead.stage}. Estimated value: $${newLead.estimated_value?.toLocaleString() || '0'}. Source: ${newLead.source}.`,
+             }],
+           },
+         }).catch(err => console.warn("Mem0 save (new lead) failed:", err));
+         
+         toast.success("Lead created successfully");
        return newLead;
      } catch (error) {
        console.error("Error creating lead:", error);
