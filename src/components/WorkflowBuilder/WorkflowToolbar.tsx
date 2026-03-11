@@ -1,8 +1,11 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Play, Save, Loader2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { ArrowLeft, Play, Save, Loader2, Radio } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ScheduleConfig } from "./ScheduleConfig";
+import type { NexusStatus } from "@/hooks/useNexusWorkflowStatus";
 
 interface WorkflowToolbarProps {
   name: string;
@@ -15,10 +18,18 @@ interface WorkflowToolbarProps {
   scheduleSaving?: boolean;
   onScheduleSave?: (cron: string, enabled: boolean) => void;
   onScheduleToggle?: () => void;
+  nexusStatus?: NexusStatus;
 }
 
-export function WorkflowToolbar({ name, onNameChange, onSave, onRun, saving, running, schedule, scheduleSaving, onScheduleSave, onScheduleToggle }: WorkflowToolbarProps) {
+const STATUS_CONFIG: Record<NexusStatus, { label: string; className: string; dotClass: string }> = {
+  active: { label: "Nexus Active", className: "bg-emerald-500/20 text-emerald-400 border-emerald-500/30", dotClass: "bg-emerald-400 animate-pulse" },
+  idle: { label: "Nexus Idle", className: "bg-muted text-muted-foreground border-border", dotClass: "bg-muted-foreground" },
+  unknown: { label: "Nexus", className: "bg-muted text-muted-foreground border-border", dotClass: "bg-muted-foreground" },
+};
+
+export function WorkflowToolbar({ name, onNameChange, onSave, onRun, saving, running, schedule, scheduleSaving, onScheduleSave, onScheduleToggle, nexusStatus = "unknown" }: WorkflowToolbarProps) {
   const navigate = useNavigate();
+  const statusCfg = STATUS_CONFIG[nexusStatus];
 
   return (
     <div className="h-14 border-b border-border bg-card/80 backdrop-blur-sm flex items-center gap-3 px-4 shrink-0">
@@ -31,6 +42,19 @@ export function WorkflowToolbar({ name, onNameChange, onSave, onRun, saving, run
         onChange={(e) => onNameChange(e.target.value)}
         className="max-w-xs h-8 text-sm font-medium bg-transparent border-transparent hover:border-border focus:border-primary"
       />
+
+      {/* Nexus Status Indicator */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge variant="outline" className={`gap-1.5 cursor-default ${statusCfg.className}`}>
+            <span className={`w-2 h-2 rounded-full ${statusCfg.dotClass}`} />
+            {statusCfg.label}
+          </Badge>
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{nexusStatus === "active" ? "This workflow was recently triggered in NexusAI" : nexusStatus === "idle" ? "No recent NexusAI activity for this workflow" : "NexusAI status unknown"}</p>
+        </TooltipContent>
+      </Tooltip>
 
       <div className="flex-1" />
 

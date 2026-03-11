@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import type { Json } from "@/integrations/supabase/types";
 
 export interface NodeExecutionLog {
   id: string;
@@ -79,8 +80,35 @@ export function useWorkflowExecution(workflowId?: string) {
             setExecuting(false);
             if (updated.status === "completed") {
               toast.success("Workflow completed successfully");
+
+              // ── Gamification: 100 XP for successful run ──
+              if ((window as any).__emitMissionEvent) {
+                (window as any).__emitMissionEvent('automation_completed', {
+                  workflowId,
+                  executionId: updated.id,
+                });
+              }
             } else {
               toast.error("Workflow execution failed");
+
+              // ── Mya Troubleshooting: popup with diagnostic suggestion ──
+              window.dispatchEvent(new CustomEvent('mya-celebrate', {
+                detail: {
+                  xp: 0,
+                  message: `Workflow failed! I'm analyzing the snapshot to diagnose the issue. Open Chat to see my troubleshooting report. 🔧`,
+                },
+              }));
+
+              // Save failure context to Mem0 for Mya's recall
+              supabase.functions.invoke("mem0", {
+                body: {
+                  action: "add",
+                  messages: [{
+                    role: "system" as const,
+                    content: `Workflow execution failed. Workflow ID: ${workflowId}. Execution ID: ${updated.id}. The user may need troubleshooting assistance.`,
+                  }],
+                },
+              }).catch(() => {});
             }
           }
         }
@@ -90,7 +118,7 @@ export function useWorkflowExecution(workflowId?: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [currentExecution?.id]);
+  }, [currentExecution?.id, workflowId]);
 
   const runWorkflow = useCallback(
     async (triggerData?: Record<string, unknown>) => {
@@ -100,6 +128,35 @@ export function useWorkflowExecution(workflowId?: string) {
       setCurrentExecution(null);
 
       try {
+        // ── Triad Sync: broadcast TRIGGER_WORKFLOW to NexusAI ──
+        supabase.functions.invoke("sync-to-nexus", {
+          body: {
+            event_type: "TRIGGER_WORKFLOW",
+            source_app: "business_builder",
+            payload: {
+              workflow_id: workflowId,
+              trigger_data: triggerData ?? {},
+              triggered_at: new Date().toISOString(),
+            },
+          },
+        }).catch(err => console.warn("Triad sync (workflow trigger) failed:", err));
+
+        // Persist triad_event locally
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          supabase.from("triad_events").insert({
+            user_id: user.id,
+            event_type: "TRIGGER_WORKFLOW",
+            source_app: "business_builder",
+            payload: {
+              workflow_id: workflowId,
+              trigger_data: triggerData ?? {},
+            } as unknown as Json,
+          }).then(({ error: insertErr }) => {
+            if (insertErr) console.warn('triad_events insert:', insertErr);
+          });
+        }
+
         const resp = await fetch(
           `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/workflow-executor`,
           {
@@ -141,12 +198,36 @@ export function useWorkflowExecution(workflowId?: string) {
 
         if (data.status === "completed") {
           toast.success("Workflow completed successfully");
+
+          // ── Gamification: 100 XP for successful run ──
+          if ((window as any).__emitMissionEvent) {
+            (window as any).__emitMissionEvent('automation_completed', {
+              workflowId,
+              executionId: data.execution_id,
+            });
+          }
         } else {
           toast.error("Workflow execution failed");
+
+          // ── Mya Troubleshooting popup ──
+          window.dispatchEvent(new CustomEvent('mya-celebrate', {
+            detail: {
+              xp: 0,
+              message: `Workflow hit a snag! I'm checking the execution logs to find the issue. Head to Chat for my diagnosis. 🔧`,
+            },
+          }));
         }
       } catch (e) {
         console.error("Run workflow error:", e);
         toast.error(e instanceof Error ? e.message : "Failed to run workflow");
+
+        // ── Mya Troubleshooting popup on error ──
+        window.dispatchEvent(new CustomEvent('mya-celebrate', {
+          detail: {
+            xp: 0,
+            message: `Something went wrong running the workflow. Let me analyze this — open Chat so I can troubleshoot! 🔧`,
+          },
+        }));
       } finally {
         setExecuting(false);
       }
