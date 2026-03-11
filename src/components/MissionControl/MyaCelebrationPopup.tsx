@@ -21,15 +21,18 @@ export default function MyaCelebrationPopup() {
   const [messages, setMessages] = useState<CelebrationMessage[]>([]);
 
   useEffect(() => {
-    const handler = (e: CustomEvent<{ xp: number; questId?: string }>) => {
-      const { xp } = e.detail;
-      if (xp <= 0) return;
+    const handler = (e: CustomEvent<{ xp: number; questId?: string; message?: string }>) => {
+      const { xp, message: customMessage } = e.detail;
+      if (xp <= 0 && !customMessage) return;
 
-      const line = CELEBRATION_LINES[Math.floor(Math.random() * CELEBRATION_LINES.length)];
+      const text = customMessage
+        ? customMessage
+        : CELEBRATION_LINES[Math.floor(Math.random() * CELEBRATION_LINES.length)].replace('{xp}', String(xp));
+      
       const msg: CelebrationMessage = {
         id: `${Date.now()}-${Math.random()}`,
         xp,
-        message: line.replace('{xp}', String(xp)),
+        message: text,
       };
 
       setMessages(prev => [...prev.slice(-2), msg]);
