@@ -177,52 +177,88 @@ import { celebrateFirstIdea } from "@/lib/confetti";
      }
    }, [user]);
  
-   // Change lead stage with activity logging
-   const changeStage = useCallback(async (id: string, newStage: LeadStage) => {
-     if (!user) return false;
-     
-     const lead = leads.find(l => l.id === id);
-     if (!lead || lead.stage === newStage) return false;
-     
-     const oldStage = lead.stage;
-     
-     try {
-       const { error } = await supabase
-         .from("lead_contacts")
-         .update({
-           stage: newStage,
-           updated_at: new Date().toISOString(),
-           last_contact_at: new Date().toISOString(),
-         })
-         .eq("id", id);
- 
-       if (error) throw error;
-       
-       setLeads(prev => prev.map(l => 
-         l.id === id ? { ...l, stage: newStage, last_contact_at: new Date().toISOString() } : l
-       ));
-       
-        // Log the stage change
-        await addActivity(id, "stage_change", `Stage changed from ${oldStage} to ${newStage}`, {
-          from: oldStage,
-          to: newStage,
-        });
+    // Change lead stage with activity logging, Triad sync, and gamification
+    const changeStage = useCallback(async (id: string, newStage: LeadStage) => {
+      if (!user) return false;
+      
+      const lead = leads.find(l => l.id === id);
+      if (!lead || lead.stage === newStage) return false;
+      
+      const oldStage = lead.stage;
+      
+      try {
+        const { error } = await supabase
+          .from("lead_contacts")
+          .update({
+            stage: newStage,
+            updated_at: new Date().toISOString(),
+            last_contact_at: new Date().toISOString(),
+          })
+          .eq("id", id);
+
+        if (error) throw error;
         
-        // Emit mission events for stage changes
+        setLeads(prev => prev.map(l => 
+          l.id === id ? { ...l, stage: newStage, last_contact_at: new Date().toISOString() } : l
+        ));
+        
+         // Log the stage change
+         await addActivity(id, "stage_change", `Stage changed from ${oldStage} to ${newStage}`, {
+           from: oldStage,
+           to: newStage,
+         });
+
+        // ── Triad Sync: broadcast LEAD_STAGE_CHANGED to NexusAI ──
+        supabase.functions.invoke("sync-to-nexus", {
+          body: {
+            event_type: "LEAD_STAGE_CHANGED",
+            source_app: "business_builder",
+            payload: {
+              lead_id: id,
+              lead_name: lead.name,
+              company: lead.company,
+              from_stage: oldStage,
+              to_stage: newStage,
+              estimated_value: lead.estimated_value,
+            },
+          },
+        }).catch(err => console.warn("Triad sync (stage change) failed:", err));
+
+        // Also persist locally to triad_events
+        supabase.from("triad_events").insert({
+          user_id: user.id,
+          event_type: "LEAD_STAGE_CHANGED",
+          source_app: "business_builder",
+          payload: {
+            lead_id: id,
+            lead_name: lead.name,
+            from_stage: oldStage,
+            to_stage: newStage,
+            estimated_value: lead.estimated_value,
+          } as unknown as Json,
+        }).then(() => {}).catch(() => {});
+
+        // ── Gamification: emit mission events with stage-specific XP ──
         if ((window as any).__emitMissionEvent) {
+          // Base stage_changed event (10 XP default)
           (window as any).__emitMissionEvent('stage_changed', { 
             leadId: id, 
             from: oldStage, 
             to: newStage,
             name: lead.name,
           });
-          
+
+          // Qualified → extra XP already included via stage_changed (10 XP)
+          // Won → 500 XP + Deal Closer achievement + double confetti
           if (newStage === 'won') {
             (window as any).__emitMissionEvent('lead_won', { 
               name: lead.name, 
               leadId: id,
               value: lead.estimated_value,
             });
+            // Double confetti burst for Deal Closer
+            celebrateFirstIdea();
+            setTimeout(() => celebrateFirstIdea(), 800);
           }
           
           if (newStage === 'outreach') {
@@ -230,17 +266,36 @@ import { celebrateFirstIdea } from "@/lib/confetti";
               name: lead.name, 
               leadId: id,
             });
+
+            // ── Mya Proactive Outreach popup ──
+            window.dispatchEvent(new CustomEvent('mya-celebrate', {
+              detail: {
+                xp: 0,
+                message: `${lead.name} is ready for outreach! Should I send the draft to NexusAI so we can start the automation? 🚀`,
+              },
+            }));
           }
         }
+
+        // ── Revenue Math: sync pipeline value to Mission Control ──
+        const updatedLeads = leads.map(l => l.id === id ? { ...l, stage: newStage } : l);
+        const pipelineTotal = updatedLeads
+          .filter(l => l.stage !== 'lost')
+          .reduce((sum, l) => sum + (l.estimated_value || 0), 0);
         
-        toast.success(`Lead moved to ${newStage}`);
-       return true;
-     } catch (error) {
-       console.error("Error changing stage:", error);
-       toast.error("Failed to change stage");
-       return false;
-     }
-   }, [user, leads]);
+        // Broadcast pipeline total for dashboard consumption
+        window.dispatchEvent(new CustomEvent('pipeline-value-updated', {
+          detail: { total: pipelineTotal },
+        }));
+         
+         toast.success(`Lead moved to ${newStage}`);
+        return true;
+      } catch (error) {
+        console.error("Error changing stage:", error);
+        toast.error("Failed to change stage");
+        return false;
+      }
+    }, [user, leads]);
  
    // Delete a lead
    const deleteLead = useCallback(async (id: string) => {
