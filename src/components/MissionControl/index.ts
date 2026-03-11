@@ -11,4 +11,5 @@ export { default as DailyBriefing } from './DailyBriefing';
 export { default as TodaysTasks } from './TodaysTasks';
 export { default as UnifiedProgressCard } from './UnifiedProgressCard';
 export { default as MissionHQCard } from './MissionHQCard';
+export { default as MyaCelebrationPopup } from './MyaCelebrationPopup';
 export * from './types';
