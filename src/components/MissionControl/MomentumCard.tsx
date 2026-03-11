@@ -1,4 +1,5 @@
 import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { Flame } from 'lucide-react';
 
 interface MomentumCardProps {
@@ -30,12 +31,17 @@ export default function MomentumCard({ count }: MomentumCardProps) {
               'text-destructive'
             }`} />
           </div>
-          <div>
+          <div className="flex-1">
             <p className="text-2xl font-display font-bold">{count}</p>
             <p className="text-xs text-muted-foreground">
               {labels[intensity]} <span className="opacity-50">24h</span>
             </p>
           </div>
+          {count > 0 && (
+            <Badge className="bg-destructive/20 text-destructive border-destructive/30 animate-pulse">
+              🔥 Momentum Active
+            </Badge>
+          )}
         </div>
       </CardContent>
     </Card>
