@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useWorkflowBuilder } from "@/hooks/useWorkflowBuilder";
 import { useWorkflowExecution } from "@/hooks/useWorkflowExecution";
 import { useWorkflowSchedule } from "@/hooks/useWorkflowSchedule";
+import { useNexusWorkflowStatus } from "@/hooks/useNexusWorkflowStatus";
 import { Canvas } from "@/components/WorkflowBuilder/Canvas";
 import { NodePalette } from "@/components/WorkflowBuilder/NodePalette";
 import { NodeInspector } from "@/components/WorkflowBuilder/NodeInspector";
