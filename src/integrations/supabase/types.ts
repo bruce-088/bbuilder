@@ -545,6 +545,48 @@ export type Database = {
           },
         ]
       }
+      leads: {
+        Row: {
+          company: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          last_activity_at: string | null
+          metadata: Json | null
+          name: string
+          potential_value: number | null
+          source: string | null
+          status: string | null
+          user_id: string | null
+        }
+        Insert: {
+          company?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          last_activity_at?: string | null
+          metadata?: Json | null
+          name: string
+          potential_value?: number | null
+          source?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          company?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          last_activity_at?: string | null
+          metadata?: Json | null
+          name?: string
+          potential_value?: number | null
+          source?: string | null
+          status?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       mission_events: {
         Row: {
           created_at: string
