@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { LivePulseDashboard, SystemLog } from "@/components/StrategicCommand";
 import { useAuth } from "@/contexts/AuthContext";
+import MyaCelebrationPopup from "@/components/MissionControl/MyaCelebrationPopup";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -21,6 +22,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         {children}
         <SystemLog />
       </div>
+      <MyaCelebrationPopup />
     </div>
   );
 }

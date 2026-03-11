@@ -148,6 +148,13 @@ export function useMissionIntelligence() {
             celebrate(newEvent.quest_unlocked);
           }
 
+          // Fire Mya celebration popup
+          if (newEvent.xp_awarded > 0) {
+            window.dispatchEvent(new CustomEvent('mya-celebrate', {
+              detail: { xp: newEvent.xp_awarded, questId: newEvent.quest_unlocked },
+            }));
+          }
+
           // Update momentum
           setMomentumCount(prev => prev + 1);
         }
