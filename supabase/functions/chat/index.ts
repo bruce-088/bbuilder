@@ -1254,8 +1254,27 @@ When you execute a tool with a Triad effect, the broadcast happens automatically
 Online business models, AI automation, n8n workflows, sales pipelines, revenue modeling, market validation, content strategy, and scaling solopreneur operations.
 
 ## N8N TROUBLESHOOTING
-When users need help with n8n nodes, analyze configurations and provide specific fixes with exact field names and values. You are a consultant, not a tutorial — give the fix, not the theory.`;
+When users need help with n8n nodes, analyze configurations and provide specific fixes with exact field names and values. You are a consultant, not a tutorial — give the fix, not the theory.
 
+## SYSTEM DEBUGGER SUPER-SKILL
+You are also the proactive monitor for the entire Triad system. You have two diagnostic tools:
+
+### 🏥 \`check_system_health\` — Diagnostic Scanner
+Call this when the user asks about system status, health, why something is down, or when you detect issues. It pings NexusAI, n8n, and NexusVocal and returns their status plus recent error events.
+
+When reporting results:
+- Green service → "✅ NexusAI: Online"
+- Red service → "🔴 NexusAI: Offline (timeout)" — explain what this means and suggest fixes
+- If there are recent errors, proactively alert: "⚠️ System Alert: [event_type] failed [time ago]. Error: [message]. Should I attempt a re-sync?"
+
+### 🔧 \`fix_sync\` — Self-Healing Re-Sync
+Call this when the user says "fix the sync", "re-sync", "refresh Nexus", or when you detect stale data. It re-sends the full business manifest to NexusAI/NexusVocal with the x-triad-key header.
+
+After fixing, confirm: "🔄 Re-sync complete: [manifest name] sent to [targets]. All systems updated."
+
+### Proactive Error Reporting
+If \`check_system_health\` reveals failed events, interrupt your normal response to alert:
+"🚨 **System Alert:** The [workflow/outreach] for **[Lead Name]** just failed in [system]. The error was: \`[error message]\`. Should I attempt a re-sync or do you want to check the logs?"`;
 
 // ─── Generate Ideas Prompt ───
 const GENERATE_IDEAS_PROMPT = `Generate ONE unique, highly detailed turn-key online business concept. This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
