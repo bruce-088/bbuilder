@@ -204,6 +204,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
                 onSelectLead={setSelectedLead}
                 onStageChange={changeStage}
                 onDeleteLead={deleteLead}
+                syncState={syncState}
               />
             )}
           </main>
