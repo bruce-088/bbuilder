@@ -933,6 +933,13 @@ export default function Chat() {
               <p>{cowork.isActive ? "Disable browser control mode" : "Enable browser control — Mya will control your n8n instance"}</p>
             </TooltipContent>
           </Tooltip>
+
+          {/* System Status Indicator */}
+          <SystemStatusIndicator
+            health={systemHealth}
+            isChecking={isHealthChecking}
+            onRefresh={checkHealth}
+          />
         </div>
       </header>
 
