@@ -22,14 +22,15 @@ interface LeadPipelineProps {
    { stage: "lost", label: "Lost", color: "bg-red-500/20 text-red-400 border-red-500/30" },
  ];
  
- export function LeadPipeline({ 
-   leadsByStage, 
-   onSelectLead, 
-   onStageChange,
-   onDeleteLead 
- }: LeadPipelineProps) {
-   const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
-   const [dropTarget, setDropTarget] = useState<LeadStage | null>(null);
+export function LeadPipeline({ 
+  leadsByStage, 
+  onSelectLead, 
+  onStageChange,
+  onDeleteLead,
+  syncState,
+}: LeadPipelineProps) {
+  const [draggedLead, setDraggedLead] = useState<Lead | null>(null);
+  const [dropTarget, setDropTarget] = useState<LeadStage | null>(null);
  
    const handleDragStart = (lead: Lead) => {
      setDraggedLead(lead);
