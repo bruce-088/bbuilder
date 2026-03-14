@@ -37,6 +37,7 @@ import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import SavePromptBanner from "@/components/SavePromptBanner";
 import PostSaveDialog from "@/components/PostSaveDialog";
 import { WorkflowContextPanel, VerifyFixButton, VoiceInputButton, AudioPlaybackButton, CoworkExecutionCard, CoworkBrowserPanel, CopilotActionCard, VoiceModeOverlay } from "@/components/Chat";
+import { SystemStatusIndicator } from "@/components/Chat/SystemStatusIndicator";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { useN8nWorkflowContext } from "@/hooks/useN8nWorkflowContext";
