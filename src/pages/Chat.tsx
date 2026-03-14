@@ -1513,7 +1513,7 @@ export default function Chat() {
             {/* Quick action chips */}
             {!isStreaming && (
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {["Add a lead", "Log revenue", "Pipeline stats", "Business summary"].map((chip) => (
+                {["Add a lead", "Log revenue", "Pipeline stats", "System health check"].map((chip) => (
                   <button
                     key={chip}
                     onClick={() => { setInput(chip); footerTextareaRef.current?.focus(); }}
