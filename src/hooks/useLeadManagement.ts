@@ -1,10 +1,17 @@
- import { useState, useEffect, useCallback } from "react";
- import { supabase } from "@/integrations/supabase/client";
- import { useAuth } from "@/contexts/AuthContext";
- import { toast } from "sonner";
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
 import { celebrateFirstIdea } from "@/lib/confetti";
- 
+
+export type SyncStatus = "idle" | "syncing" | "success" | "error";
+export interface SyncState {
+  status: SyncStatus;
+  message: string;
+  lastSyncAt: string | null;
+}
+
  export type LeadStage = "captured" | "qualified" | "outreach" | "nurturing" | "won" | "lost";
  export type LeadSource = "landing_page" | "referral" | "n8n_webhook" | "manual";
  export type ActivityType = "note" | "email_sent" | "call" | "stage_change" | "webhook_event";
