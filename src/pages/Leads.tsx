@@ -47,8 +47,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
      addActivity,
      fetchActivities,
      getStats,
-     getLeadsByStage,
-   } = useLeadManagement();
+    getLeadsByStage,
+    syncState,
+  } = useLeadManagement();
  
    const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
    const [showAddDialog, setShowAddDialog] = useState(false);
