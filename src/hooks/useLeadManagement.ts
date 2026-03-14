@@ -256,34 +256,14 @@ export function useLeadManagement() {
          });
 
         // ── Triad Sync: broadcast LEAD_STAGE_CHANGED to NexusAI ──
-        supabase.functions.invoke("sync-to-nexus", {
-          body: {
-            event_type: "LEAD_STAGE_CHANGED",
-            source_app: "business_builder",
-            payload: {
-              lead_id: id,
-              lead_name: lead.name,
-              company: lead.company,
-              from_stage: oldStage,
-              to_stage: newStage,
-              estimated_value: lead.estimated_value,
-            },
-          },
-        }).catch(err => console.warn("Triad sync (stage change) failed:", err));
-
-        // Also persist locally to triad_events
-        supabase.from("triad_events").insert({
-          user_id: user.id,
-          event_type: "LEAD_STAGE_CHANGED",
-          source_app: "business_builder",
-          payload: {
-            lead_id: id,
-            lead_name: lead.name,
-            from_stage: oldStage,
-            to_stage: newStage,
-            estimated_value: lead.estimated_value,
-          } as unknown as Json,
-        }).then(({ error: insertErr }) => { if (insertErr) console.warn('triad_events insert:', insertErr); });
+        relayTriadEvent("LEAD_STAGE_CHANGED", {
+          lead_id: id,
+          lead_name: lead.name,
+          company: lead.company,
+          from_stage: oldStage,
+          to_stage: newStage,
+          estimated_value: lead.estimated_value,
+        });
 
         // ── Gamification: emit mission events with stage-specific XP ──
         if ((window as any).__emitMissionEvent) {
