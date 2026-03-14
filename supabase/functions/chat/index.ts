@@ -287,6 +287,32 @@ const COPILOT_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "check_system_health",
+      description: "Check the health of the entire Triad system: NexusAI, n8n, and NexusVocal. Pings each service and checks for recent errors in triad_events. Use when the user asks about system status, health, diagnostics, or why something is red/down.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fix_sync",
+      description: "Re-send the business manifest to NexusAI to fix sync issues. Use when the user says 'fix the sync', 're-sync', or 'refresh Nexus data'.",
+      parameters: {
+        type: "object",
+        properties: {
+          target: { type: "string", description: "Which system to re-sync to", enum: ["nexusai", "nexusvocal", "all"] },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ─── Helper: find lead by name or ID ───
