@@ -113,6 +113,9 @@ export default function Chat() {
   const cowork = useCoworkMode();
   const [showBrowserPanel, setShowBrowserPanel] = useState(false);
 
+  // System health monitoring
+  const { health: systemHealth, isChecking: isHealthChecking, checkHealth } = useSystemHealth();
+
   // Voice mode send handler — sends text through the normal chat pipeline
   const handleVoiceModeSend = useCallback(async (text: string) => {
     if (!user || !id) return;
