@@ -59,9 +59,30 @@ export function LeadPipeline({
      return leadsByStage[stage].reduce((sum, lead) => sum + (lead.estimated_value || 0), 0);
    };
  
-   return (
-     <ScrollArea className="w-full">
-       <div className="flex gap-4 p-4 min-w-max">
+  return (
+    <div className="space-y-2">
+      {/* Sync Status Indicator */}
+      {syncState && syncState.status !== "idle" && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0 }}
+          className={`mx-4 px-3 py-2 rounded-md text-xs font-medium flex items-center gap-2 ${
+            syncState.status === "syncing"
+              ? "bg-blue-500/10 text-blue-400 border border-blue-500/20"
+              : syncState.status === "success"
+              ? "bg-green-500/10 text-green-400 border border-green-500/20"
+              : "bg-red-500/10 text-red-400 border border-red-500/20"
+          }`}
+        >
+          {syncState.status === "syncing" && (
+            <span className="inline-block h-2 w-2 rounded-full bg-blue-400 animate-pulse" />
+          )}
+          {syncState.message}
+        </motion.div>
+      )}
+      <ScrollArea className="w-full">
+        <div className="flex gap-4 p-4 min-w-max">
          {stageConfig.map(({ stage, label, color }) => {
            const leads = leadsByStage[stage];
            const totalValue = getStageValue(stage);
