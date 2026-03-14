@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams, Navigate, useLocation } from "
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { streamChat, Message, addMemories, searchMemories, N8nContext } from "@/lib/ai";
+import { useSystemHealth } from "@/hooks/useSystemHealth";
 import { useCoworkMode } from "@/hooks/useCoworkMode";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
