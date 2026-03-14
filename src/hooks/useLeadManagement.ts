@@ -1,10 +1,17 @@
- import { useState, useEffect, useCallback } from "react";
- import { supabase } from "@/integrations/supabase/client";
- import { useAuth } from "@/contexts/AuthContext";
- import { toast } from "sonner";
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { toast } from "sonner";
 import type { Json } from "@/integrations/supabase/types";
 import { celebrateFirstIdea } from "@/lib/confetti";
- 
+
+export type SyncStatus = "idle" | "syncing" | "success" | "error";
+export interface SyncState {
+  status: SyncStatus;
+  message: string;
+  lastSyncAt: string | null;
+}
+
  export type LeadStage = "captured" | "qualified" | "outreach" | "nurturing" | "won" | "lost";
  export type LeadSource = "landing_page" | "referral" | "n8n_webhook" | "manual";
  export type ActivityType = "note" | "email_sent" | "call" | "stage_change" | "webhook_event";
@@ -53,13 +60,42 @@ import { celebrateFirstIdea } from "@/lib/confetti";
  
  const STAGES: LeadStage[] = ["captured", "qualified", "outreach", "nurturing", "won", "lost"];
  
- export function useLeadManagement() {
-   const { user } = useAuth();
-   const [leads, setLeads] = useState<Lead[]>([]);
-   const [activities, setActivities] = useState<Record<string, LeadActivity[]>>({});
-   const [loading, setLoading] = useState(true);
-   const [filters, setFilters] = useState<LeadFilters>({ stage: "all", source: "all" });
- 
+export function useLeadManagement() {
+    const { user } = useAuth();
+    const [leads, setLeads] = useState<Lead[]>([]);
+    const [activities, setActivities] = useState<Record<string, LeadActivity[]>>({});
+    const [loading, setLoading] = useState(true);
+    const [filters, setFilters] = useState<LeadFilters>({ stage: "all", source: "all" });
+    const [syncState, setSyncState] = useState<SyncState>({ status: "idle", message: "", lastSyncAt: null });
+
+    // Helper: relay event to NexusAI/NexusVocal via dedicated edge function
+    const relayTriadEvent = useCallback(async (eventType: string, payload: Record<string, unknown>) => {
+      setSyncState({ status: "syncing", message: "📡 Connecting to Nexus...", lastSyncAt: null });
+      try {
+        const { data, error } = await supabase.functions.invoke("relay-triad-event", {
+          body: { event_type: eventType, source_app: "business_builder", payload },
+        });
+
+        if (error) throw new Error(error.message || "Function invocation failed");
+
+        if (data?.success) {
+          const targets = (data.results || []).map((r: any) => r.label).join(", ");
+          setSyncState({ status: "success", message: `✅ Lead Received by ${targets || "Nexus"}`, lastSyncAt: new Date().toISOString() });
+        } else if (data?.error === "NO_SYNC_TARGETS") {
+          setSyncState({ status: "error", message: "❌ No sync targets configured", lastSyncAt: null });
+        } else {
+          const errDetails = (data?.results || []).filter((r: any) => !r.success).map((r: any) => `${r.label}: ${r.response}`).join("; ");
+          setSyncState({ status: "error", message: `❌ Error: ${errDetails || data?.error || "Unknown"}`, lastSyncAt: null });
+        }
+        return data;
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        setSyncState({ status: "error", message: `❌ Error: ${msg}`, lastSyncAt: null });
+        console.error("relayTriadEvent failed:", err);
+        return null;
+      }
+    }, []);
+
    // Fetch all leads
    const fetchLeads = useCallback(async () => {
      if (!user) return;
@@ -220,34 +256,14 @@ import { celebrateFirstIdea } from "@/lib/confetti";
          });
 
         // ── Triad Sync: broadcast LEAD_STAGE_CHANGED to NexusAI ──
-        supabase.functions.invoke("sync-to-nexus", {
-          body: {
-            event_type: "LEAD_STAGE_CHANGED",
-            source_app: "business_builder",
-            payload: {
-              lead_id: id,
-              lead_name: lead.name,
-              company: lead.company,
-              from_stage: oldStage,
-              to_stage: newStage,
-              estimated_value: lead.estimated_value,
-            },
-          },
-        }).catch(err => console.warn("Triad sync (stage change) failed:", err));
-
-        // Also persist locally to triad_events
-        supabase.from("triad_events").insert({
-          user_id: user.id,
-          event_type: "LEAD_STAGE_CHANGED",
-          source_app: "business_builder",
-          payload: {
-            lead_id: id,
-            lead_name: lead.name,
-            from_stage: oldStage,
-            to_stage: newStage,
-            estimated_value: lead.estimated_value,
-          } as unknown as Json,
-        }).then(({ error: insertErr }) => { if (insertErr) console.warn('triad_events insert:', insertErr); });
+        relayTriadEvent("LEAD_STAGE_CHANGED", {
+          lead_id: id,
+          lead_name: lead.name,
+          company: lead.company,
+          from_stage: oldStage,
+          to_stage: newStage,
+          estimated_value: lead.estimated_value,
+        });
 
         // ── Gamification: emit mission events with stage-specific XP ──
         if ((window as any).__emitMissionEvent) {
@@ -501,6 +517,9 @@ import { celebrateFirstIdea } from "@/lib/confetti";
      activities,
      loading,
      filters,
+    syncState,
+     setSyncState,
+     relayTriadEvent,
      setFilters,
      fetchLeads,
      fetchActivities,
