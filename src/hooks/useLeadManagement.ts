@@ -60,13 +60,42 @@ export interface SyncState {
  
  const STAGES: LeadStage[] = ["captured", "qualified", "outreach", "nurturing", "won", "lost"];
  
- export function useLeadManagement() {
-   const { user } = useAuth();
-   const [leads, setLeads] = useState<Lead[]>([]);
-   const [activities, setActivities] = useState<Record<string, LeadActivity[]>>({});
-   const [loading, setLoading] = useState(true);
-   const [filters, setFilters] = useState<LeadFilters>({ stage: "all", source: "all" });
- 
+export function useLeadManagement() {
+    const { user } = useAuth();
+    const [leads, setLeads] = useState<Lead[]>([]);
+    const [activities, setActivities] = useState<Record<string, LeadActivity[]>>({});
+    const [loading, setLoading] = useState(true);
+    const [filters, setFilters] = useState<LeadFilters>({ stage: "all", source: "all" });
+    const [syncState, setSyncState] = useState<SyncState>({ status: "idle", message: "", lastSyncAt: null });
+
+    // Helper: relay event to NexusAI/NexusVocal via dedicated edge function
+    const relayTriadEvent = useCallback(async (eventType: string, payload: Record<string, unknown>) => {
+      setSyncState({ status: "syncing", message: "📡 Connecting to Nexus...", lastSyncAt: null });
+      try {
+        const { data, error } = await supabase.functions.invoke("relay-triad-event", {
+          body: { event_type: eventType, source_app: "business_builder", payload },
+        });
+
+        if (error) throw new Error(error.message || "Function invocation failed");
+
+        if (data?.success) {
+          const targets = (data.results || []).map((r: any) => r.label).join(", ");
+          setSyncState({ status: "success", message: `✅ Lead Received by ${targets || "Nexus"}`, lastSyncAt: new Date().toISOString() });
+        } else if (data?.error === "NO_SYNC_TARGETS") {
+          setSyncState({ status: "error", message: "❌ No sync targets configured", lastSyncAt: null });
+        } else {
+          const errDetails = (data?.results || []).filter((r: any) => !r.success).map((r: any) => `${r.label}: ${r.response}`).join("; ");
+          setSyncState({ status: "error", message: `❌ Error: ${errDetails || data?.error || "Unknown"}`, lastSyncAt: null });
+        }
+        return data;
+      } catch (err: any) {
+        const msg = err?.message || String(err);
+        setSyncState({ status: "error", message: `❌ Error: ${msg}`, lastSyncAt: null });
+        console.error("relayTriadEvent failed:", err);
+        return null;
+      }
+    }, []);
+
    // Fetch all leads
    const fetchLeads = useCallback(async () => {
      if (!user) return;
