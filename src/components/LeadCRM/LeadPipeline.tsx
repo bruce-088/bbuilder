@@ -1,16 +1,17 @@
- import { useState } from "react";
- import { motion, AnimatePresence } from "framer-motion";
- import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
- import { Badge } from "@/components/ui/badge";
- import { LeadCard } from "./LeadCard";
- import type { Lead, LeadStage } from "@/hooks/useLeadManagement";
- 
- interface LeadPipelineProps {
-   leadsByStage: Record<LeadStage, Lead[]>;
-   onSelectLead: (lead: Lead) => void;
-   onStageChange: (id: string, stage: LeadStage) => void;
-   onDeleteLead: (id: string) => void;
- }
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { LeadCard } from "./LeadCard";
+import type { Lead, LeadStage, SyncState } from "@/hooks/useLeadManagement";
+
+interface LeadPipelineProps {
+  leadsByStage: Record<LeadStage, Lead[]>;
+  onSelectLead: (lead: Lead) => void;
+  onStageChange: (id: string, stage: LeadStage) => void;
+  onDeleteLead: (id: string) => void;
+  syncState?: SyncState;
+}
  
  const stageConfig: { stage: LeadStage; label: string; color: string }[] = [
    { stage: "captured", label: "Captured", color: "bg-blue-500/20 text-blue-400 border-blue-500/30" },
