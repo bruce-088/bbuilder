@@ -158,7 +158,8 @@ export function LeadPipeline({
            );
          })}
        </div>
-       <ScrollBar orientation="horizontal" />
-     </ScrollArea>
-   );
- }
+      <ScrollBar orientation="horizontal" />
+    </ScrollArea>
+    </div>
+  );
+}
