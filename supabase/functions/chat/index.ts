@@ -287,6 +287,32 @@ const COPILOT_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "check_system_health",
+      description: "Check the health of the entire Triad system: NexusAI, n8n, and NexusVocal. Pings each service and checks for recent errors in triad_events. Use when the user asks about system status, health, diagnostics, or why something is red/down.",
+      parameters: {
+        type: "object",
+        properties: {},
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "fix_sync",
+      description: "Re-send the business manifest to NexusAI to fix sync issues. Use when the user says 'fix the sync', 're-sync', or 'refresh Nexus data'.",
+      parameters: {
+        type: "object",
+        properties: {
+          target: { type: "string", description: "Which system to re-sync to", enum: ["nexusai", "nexusvocal", "all"] },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ─── Helper: find lead by name or ID ───
@@ -924,6 +950,210 @@ async function executeTool(
         return { success: true, data: { source: "business_ideas", ideas, primary: ideas[0] } };
       }
 
+      case "check_system_health": {
+        const syncSecret = Deno.env.get("TRIAD_SYNC_SECRET") || "";
+        const nexusUrl = (Deno.env.get("NEXUS_API_URL") || "").trim();
+        const vocalUrl = (Deno.env.get("WEATHERPOST_API_URL") || "").trim();
+
+        // Ping NexusAI
+        let nexusStatus = "unknown";
+        if (nexusUrl && !nexusUrl.includes("localhost")) {
+          try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 5000);
+            const res = await fetch(nexusUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-triad-key": syncSecret },
+              body: JSON.stringify({ action: "health_check", ts: new Date().toISOString() }),
+              signal: ctrl.signal,
+            });
+            clearTimeout(tid);
+            nexusStatus = res.ok || res.status === 200 ? "up" : `down (${res.status})`;
+          } catch (e: any) {
+            nexusStatus = e?.name === "AbortError" ? "down (timeout)" : "down (unreachable)";
+          }
+        } else {
+          nexusStatus = "not_configured";
+        }
+
+        // Ping NexusVocal
+        let vocalStatus = "unknown";
+        if (vocalUrl && !vocalUrl.includes("localhost")) {
+          try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 5000);
+            const res = await fetch(vocalUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-triad-key": syncSecret },
+              body: JSON.stringify({ action: "health_check", ts: new Date().toISOString() }),
+              signal: ctrl.signal,
+            });
+            clearTimeout(tid);
+            vocalStatus = res.ok || res.status === 200 ? "up" : `down (${res.status})`;
+          } catch (e: any) {
+            vocalStatus = e?.name === "AbortError" ? "down (timeout)" : "down (unreachable)";
+          }
+        } else {
+          vocalStatus = "not_configured";
+        }
+
+        // Check n8n via user preferences
+        let n8nStatus = "unknown";
+        const { data: prefs } = await supabaseAdmin
+          .from("user_preferences")
+          .select("n8n_instance_url")
+          .eq("user_id", userId)
+          .maybeSingle();
+
+        if (prefs?.n8n_instance_url) {
+          try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 5000);
+            const res = await fetch(prefs.n8n_instance_url, { method: "GET", signal: ctrl.signal });
+            clearTimeout(tid);
+            n8nStatus = res.ok || res.status === 200 ? "up" : `down (${res.status})`;
+          } catch (e: any) {
+            n8nStatus = e?.name === "AbortError" ? "down (timeout)" : "down (unreachable)";
+          }
+        } else {
+          n8nStatus = "not_configured";
+        }
+
+        // Check recent error events
+        const { data: errorEvents } = await supabaseAdmin
+          .from("triad_events")
+          .select("id, event_type, payload, created_at, source_app")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false })
+          .limit(20);
+
+        const errors = (errorEvents || []).filter((e: any) => {
+          const p = e.payload;
+          return p?.status === "error" || p?.error || p?.success === false || e.event_type?.includes("ERROR") || e.event_type?.includes("FAILED");
+        }).slice(0, 5);
+
+        return {
+          success: true,
+          data: {
+            nexusai: nexusStatus,
+            nexusvocal: vocalStatus,
+            n8n: n8nStatus,
+            recent_errors: errors.map((e: any) => ({
+              event_type: e.event_type,
+              source: e.source_app,
+              error: e.payload?.error || e.payload?.message || JSON.stringify(e.payload).slice(0, 200),
+              when: e.created_at,
+            })),
+            checked_at: new Date().toISOString(),
+          },
+        };
+      }
+
+      case "fix_sync": {
+        const target = (args.target as string) || "all";
+
+        // Get latest manifest
+        const { data: manifest } = await supabaseAdmin
+          .from("triad_manifests")
+          .select("*")
+          .eq("id", userId)
+          .maybeSingle();
+
+        // Fall back to latest business idea
+        let payload: Record<string, unknown>;
+        if (manifest) {
+          payload = {
+            action: "manifest",
+            business_name: manifest.business_name,
+            niche: manifest.niche,
+            target_audience: manifest.target_audience,
+            content_pillars: manifest.content_pillars,
+            crm_stages: manifest.crm_stages,
+            metadata: manifest.metadata,
+          };
+        } else {
+          const { data: idea } = await supabaseAdmin
+            .from("business_ideas")
+            .select("*")
+            .eq("user_id", userId)
+            .order("is_favorite", { ascending: false })
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (!idea) {
+            return { success: false, error: "No business manifest or idea found to sync" };
+          }
+
+          payload = {
+            action: "manifest",
+            business_name: idea.business_name,
+            niche: idea.niche,
+            target_audience: idea.target_audience,
+            service_offering: idea.service_offering,
+            value_proposition: idea.value_proposition,
+          };
+        }
+
+        const syncSecret = Deno.env.get("TRIAD_SYNC_SECRET") || "";
+        const nexusUrl = (Deno.env.get("NEXUS_API_URL") || "").trim();
+        const vocalUrl = (Deno.env.get("WEATHERPOST_API_URL") || "").trim();
+        const results: Array<{ target: string; success: boolean; status?: number; response?: string }> = [];
+
+        if ((target === "all" || target === "nexusai") && nexusUrl && !nexusUrl.includes("localhost")) {
+          try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 10000);
+            const res = await fetch(nexusUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-triad-key": syncSecret },
+              body: JSON.stringify({ ...payload, user_id: userId, ts: new Date().toISOString() }),
+              signal: ctrl.signal,
+            });
+            clearTimeout(tid);
+            const text = await res.text().catch(() => "");
+            results.push({ target: "NexusAI", success: res.ok, status: res.status, response: text.slice(0, 300) });
+          } catch (e: any) {
+            results.push({ target: "NexusAI", success: false, response: String(e) });
+          }
+        }
+
+        if ((target === "all" || target === "nexusvocal") && vocalUrl && !vocalUrl.includes("localhost")) {
+          try {
+            const ctrl = new AbortController();
+            const tid = setTimeout(() => ctrl.abort(), 10000);
+            const res = await fetch(vocalUrl, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-triad-key": syncSecret },
+              body: JSON.stringify({ ...payload, user_id: userId, ts: new Date().toISOString() }),
+              signal: ctrl.signal,
+            });
+            clearTimeout(tid);
+            const text = await res.text().catch(() => "");
+            results.push({ target: "NexusVocal", success: res.ok, status: res.status, response: text.slice(0, 300) });
+          } catch (e: any) {
+            results.push({ target: "NexusVocal", success: false, response: String(e) });
+          }
+        }
+
+        // Log the fix attempt as a triad event
+        await broadcastTriadEvent(supabaseAdmin, userId, "SYNC_FIX_ATTEMPTED", "business_builder", {
+          target,
+          results,
+          manifest_name: (payload as any).business_name,
+        });
+
+        const allOk = results.every((r) => r.success);
+        return {
+          success: allOk,
+          data: {
+            results,
+            manifest_sent: (payload as any).business_name,
+            fix_status: allOk ? "All targets re-synced successfully" : "Some targets failed — check results",
+          },
+        };
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -1001,6 +1231,12 @@ Occasionally (not every time), add a proactive sync note like:
 | Pipeline health & conversion rates | \`get_pipeline_stats\` | reads Triad event data |
 | Recall business identity & strategy | \`get_business_summary\` | reads latest triad_manifest |
 
+### 🏥 System Diagnostics (2 tools)
+| Intent | Tool | Triad Effect |
+|---|---|---|
+| Check system health / why red light | \`check_system_health\` | pings NexusAI, n8n, NexusVocal |
+| Fix sync / re-send manifest | \`fix_sync\` | re-sends manifest to targets |
+
 ## TRIAD ECOSYSTEM — REAL-TIME SYNC
 You are the command center of the Triad. Every action you take ripples across the entire system:
 - **CRM actions** (add/update/move lead) → instantly mirrored in NexusAI's CRM
@@ -1024,8 +1260,27 @@ When you execute a tool with a Triad effect, the broadcast happens automatically
 Online business models, AI automation, n8n workflows, sales pipelines, revenue modeling, market validation, content strategy, and scaling solopreneur operations.
 
 ## N8N TROUBLESHOOTING
-When users need help with n8n nodes, analyze configurations and provide specific fixes with exact field names and values. You are a consultant, not a tutorial — give the fix, not the theory.`;
+When users need help with n8n nodes, analyze configurations and provide specific fixes with exact field names and values. You are a consultant, not a tutorial — give the fix, not the theory.
 
+## SYSTEM DEBUGGER SUPER-SKILL
+You are also the proactive monitor for the entire Triad system. You have two diagnostic tools:
+
+### 🏥 \`check_system_health\` — Diagnostic Scanner
+Call this when the user asks about system status, health, why something is down, or when you detect issues. It pings NexusAI, n8n, and NexusVocal and returns their status plus recent error events.
+
+When reporting results:
+- Green service → "✅ NexusAI: Online"
+- Red service → "🔴 NexusAI: Offline (timeout)" — explain what this means and suggest fixes
+- If there are recent errors, proactively alert: "⚠️ System Alert: [event_type] failed [time ago]. Error: [message]. Should I attempt a re-sync?"
+
+### 🔧 \`fix_sync\` — Self-Healing Re-Sync
+Call this when the user says "fix the sync", "re-sync", "refresh Nexus", or when you detect stale data. It re-sends the full business manifest to NexusAI/NexusVocal with the x-triad-key header.
+
+After fixing, confirm: "🔄 Re-sync complete: [manifest name] sent to [targets]. All systems updated."
+
+### Proactive Error Reporting
+If \`check_system_health\` reveals failed events, interrupt your normal response to alert:
+"🚨 **System Alert:** The [workflow/outreach] for **[Lead Name]** just failed in [system]. The error was: \`[error message]\`. Should I attempt a re-sync or do you want to check the logs?"`;
 
 // ─── Generate Ideas Prompt ───
 const GENERATE_IDEAS_PROMPT = `Generate ONE unique, highly detailed turn-key online business concept. This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.

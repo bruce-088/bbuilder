@@ -3,6 +3,7 @@ import { useParams, useNavigate, useSearchParams, Navigate, useLocation } from "
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { streamChat, Message, addMemories, searchMemories, N8nContext } from "@/lib/ai";
+import { useSystemHealth } from "@/hooks/useSystemHealth";
 import { useCoworkMode } from "@/hooks/useCoworkMode";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -36,6 +37,7 @@ import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
 import SavePromptBanner from "@/components/SavePromptBanner";
 import PostSaveDialog from "@/components/PostSaveDialog";
 import { WorkflowContextPanel, VerifyFixButton, VoiceInputButton, AudioPlaybackButton, CoworkExecutionCard, CoworkBrowserPanel, CopilotActionCard, VoiceModeOverlay } from "@/components/Chat";
+import { SystemStatusIndicator } from "@/components/Chat/SystemStatusIndicator";
 import { useVoiceMode } from "@/hooks/useVoiceMode";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { useN8nWorkflowContext } from "@/hooks/useN8nWorkflowContext";
@@ -110,6 +112,9 @@ export default function Chat() {
   // Cowork mode hook
   const cowork = useCoworkMode();
   const [showBrowserPanel, setShowBrowserPanel] = useState(false);
+
+  // System health monitoring
+  const { health: systemHealth, isChecking: isHealthChecking, checkHealth } = useSystemHealth();
 
   // Voice mode send handler — sends text through the normal chat pipeline
   const handleVoiceModeSend = useCallback(async (text: string) => {
@@ -928,6 +933,13 @@ export default function Chat() {
               <p>{cowork.isActive ? "Disable browser control mode" : "Enable browser control — Mya will control your n8n instance"}</p>
             </TooltipContent>
           </Tooltip>
+
+          {/* System Status Indicator */}
+          <SystemStatusIndicator
+            health={systemHealth}
+            isChecking={isHealthChecking}
+            onRefresh={checkHealth}
+          />
         </div>
       </header>
 
@@ -1501,7 +1513,7 @@ export default function Chat() {
             {/* Quick action chips */}
             {!isStreaming && (
               <div className="flex flex-wrap gap-1.5 mb-2">
-                {["Add a lead", "Log revenue", "Pipeline stats", "Business summary"].map((chip) => (
+                {["Add a lead", "Log revenue", "Pipeline stats", "System health check"].map((chip) => (
                   <button
                     key={chip}
                     onClick={() => { setInput(chip); footerTextareaRef.current?.focus(); }}
