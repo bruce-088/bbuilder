@@ -1192,6 +1192,21 @@ export default function BusinessIdeaDialog({
                 </Card>
                 </>
                 )}
+
+                {/* Run in Exec - browser automation transcript */}
+                <Card className="glass border-emerald-500/20">
+                  <CardContent className="p-4">
+                    <ExecTranscriptPanel
+                      ideaId={idea.id}
+                      initialTranscript={idea.exec_transcript}
+                      onTranscriptUpdate={(t) =>
+                        setIdea((prev) =>
+                          prev ? { ...prev, exec_transcript: t } : prev,
+                        )
+                      }
+                    />
+                  </CardContent>
+                </Card>
               </div>
             </ScrollArea>
 
