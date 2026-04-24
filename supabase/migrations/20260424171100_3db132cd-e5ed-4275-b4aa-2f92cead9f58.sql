@@ -1,0 +1,1 @@
+ALTER TABLE public.business_ideas ADD COLUMN IF NOT EXISTS exec_transcript TEXT;
