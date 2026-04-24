@@ -151,6 +151,7 @@ export type Database = {
           business_name: string
           conversation_id: string | null
           created_at: string
+          exec_transcript: string | null
           id: string
           is_favorite: boolean
           niche: string
@@ -168,6 +169,7 @@ export type Database = {
           business_name: string
           conversation_id?: string | null
           created_at?: string
+          exec_transcript?: string | null
           id?: string
           is_favorite?: boolean
           niche: string
@@ -185,6 +187,7 @@ export type Database = {
           business_name?: string
           conversation_id?: string | null
           created_at?: string
+          exec_transcript?: string | null
           id?: string
           is_favorite?: boolean
           niche?: string
