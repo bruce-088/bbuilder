@@ -884,6 +884,21 @@ export default function BusinessIdeaDialog({
                   <BusinessPlanMindMap idea={idea} />
                 ) : (
                 <>
+                {/* Run in Exec — promoted to top so it's visible above the fold */}
+                <Card className="glass border-emerald-500/30 ring-1 ring-emerald-500/20 shadow-[0_0_24px_-12px_hsl(160_84%_39%/0.45)]">
+                  <CardContent className="p-4">
+                    <ExecTranscriptPanel
+                      ideaId={idea.id}
+                      initialTranscript={idea.exec_transcript}
+                      onTranscriptUpdate={(t) =>
+                        setIdea((prev) =>
+                          prev ? { ...prev, exec_transcript: t } : prev,
+                        )
+                      }
+                    />
+                  </CardContent>
+                </Card>
+
                 {/* Quick Start Checklist with Verification */}
                 <Card className="glass border-primary/20">
                   <CardContent className="p-4">
@@ -1192,21 +1207,6 @@ export default function BusinessIdeaDialog({
                 </Card>
                 </>
                 )}
-
-                {/* Run in Exec - browser automation transcript */}
-                <Card className="glass border-emerald-500/20">
-                  <CardContent className="p-4">
-                    <ExecTranscriptPanel
-                      ideaId={idea.id}
-                      initialTranscript={idea.exec_transcript}
-                      onTranscriptUpdate={(t) =>
-                        setIdea((prev) =>
-                          prev ? { ...prev, exec_transcript: t } : prev,
-                        )
-                      }
-                    />
-                  </CardContent>
-                </Card>
               </div>
             </ScrollArea>
 
