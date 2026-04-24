@@ -13,6 +13,7 @@ import Chat from "./pages/Chat";
 import Compare from "./pages/Compare";
 import ExportPrompt from "./pages/ExportPrompt";
 import ExportComputerUsePrompt from "./pages/ExportComputerUsePrompt";
+import ExportExecTranscript from "./pages/ExportExecTranscript";
 import NotFound from "./pages/NotFound";
 import Leads from "./pages/Leads";
 import Workflows from "./pages/Workflows";
@@ -37,6 +38,7 @@ const App = () => (
                 <Route path="/compare" element={<Compare />} />
                 <Route path="/export-prompt" element={<ExportPrompt />} />
                 <Route path="/export-computer-use-prompt" element={<ExportComputerUsePrompt />} />
+                <Route path="/export-exec-transcript" element={<ExportExecTranscript />} />
                 <Route path="/leads" element={<Leads />} />
                 <Route path="/workflows" element={<Workflows />} />
                 <Route path="/workflows/:id" element={<WorkflowEditor />} />
