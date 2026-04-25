@@ -105,8 +105,8 @@ export function LivePulseDashboard() {
       className="bg-gradient-to-r from-emerald-950 to-emerald-900 border-b border-emerald-800 px-6 py-3 sticky top-0 z-50 shadow-lg"
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
-        <div className="flex items-center gap-8">
-          {/* Active Niche */}
+        <div className="flex items-center gap-8 flex-wrap">
+          {/* Active Niche — always visible */}
           <motion.div
             whileHover={{ scale: 1.05 }}
             className="flex items-center gap-2 text-emerald-100"
@@ -118,44 +118,44 @@ export function LivePulseDashboard() {
             </span>
           </motion.div>
 
-          {/* Nexus Progress */}
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="flex items-center gap-2 text-emerald-100"
-          >
-            <Target className="h-4 w-4 text-amber-400" />
-            <span className="text-sm font-medium">Nexus Progress:</span>
-            <span className="text-sm text-amber-300 font-bold">
-              {metrics.nexusProgress}
-            </span>
-          </motion.div>
+          {/* Nexus Progress — only when > 0 */}
+          {metrics.nexusProgress > 0 && (
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="flex items-center gap-2 text-emerald-100"
+            >
+              <Target className="h-4 w-4 text-amber-400" />
+              <span className="text-sm font-medium">Nexus Progress:</span>
+              <span className="text-sm text-amber-300 font-bold">
+                {metrics.nexusProgress}
+              </span>
+            </motion.div>
+          )}
 
-          {/* Vocal Reach */}
-          <motion.div
-            whileHover={{ scale: 1.05 }}
-            className="flex items-center gap-2 text-emerald-100"
-          >
-            <Radio className="h-4 w-4 text-blue-400" />
-            <span className="text-sm font-medium">Vocal Reach:</span>
-            <span className="text-sm text-blue-300 font-bold">
-              {metrics.vocalReach}
-            </span>
-          </motion.div>
+          {/* Vocal Reach — only when > 0 */}
+          {metrics.vocalReach > 0 && (
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              className="flex items-center gap-2 text-emerald-100"
+            >
+              <Radio className="h-4 w-4 text-blue-400" />
+              <span className="text-sm font-medium">Vocal Reach:</span>
+              <span className="text-sm text-blue-300 font-bold">
+                {metrics.vocalReach}
+              </span>
+            </motion.div>
+          )}
         </div>
 
-        <motion.div
-          animate={{
-            opacity: [0.5, 1, 0.5],
-          }}
-          transition={{
-            duration: 2,
-            repeat: Infinity,
-            ease: "easeInOut",
-          }}
-          className="text-xs text-emerald-400 font-medium"
-        >
-          ● LIVE
-        </motion.div>
+        {(metrics.nexusProgress > 0 || metrics.vocalReach > 0) && (
+          <motion.div
+            animate={{ opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            className="text-xs text-emerald-400 font-medium"
+          >
+            ● LIVE
+          </motion.div>
+        )}
       </div>
     </motion.div>
   );
