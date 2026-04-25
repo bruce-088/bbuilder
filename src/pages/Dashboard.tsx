@@ -39,7 +39,6 @@ import { TodaysTasks } from "@/components/MissionControl";
 import MissionCard, { MissionStep } from "@/components/MissionControl/MissionCard";
 import MilestoneCard from "@/components/MissionControl/MilestoneCard";
 import MissionDetailsDialog from "@/components/MissionControl/MissionDetailsDialog";
-import StatusPill from "@/components/StatusPill";
 import { capabilities } from "@/components/UnifiedSetupGuide";
 import UnifiedSetupGuide from "@/components/UnifiedSetupGuide";
 import { useMissionProgress } from "@/hooks/useMissionProgress";
