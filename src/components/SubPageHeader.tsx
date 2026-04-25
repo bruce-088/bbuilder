@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles, Users, Workflow, MessagesSquare, FileText, Map as MapIcon, HelpCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import StatusPill from "@/components/StatusPill";
+
 
 interface SubPageHeaderProps {
   title: string;
@@ -53,7 +53,7 @@ export default function SubPageHeader({ title, description }: SubPageHeaderProps
             <Button onClick={handleSignOut} variant="ghost" size="sm">
               <LogOut className="w-4 h-4 mr-2" /> Sign Out
             </Button>
-            <StatusPill />
+            
           </div>
         </div>
       </nav>
