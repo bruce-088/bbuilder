@@ -88,25 +88,38 @@ export function RevenueCard() {
             <Progress value={stats.progressToGoal} className="h-2" />
           </div>
 
-          {/* Stats row */}
-          <div className="grid grid-cols-3 gap-2">
-            <div className="bg-muted/30 rounded-lg p-2 text-center">
-              <p className="text-[10px] text-muted-foreground">Total</p>
-              <p className="text-sm font-bold text-foreground">${stats.totalRevenue.toLocaleString()}</p>
-            </div>
-            <div className="bg-muted/30 rounded-lg p-2 text-center">
-              <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-0.5">
-                <Repeat className="h-2.5 w-2.5" /> MRR
-              </p>
-              <p className="text-sm font-bold text-foreground">${stats.mrr.toLocaleString()}</p>
-            </div>
-            <div className="bg-muted/30 rounded-lg p-2 text-center">
-              <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-0.5">
-                <TrendingUp className="h-2.5 w-2.5" /> This Month
-              </p>
-              <p className="text-sm font-bold text-foreground">${stats.monthlyRevenue.toLocaleString()}</p>
-            </div>
-          </div>
+          {/* Stats row — hide $0 rows unless ALL are zero */}
+          {(() => {
+            const all = [
+              { key: "total", label: "Total", value: stats.totalRevenue, icon: null },
+              { key: "mrr", label: "MRR", value: stats.mrr, icon: <Repeat className="h-2.5 w-2.5" /> },
+              { key: "month", label: "This Month", value: stats.monthlyRevenue, icon: <TrendingUp className="h-2.5 w-2.5" /> },
+            ];
+            const allZero = all.every((s) => s.value === 0);
+            if (allZero) {
+              return (
+                <div className="text-center py-2">
+                  <p className="text-xs text-muted-foreground mb-2">No revenue logged yet</p>
+                  <Button size="sm" variant="outline" className="h-8 text-xs" onClick={() => setShowAddDialog(true)}>
+                    <Plus className="h-3 w-3 mr-1" /> Log your first revenue
+                  </Button>
+                </div>
+              );
+            }
+            const visible = all.filter((s) => s.value > 0);
+            return (
+              <div className={`grid gap-2 ${visible.length === 1 ? "grid-cols-1" : visible.length === 2 ? "grid-cols-2" : "grid-cols-3"}`}>
+                {visible.map((s) => (
+                  <div key={s.key} className="bg-muted/30 rounded-lg p-2 text-center">
+                    <p className="text-[10px] text-muted-foreground flex items-center justify-center gap-0.5">
+                      {s.icon} {s.label}
+                    </p>
+                    <p className="text-sm font-bold text-foreground">${s.value.toLocaleString()}</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
 
           {/* Mini chart */}
           {entries.length > 0 && (
