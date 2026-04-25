@@ -249,6 +249,14 @@ export default function Dashboard() {
             <span className="font-display font-bold text-xl">Mya</span>
           </div>
           <div className="flex items-center gap-1 flex-wrap">
+            <Button
+              onClick={handleNewChat}
+              size="sm"
+              className="bg-emerald-500 hover:bg-emerald-600 text-white gap-1.5 mr-1"
+            >
+              <MessagesSquare className="w-4 h-4" />
+              Chat with Mya
+            </Button>
             <Button onClick={() => navigate("/leads")} variant="ghost" size="sm">
               <Users className="w-4 h-4 mr-2" /> Leads
             </Button>
