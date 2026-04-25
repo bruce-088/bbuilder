@@ -13,11 +13,15 @@ interface TodaysTasksProps {
 export default function TodaysTasks({ onNavigateToChat, onOpenSetupGuide, currentSetupStep }: TodaysTasksProps) {
   const { leads } = useLeadManagement();
 
+  // TODO: replace with is_seed column once DB migration ships
+  const SEED_LEAD_NAMES = new Set(['Captain Reality', 'Test Lead', 'Demo User']);
+
   const staleLeads = useMemo(() => {
     const threeDaysAgo = new Date();
     threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
     return leads
       .filter((l: Lead) => {
+        if (SEED_LEAD_NAMES.has(l.name)) return false;
         if (l.stage === "won" || l.stage === "lost") return false;
         const lastContact = l.last_contact_at ? new Date(l.last_contact_at) : new Date(l.created_at);
         return lastContact < threeDaysAgo;
