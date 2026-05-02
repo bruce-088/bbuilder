@@ -275,6 +275,7 @@ export default function Dashboard() {
             <Button onClick={() => setShowHowToUse(true)} variant="ghost" size="sm">
               <HelpCircle className="w-4 h-4 mr-2" /> How to Use
             </Button>
+            <ExportSpecButton />
             <Button onClick={handleSignOut} variant="ghost" size="sm">
               <LogOut className="w-4 h-4 mr-2" /> Sign Out
             </Button>
