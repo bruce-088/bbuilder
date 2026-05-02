@@ -71,3 +71,6 @@ verify_jwt = false
 
 [functions.sync-to-nexus]
 verify_jwt = false
+
+[functions.generate-spec]
+verify_jwt = false
