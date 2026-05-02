@@ -3,6 +3,7 @@ import { useNavigate, Navigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import ExportSpecButton from "@/components/ExportSpecButton";
 import {
   Dialog,
   DialogContent,
@@ -275,6 +276,7 @@ export default function Dashboard() {
             <Button onClick={() => setShowHowToUse(true)} variant="ghost" size="sm">
               <HelpCircle className="w-4 h-4 mr-2" /> How to Use
             </Button>
+            <ExportSpecButton />
             <Button onClick={handleSignOut} variant="ghost" size="sm">
               <LogOut className="w-4 h-4 mr-2" /> Sign Out
             </Button>

@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft, Sparkles, Users, Workflow, MessagesSquare, FileText, Map as MapIcon, HelpCircle, LogOut } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
+import ExportSpecButton from "@/components/ExportSpecButton";
 
 
 interface SubPageHeaderProps {
@@ -50,6 +51,7 @@ export default function SubPageHeader({ title, description }: SubPageHeaderProps
             <Button onClick={() => navigate("/strategy")} variant="ghost" size="sm">
               <MapIcon className="w-4 h-4 mr-2" /> Strategy
             </Button>
+            <ExportSpecButton />
             <Button onClick={handleSignOut} variant="ghost" size="sm">
               <LogOut className="w-4 h-4 mr-2" /> Sign Out
             </Button>
