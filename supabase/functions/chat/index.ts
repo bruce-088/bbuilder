@@ -313,6 +313,45 @@ const COPILOT_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_pdf",
+      description:
+        "Generate a polished, downloadable PDF document for the user. Use this whenever the user asks for a PDF, a document, a printable, a downloadable file, a one-pager, a proposal, a brief, a script, a checklist, or anything they want to save / share / print. The PDF is rendered in the user's browser and downloaded automatically — do not paste long-form content into chat when this tool is more appropriate.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Main title shown at the top of page 1." },
+          subtitle: { type: "string", description: "Optional subtitle / one-line description." },
+          filename: {
+            type: "string",
+            description:
+              "Filename without extension, kebab-case (e.g. 'q1-outreach-plan'). Keep it short and descriptive.",
+          },
+          sections: {
+            type: "array",
+            description: "Ordered sections rendered top-to-bottom. Aim for 2–10 sections.",
+            items: {
+              type: "object",
+              properties: {
+                heading: { type: "string", description: "Optional section heading." },
+                body: {
+                  type: "string",
+                  description:
+                    "Section body. Supports paragraphs (blank line between), bullet lines starting with '- ', numbered lines like '1. ', and **bold** inline.",
+                },
+              },
+              required: ["body"],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ["title", "filename", "sections"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ─── Helper: find lead by name or ID ───
@@ -1154,6 +1193,39 @@ async function executeTool(
         };
       }
 
+      case "generate_pdf": {
+        // Client-resolved: the browser renders & downloads the PDF.
+        // We return the args under `data` so the existing TOOL_RESULT marker
+        // stream carries them through to the frontend handler.
+        const title = typeof args.title === "string" ? args.title.trim() : "";
+        const filename = typeof args.filename === "string" ? args.filename.trim() : "";
+        const sectionsRaw = Array.isArray(args.sections) ? args.sections : [];
+        if (!title || !filename || sectionsRaw.length === 0) {
+          return { success: false, error: "generate_pdf requires title, filename, and at least one section." };
+        }
+        const sections = sectionsRaw
+          .filter((s: any) => s && typeof s.body === "string" && s.body.trim().length > 0)
+          .slice(0, 50)
+          .map((s: any) => ({
+            heading: typeof s.heading === "string" ? s.heading : undefined,
+            body: String(s.body),
+          }));
+        if (sections.length === 0) {
+          return { success: false, error: "generate_pdf requires at least one non-empty section body." };
+        }
+        return {
+          success: true,
+          data: {
+            client_action: "generate_pdf",
+            title,
+            subtitle: typeof args.subtitle === "string" ? args.subtitle : undefined,
+            filename,
+            sections,
+            page_count_estimate: sections.length,
+          },
+        };
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -1280,7 +1352,10 @@ After fixing, confirm: "🔄 Re-sync complete: [manifest name] sent to [targets]
 
 ### Proactive Error Reporting
 If \`check_system_health\` reveals failed events, interrupt your normal response to alert:
-"🚨 **System Alert:** The [workflow/outreach] for **[Lead Name]** just failed in [system]. The error was: \`[error message]\`. Should I attempt a re-sync or do you want to check the logs?"`;
+"🚨 **System Alert:** The [workflow/outreach] for **[Lead Name]** just failed in [system]. The error was: \`[error message]\`. Should I attempt a re-sync or do you want to check the logs?"
+
+## 📄 PDF EXPORT SUPER-SKILL
+When the user asks for a PDF, document, printable, one-pager, proposal, brief, script, checklist, "send me this in writing", "save this as a PDF", or anything similar — call \`generate_pdf\` instead of pasting the whole document into chat. Structure it into clean sections with short headings and use \`**bold**\` and \`- \` bullets sparingly. After it's delivered, give a one-sentence confirmation like "📄 Sent — your PDF just downloaded." and offer one specific next step.`;
 
 // ─── Generate Ideas Prompt ───
 const GENERATE_IDEAS_PROMPT = `Generate ONE unique, highly detailed turn-key online business concept. This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
