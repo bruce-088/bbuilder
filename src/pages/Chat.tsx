@@ -208,6 +208,33 @@ export default function Chat() {
     );
   }, [cowork.currentExecution?.status, cowork.browserbaseStatus, cowork.currentActionIndex]);
 
+  // Auto-trigger PDF downloads when Mya emits a `generate_pdf` tool result.
+  // Guarded by a ref so each assistant message only downloads once.
+  useEffect(() => {
+    for (const m of messages) {
+      if (m.role !== "assistant" || !m.toolResults?.length) continue;
+      const pdfTr = m.toolResults.find((tr) => tr.name === "generate_pdf");
+      if (!pdfTr || !pdfTr.result?.success) continue;
+      if (pdfDownloadedRef.current.has(m.id)) continue;
+      const d = pdfTr.result.data as Partial<MyaPdfArgs> | undefined;
+      if (!d?.title || !d?.filename || !Array.isArray(d.sections) || d.sections.length === 0) continue;
+      pdfDownloadedRef.current.add(m.id);
+      try {
+        const filename = downloadMyaPdf({
+          title: d.title,
+          subtitle: d.subtitle,
+          filename: d.filename,
+          sections: d.sections,
+        });
+        toast.success(`📄 ${filename} downloaded`);
+      } catch (err) {
+        console.error("PDF generation failed:", err);
+        toast.error("Couldn't generate the PDF. Please try again.");
+      }
+    }
+  }, [messages]);
+
+
   // Handle paste event for screenshots
   const handlePaste = useCallback((e: React.ClipboardEvent) => {
     const items = e.clipboardData?.items;
