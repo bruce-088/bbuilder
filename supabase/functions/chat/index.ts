@@ -1193,6 +1193,39 @@ async function executeTool(
         };
       }
 
+      case "generate_pdf": {
+        // Client-resolved: the browser renders & downloads the PDF.
+        // We return the args under `data` so the existing TOOL_RESULT marker
+        // stream carries them through to the frontend handler.
+        const title = typeof args.title === "string" ? args.title.trim() : "";
+        const filename = typeof args.filename === "string" ? args.filename.trim() : "";
+        const sectionsRaw = Array.isArray(args.sections) ? args.sections : [];
+        if (!title || !filename || sectionsRaw.length === 0) {
+          return { success: false, error: "generate_pdf requires title, filename, and at least one section." };
+        }
+        const sections = sectionsRaw
+          .filter((s: any) => s && typeof s.body === "string" && s.body.trim().length > 0)
+          .slice(0, 50)
+          .map((s: any) => ({
+            heading: typeof s.heading === "string" ? s.heading : undefined,
+            body: String(s.body),
+          }));
+        if (sections.length === 0) {
+          return { success: false, error: "generate_pdf requires at least one non-empty section body." };
+        }
+        return {
+          success: true,
+          data: {
+            client_action: "generate_pdf",
+            title,
+            subtitle: typeof args.subtitle === "string" ? args.subtitle : undefined,
+            filename,
+            sections,
+            page_count_estimate: sections.length,
+          },
+        };
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
