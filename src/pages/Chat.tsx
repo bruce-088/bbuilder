@@ -106,6 +106,7 @@ export default function Chat() {
   const footerTextareaRef = useRef<HTMLTextAreaElement>(null);
   const hasGeneratedRef = useRef(false);
   const hasAutoSentRef = useRef(false);
+  const pdfDownloadedRef = useRef<Set<string>>(new Set());
 
   // n8n Workflow Context hook
   const workflowContext = useN8nWorkflowContext(id);
