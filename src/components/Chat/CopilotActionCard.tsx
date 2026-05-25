@@ -34,6 +34,7 @@ const TOOL_META: Record<string, { label: string; icon: React.ReactNode; color: s
   delete_workflow: { label: "Workflow Deleted", icon: <Trash2 className="h-4 w-4" />, color: "text-red-400" },
   get_pipeline_stats: { label: "Pipeline Stats", icon: <BarChart3 className="h-4 w-4" />, color: "text-violet-400" },
   get_business_summary: { label: "Business Summary", icon: <Brain className="h-4 w-4" />, color: "text-pink-400" },
+  generate_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
 };
 
 export default function CopilotActionCard({ toolResult }: CopilotActionCardProps) {
