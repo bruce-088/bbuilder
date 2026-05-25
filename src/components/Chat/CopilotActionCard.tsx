@@ -175,6 +175,36 @@ export default function CopilotActionCard({ toolResult }: CopilotActionCardProps
           {name === "get_business_summary" && d.message && (
             <p>💡 {d.message}</p>
           )}
+
+          {name === "generate_pdf" && d.client_action === "generate_pdf" && (
+            <div className="space-y-1.5">
+              <p className="flex items-center gap-1.5">
+                <FileText className="h-3.5 w-3.5 text-emerald-400" />
+                <strong>{d.filename}.pdf</strong>
+                <span className="text-muted-foreground">— {Array.isArray(d.sections) ? d.sections.length : 0} section(s)</span>
+              </p>
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto p-0 text-xs text-primary"
+                onClick={() => {
+                  try {
+                    downloadMyaPdf({
+                      title: String(d.title || "Untitled"),
+                      subtitle: d.subtitle ? String(d.subtitle) : undefined,
+                      filename: String(d.filename || "mya-document"),
+                      sections: (d.sections as MyaPdfArgs["sections"]) || [],
+                    });
+                  } catch (e) {
+                    console.error("PDF re-download failed:", e);
+                  }
+                }}
+              >
+                <Download className="h-3 w-3 mr-1" />
+                Download again
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
