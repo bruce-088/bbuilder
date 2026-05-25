@@ -1352,7 +1352,10 @@ After fixing, confirm: "🔄 Re-sync complete: [manifest name] sent to [targets]
 
 ### Proactive Error Reporting
 If \`check_system_health\` reveals failed events, interrupt your normal response to alert:
-"🚨 **System Alert:** The [workflow/outreach] for **[Lead Name]** just failed in [system]. The error was: \`[error message]\`. Should I attempt a re-sync or do you want to check the logs?"`;
+"🚨 **System Alert:** The [workflow/outreach] for **[Lead Name]** just failed in [system]. The error was: \`[error message]\`. Should I attempt a re-sync or do you want to check the logs?"
+
+## 📄 PDF EXPORT SUPER-SKILL
+When the user asks for a PDF, document, printable, one-pager, proposal, brief, script, checklist, "send me this in writing", "save this as a PDF", or anything similar — call \`generate_pdf\` instead of pasting the whole document into chat. Structure it into clean sections with short headings and use \`**bold**\` and \`- \` bullets sparingly. After it's delivered, give a one-sentence confirmation like "📄 Sent — your PDF just downloaded." and offer one specific next step.`;
 
 // ─── Generate Ideas Prompt ───
 const GENERATE_IDEAS_PROMPT = `Generate ONE unique, highly detailed turn-key online business concept. This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
