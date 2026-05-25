@@ -43,6 +43,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { useN8nWorkflowContext } from "@/hooks/useN8nWorkflowContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
+import { downloadMyaPdf, type MyaPdfArgs } from "@/lib/myaPdfGenerator";
 import ReactMarkdown from "react-markdown";
 import myaAvatar from "@/assets/mya-avatar.png";
 import { celebrateSave, celebrateFirstIdea } from "@/lib/confetti";
