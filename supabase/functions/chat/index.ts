@@ -313,6 +313,45 @@ const COPILOT_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "generate_pdf",
+      description:
+        "Generate a polished, downloadable PDF document for the user. Use this whenever the user asks for a PDF, a document, a printable, a downloadable file, a one-pager, a proposal, a brief, a script, a checklist, or anything they want to save / share / print. The PDF is rendered in the user's browser and downloaded automatically — do not paste long-form content into chat when this tool is more appropriate.",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Main title shown at the top of page 1." },
+          subtitle: { type: "string", description: "Optional subtitle / one-line description." },
+          filename: {
+            type: "string",
+            description:
+              "Filename without extension, kebab-case (e.g. 'q1-outreach-plan'). Keep it short and descriptive.",
+          },
+          sections: {
+            type: "array",
+            description: "Ordered sections rendered top-to-bottom. Aim for 2–10 sections.",
+            items: {
+              type: "object",
+              properties: {
+                heading: { type: "string", description: "Optional section heading." },
+                body: {
+                  type: "string",
+                  description:
+                    "Section body. Supports paragraphs (blank line between), bullet lines starting with '- ', numbered lines like '1. ', and **bold** inline.",
+                },
+              },
+              required: ["body"],
+              additionalProperties: false,
+            },
+          },
+        },
+        required: ["title", "filename", "sections"],
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ─── Helper: find lead by name or ID ───
