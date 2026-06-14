@@ -8,9 +8,10 @@ const corsHeaders = {
 };
 
 // Validation schemas
+const MAX_CONTENT_CHARS = 50000;
 const MemoryMessageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
-  content: z.string().min(1).max(50000),
+  content: z.string().min(1).transform((s) => (s.length > MAX_CONTENT_CHARS ? s.slice(0, MAX_CONTENT_CHARS) : s)),
 });
 
 const Mem0RequestSchema = z.object({
