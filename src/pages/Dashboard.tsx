@@ -47,7 +47,6 @@ import { useMissionIntelligenceContext } from "@/contexts/MissionIntelligenceCon
 import { useLeadManagement } from "@/hooks/useLeadManagement";
 import { LeadStatsCard } from "@/components/LeadCRM";
 import OnboardingTour, { useOnboardingTour } from "@/components/OnboardingTour";
-import FirstWinQuest, { useFirstWinQuest, type BusinessModelId } from "@/components/FirstWinQuest";
 import { RevenueCard } from "@/components/RevenueCard";
 
 interface BusinessIdea {
@@ -108,12 +107,6 @@ export default function Dashboard() {
   const mergedCompletedQuests = [...new Set([...completedQuests, ...eventCompletedQuests])];
 
   const { showTour, completeTour, skipTour, resetTour } = useOnboardingTour();
-  const { show: showFirstWinQuest, complete: completeFirstWinQuest } = useFirstWinQuest();
-
-  const handleFirstWinQuestComplete = (goal: string, model: BusinessModelId) => {
-    completeFirstWinQuest(goal, model);
-    // First Win Quest complete — existing tour can fire next for users who haven't seen it
-  };
 
   const { getStats, loading: leadsLoading } = useLeadManagement();
   const leadStats = getStats();
@@ -412,12 +405,7 @@ export default function Dashboard() {
         unlockedAchievements={unlockedAchievements}
       />
 
-      {showFirstWinQuest && (
-        <FirstWinQuest onComplete={handleFirstWinQuestComplete} />
-      )}
-      {!showFirstWinQuest && showTour && (
-        <OnboardingTour onComplete={completeTour} onSkip={skipTour} />
-      )}
+      {showTour && <OnboardingTour onComplete={completeTour} onSkip={skipTour} />}
     </div>
   );
 }
