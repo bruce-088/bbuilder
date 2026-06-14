@@ -145,14 +145,8 @@ export default function Chat() {
 
     setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
 
-    const parseAndStripToolResults = (raw: string) => {
-      const tools: ToolResult[] = [];
-      const clean = raw.replace(/\[TOOL_RESULT:(\w+):([\s\S]*?)\](?=\n|$)\n?/g, (_m, name, jsonStr) => {
-        try { tools.push({ name, result: JSON.parse(jsonStr) }); } catch { /* ok */ }
-        return "";
-      });
-      return { clean, tools };
-    };
+
+
 
     await streamChat({
       messages: messagesForAI,
