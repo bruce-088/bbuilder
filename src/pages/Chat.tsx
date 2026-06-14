@@ -796,17 +796,8 @@ export default function Chat() {
 
     setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
 
-    // Parse tool result markers from streamed content
-    const parseAndStripToolResults = (raw: string): { clean: string; tools: ToolResult[] } => {
-      const tools: ToolResult[] = [];
-      const clean = raw.replace(/\[TOOL_RESULT:(\w+):([\s\S]*?)\](?=\n|$)\n?/g, (_match, name, jsonStr) => {
-        try {
-          tools.push({ name, result: JSON.parse(jsonStr) });
-        } catch { /* ignore bad json */ }
-        return "";
-      });
-      return { clean, tools };
-    };
+
+
 
     await streamChat({
       messages: messagesForAI,
