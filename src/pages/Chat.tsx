@@ -385,11 +385,22 @@ export default function Chat() {
 
       if (error) throw error;
 
-      const formattedMessages: ChatMessage[] = (data || []).map((msg) => ({
-        id: msg.id,
-        role: msg.role as "user" | "assistant",
-        content: msg.content,
-      }));
+      const formattedMessages: ChatMessage[] = (data || []).map((msg) => {
+        if (msg.role === "assistant") {
+          const { clean, tools } = parseAndStripToolResults(msg.content || "");
+          return {
+            id: msg.id,
+            role: "assistant" as const,
+            content: clean,
+            toolResults: tools.length > 0 ? tools : undefined,
+          };
+        }
+        return {
+          id: msg.id,
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        };
+      });
 
       setMessages(formattedMessages);
     } catch (error) {
