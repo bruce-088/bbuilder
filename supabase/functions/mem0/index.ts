@@ -18,7 +18,7 @@ const Mem0RequestSchema = z.object({
   action: z.enum(["add", "search", "getAll"]),
   userId: z.string().uuid().optional(),
   messages: z.array(MemoryMessageSchema).max(50).optional(),
-  query: z.string().max(5000).optional(),
+  query: z.string().max(50000).optional(),
 });
 
 serve(async (req) => {
