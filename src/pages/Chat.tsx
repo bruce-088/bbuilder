@@ -793,7 +793,7 @@ export default function Chat() {
     // Parse tool result markers from streamed content
     const parseAndStripToolResults = (raw: string): { clean: string; tools: ToolResult[] } => {
       const tools: ToolResult[] = [];
-      const clean = raw.replace(/\[TOOL_RESULT:(\w+):(.*?)\]\n?/gs, (_match, name, jsonStr) => {
+      const clean = raw.replace(/\[TOOL_RESULT:(\w+):([\s\S]*?)\](?=\n|$)\n?/g, (_match, name, jsonStr) => {
         try {
           tools.push({ name, result: JSON.parse(jsonStr) });
         } catch { /* ignore bad json */ }
