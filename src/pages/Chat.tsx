@@ -44,6 +44,7 @@ import { useN8nWorkflowContext } from "@/hooks/useN8nWorkflowContext";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { downloadMyaPdf, type MyaPdfArgs } from "@/lib/myaPdfGenerator";
+import { parseAndStripToolResults } from "@/lib/parseToolResults";
 import ReactMarkdown from "react-markdown";
 import myaAvatar from "@/assets/mya-avatar.png";
 import { celebrateSave, celebrateFirstIdea } from "@/lib/confetti";
@@ -144,14 +145,8 @@ export default function Chat() {
 
     setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
 
-    const parseAndStripToolResults = (raw: string) => {
-      const tools: ToolResult[] = [];
-      const clean = raw.replace(/\[TOOL_RESULT:(\w+):([\s\S]*?)\](?=\n|$)\n?/g, (_m, name, jsonStr) => {
-        try { tools.push({ name, result: JSON.parse(jsonStr) }); } catch { /* ok */ }
-        return "";
-      });
-      return { clean, tools };
-    };
+
+
 
     await streamChat({
       messages: messagesForAI,
@@ -384,11 +379,22 @@ export default function Chat() {
 
       if (error) throw error;
 
-      const formattedMessages: ChatMessage[] = (data || []).map((msg) => ({
-        id: msg.id,
-        role: msg.role as "user" | "assistant",
-        content: msg.content,
-      }));
+      const formattedMessages: ChatMessage[] = (data || []).map((msg) => {
+        if (msg.role === "assistant") {
+          const { clean, tools } = parseAndStripToolResults(msg.content || "");
+          return {
+            id: msg.id,
+            role: "assistant" as const,
+            content: clean,
+            toolResults: tools.length > 0 ? tools : undefined,
+          };
+        }
+        return {
+          id: msg.id,
+          role: msg.role as "user" | "assistant",
+          content: msg.content,
+        };
+      });
 
       setMessages(formattedMessages);
     } catch (error) {
@@ -790,17 +796,8 @@ export default function Chat() {
 
     setMessages((prev) => [...prev, { id: assistantId, role: "assistant", content: "" }]);
 
-    // Parse tool result markers from streamed content
-    const parseAndStripToolResults = (raw: string): { clean: string; tools: ToolResult[] } => {
-      const tools: ToolResult[] = [];
-      const clean = raw.replace(/\[TOOL_RESULT:(\w+):([\s\S]*?)\](?=\n|$)\n?/g, (_match, name, jsonStr) => {
-        try {
-          tools.push({ name, result: JSON.parse(jsonStr) });
-        } catch { /* ignore bad json */ }
-        return "";
-      });
-      return { clean, tools };
-    };
+
+
 
     await streamChat({
       messages: messagesForAI,
