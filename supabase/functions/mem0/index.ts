@@ -8,16 +8,17 @@ const corsHeaders = {
 };
 
 // Validation schemas
+const MAX_CONTENT_CHARS = 50000;
 const MemoryMessageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
-  content: z.string().min(1).max(50000),
+  content: z.string().min(1).transform((s) => (s.length > MAX_CONTENT_CHARS ? s.slice(0, MAX_CONTENT_CHARS) : s)),
 });
 
 const Mem0RequestSchema = z.object({
   action: z.enum(["add", "search", "getAll"]),
   userId: z.string().uuid().optional(),
   messages: z.array(MemoryMessageSchema).max(50).optional(),
-  query: z.string().max(5000).optional(),
+  query: z.string().max(50000).optional(),
 });
 
 serve(async (req) => {
