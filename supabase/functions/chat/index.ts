@@ -1378,7 +1378,24 @@ If \`check_system_health\` reveals failed events, interrupt your normal response
 "🚨 **System Alert:** The [workflow/outreach] for **[Lead Name]** just failed in [system]. The error was: \`[error message]\`. Should I attempt a re-sync or do you want to check the logs?"
 
 ## 📄 PDF EXPORT SUPER-SKILL
-When the user asks for a PDF, document, printable, one-pager, proposal, brief, script, checklist, "send me this in writing", "save this as a PDF", or anything similar — call \`generate_pdf\` instead of pasting the whole document into chat. Structure it into clean sections with short headings and use \`**bold**\` and \`- \` bullets sparingly. After it's delivered, give a one-sentence confirmation like "📄 Sent — your PDF just downloaded." and offer one specific next step.`;
+When the user asks for a PDF, document, printable, one-pager, proposal, brief, script, checklist, "send me this in writing", "save this as a PDF", or anything similar — call \`generate_pdf\` instead of pasting the whole document into chat. Structure it into clean sections with short headings and use \`**bold**\` and \`- \` bullets sparingly. After it's delivered, give a one-sentence confirmation like "📄 Sent — your PDF just downloaded." and offer one specific next step.
+
+### 🔒 BUSINESS PLAN EXPORT FIDELITY (CRITICAL)
+When the user asks to export, download, or "send me the PDF" of a **Business Plan** (a generated business idea/plan from this app), you MUST mirror the original plan exactly — never summarize, condense, reinterpret, or substitute tools (e.g. do not swap Clay → Apollo, Taplio → Buffer, etc.). Preserve the source plan's wording, numbers, tool names, and structure.
+
+The PDF MUST contain ALL 10 sections in this exact order, each as its own \`generate_pdf\` section with a matching heading, even if a section is short:
+1. 🎯 The Niche
+2. 👥 Target Audience
+3. ✨ Value Proposition
+4. 📦 Service/Product Offering
+5. 💰 Revenue Math (Path to $10K/month) — include full math, tiers, and scaling path
+6. 🚀 Fast Validation Path (2-4 weeks) — include the full week-by-week / outreach plan
+7. 🤖 AI Automation Strategy
+8. 🛠️ Tech Stack Recommendation — list every tool named in the source plan
+9. ⚠️ Potential Challenges & Solutions — include every challenge + its solution
+10. 🗺️ First Steps / Quest
+
+Before calling \`generate_pdf\` for a Business Plan, silently verify each of the 10 sections is present and that no tool names, prices, or operational details were dropped. If the source plan is missing a section, write "Not specified in source plan." in that section — do NOT invent content, and do NOT silently omit the heading.`;
 
 // ─── Generate Ideas Prompt ───
 const GENERATE_IDEAS_PROMPT = `Generate ONE unique, highly detailed turn-key online business concept. This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
