@@ -228,7 +228,7 @@ function buildPdf(args: MyaPdfArgs): jsPDF {
   };
 
   // ── Sections ──
-  for (const section of args.sections || []) {
+  for (const section of safeSections) {
     if (section.heading) {
       const headingLineHeight = FS_H2 * 1.25;
       const hLines = doc.splitTextToSize(section.heading, contentWidth);
