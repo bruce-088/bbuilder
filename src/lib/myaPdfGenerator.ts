@@ -50,7 +50,41 @@ function sanitizeFilename(name: string): string {
   return `${base || "mya-document"}.pdf`;
 }
 
+// Strip glyphs Helvetica/WinAnsi cannot render. Keeps Latin-1 plus a small
+// whitelist of common typographic punctuation (en/em dash, smart quotes,
+// ellipsis, bullet). Anything else above U+00FF is dropped (or replaced with
+// an ASCII approximation when possible) so it never renders as garbage glyphs.
+function stripUnsupportedGlyphs(input: string): string {
+  if (!input) return input;
+  const replacements: Record<string, string> = {
+    "\u2192": "->", // →
+    "\u2190": "<-", // ←
+    "\u2194": "<->", // ↔
+    "\u21D2": "=>", // ⇒
+    "\u00A0": " ", // nbsp
+  };
+  let out = input;
+  for (const [from, to] of Object.entries(replacements)) {
+    out = out.split(from).join(to);
+  }
+  // Strip ZWJ / variation selectors (emoji modifiers)
+  out = out.replace(/[\u200B-\u200F\u2028-\u202F\uFE00-\uFE0F]/g, "");
+  // Allow Latin-1 + small typographic whitelist; drop everything else.
+  out = out.replace(/[^\u0000-\u00FF\u2013\u2014\u2018\u2019\u201C\u201D\u2022\u2026]/g, "");
+  // Collapse whitespace runs created by removal.
+  out = out.replace(/[ \t]{2,}/g, " ").replace(/[ \t]+\n/g, "\n");
+  return out;
+}
+
 function buildPdf(args: MyaPdfArgs): jsPDF {
+  // Sanitize all input strings up-front so emoji/symbols don't render as garbage glyphs.
+  const safeTitle = stripUnsupportedGlyphs(args.title || "Untitled").trim();
+  const safeSubtitle = args.subtitle ? stripUnsupportedGlyphs(args.subtitle).trim() : undefined;
+  const safeSections = (args.sections || []).map((s) => ({
+    heading: s.heading ? stripUnsupportedGlyphs(s.heading).trim() : undefined,
+    body: s.body ? stripUnsupportedGlyphs(s.body) : "",
+  }));
+
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -80,18 +114,18 @@ function buildPdf(args: MyaPdfArgs): jsPDF {
   doc.setTextColor(...INK);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(FS_TITLE);
-  const titleLines = doc.splitTextToSize(args.title || "Untitled", contentWidth);
+  const titleLines = doc.splitTextToSize(safeTitle, contentWidth);
   const titleLineHeight = FS_TITLE * 1.2;
   titleLines.forEach((line: string, i: number) => {
     doc.text(line, PAGE_MARGIN_X, cursorY + titleLineHeight * (i + 0.8));
   });
   cursorY += titleLines.length * titleLineHeight + SPACE_AFTER_TITLE;
 
-  if (args.subtitle) {
+  if (safeSubtitle) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(FS_SUBTITLE);
     doc.setTextColor(...MUTED);
-    const subLines = doc.splitTextToSize(args.subtitle, contentWidth);
+    const subLines = doc.splitTextToSize(safeSubtitle, contentWidth);
     const subLineHeight = FS_SUBTITLE * LINE_HEIGHT;
     subLines.forEach((line: string, i: number) => {
       doc.text(line, PAGE_MARGIN_X, cursorY + subLineHeight * (i + 0.8));
@@ -186,7 +220,7 @@ function buildPdf(args: MyaPdfArgs): jsPDF {
             cursorY,
             contentWidth - 18,
           );
-          cursorY = endY + SPACE_BETWEEN_LIST_ITEMS;
+          cursorY = endY + lineGap + SPACE_BETWEEN_LIST_ITEMS;
         }
         cursorY += SPACE_AFTER_LIST - SPACE_BETWEEN_LIST_ITEMS;
       } else {
@@ -197,13 +231,13 @@ function buildPdf(args: MyaPdfArgs): jsPDF {
         const lineGap = FS_BODY * LINE_HEIGHT;
         ensureSpace(lineGap * 2); // keep at least 2 lines together
         const endY = renderInlineBold(flat, PAGE_MARGIN_X, cursorY, contentWidth);
-        cursorY = endY + SPACE_AFTER_PARAGRAPH;
+        cursorY = endY + lineGap * 0.3 + SPACE_AFTER_PARAGRAPH;
       }
     }
   };
 
   // ── Sections ──
-  for (const section of args.sections || []) {
+  for (const section of safeSections) {
     if (section.heading) {
       const headingLineHeight = FS_H2 * 1.25;
       const hLines = doc.splitTextToSize(section.heading, contentWidth);
