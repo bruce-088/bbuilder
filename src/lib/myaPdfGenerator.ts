@@ -68,6 +68,14 @@ function stripUnsupportedGlyphs(input: string): string {
 }
 
 function buildPdf(args: MyaPdfArgs): jsPDF {
+  // Sanitize all input strings up-front so emoji/symbols don't render as garbage glyphs.
+  const safeTitle = stripUnsupportedGlyphs(args.title || "Untitled");
+  const safeSubtitle = args.subtitle ? stripUnsupportedGlyphs(args.subtitle) : undefined;
+  const safeSections = (args.sections || []).map((s) => ({
+    heading: s.heading ? stripUnsupportedGlyphs(s.heading) : undefined,
+    body: s.body ? stripUnsupportedGlyphs(s.body) : "",
+  }));
+
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
