@@ -530,7 +530,8 @@ async function executeTool(
   toolName: string,
   args: Record<string, unknown>,
   userId: string,
-  supabaseAdmin: ReturnType<typeof createClient>
+  supabaseAdmin: ReturnType<typeof createClient>,
+  conversationMessages: Array<{ role: string; content: string }> = [],
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     switch (toolName) {
