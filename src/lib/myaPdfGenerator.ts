@@ -50,6 +50,23 @@ function sanitizeFilename(name: string): string {
   return `${base || "mya-document"}.pdf`;
 }
 
+// Strip glyphs Helvetica cannot render (emoji, pictographs, symbols, ZWJ, VS16).
+// Keeps Latin-1, common punctuation, en/em dashes, smart quotes, ellipsis.
+function stripUnsupportedGlyphs(input: string): string {
+  if (!input) return input;
+  return input
+    // Emoji & pictograph ranges
+    .replace(/[\u{1F000}-\u{1FFFF}]/gu, "")
+    .replace(/[\u{2600}-\u{27BF}]/gu, "")
+    .replace(/[\u{2300}-\u{23FF}]/gu, "")
+    .replace(/[\u{2B00}-\u{2BFF}]/gu, "")
+    // Variation selectors & ZWJ
+    .replace(/[\u200D\uFE0F]/g, "")
+    // Collapse any whitespace runs created by removal
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/^\s+|\s+$/g, "");
+}
+
 function buildPdf(args: MyaPdfArgs): jsPDF {
   const doc = new jsPDF({ unit: "pt", format: "letter" });
   const pageWidth = doc.internal.pageSize.getWidth();
