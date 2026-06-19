@@ -208,7 +208,12 @@ export default function Chat() {
   useEffect(() => {
     for (const m of messages) {
       if (m.role !== "assistant" || !m.toolResults?.length) continue;
-      const pdfTr = m.toolResults.find((tr) => tr.name === "generate_pdf");
+      const pdfTr = m.toolResults.find(
+        (tr) =>
+          tr.name === "generate_pdf" ||
+          tr.name === "export_business_plan_pdf" ||
+          (tr.result?.data as any)?.client_action === "generate_pdf",
+      );
       if (!pdfTr || !pdfTr.result?.success) continue;
       if (pdfDownloadedRef.current.has(m.id)) continue;
       const d = pdfTr.result.data as Partial<MyaPdfArgs> | undefined;
