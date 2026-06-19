@@ -1255,6 +1255,72 @@ async function executeTool(
         };
       }
 
+      case "export_business_plan_pdf": {
+        // 🔒 Deterministic verbatim export: server reads the most recent
+        // Business Plan from the conversation, parses it section-by-section,
+        // and emits a generate_pdf payload with byte-for-byte body strings.
+        // The model never gets to paraphrase, drop, or invent sections.
+        const planText = findLatestPlanInMessages(conversationMessages);
+        if (!planText) {
+          console.warn("[pdf_export_debug] no business plan found in conversation", {
+            user_id: userId,
+            message_count: conversationMessages.length,
+          });
+          return {
+            success: false,
+            error:
+              "No Business Plan found in this conversation. Generate one first, then export.",
+          };
+        }
+        const parsed = parseBusinessPlanMarkdown(planText);
+        if (!parsed || parsed.sections.length === 0) {
+          console.warn("[pdf_export_debug] plan parse failed", {
+            user_id: userId,
+            sample: planText.slice(0, 120),
+          });
+          return {
+            success: false,
+            error: "Could not parse the Business Plan into sections.",
+          };
+        }
+
+        const rawFilename =
+          typeof args.filename === "string" && args.filename.trim()
+            ? args.filename.trim()
+            : parsed.title;
+        const filename = rawFilename
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 80) || "business-plan";
+
+        const subtitle =
+          typeof args.subtitle === "string" && args.subtitle.trim()
+            ? args.subtitle.trim()
+            : parsed.subtitle;
+
+        console.log("[pdf_export_debug] verbatim export built", {
+          user_id: userId,
+          title: parsed.title,
+          section_count: parsed.sections.length,
+          headings: parsed.sections.map((s) => s.heading),
+          filename,
+        });
+
+        return {
+          success: true,
+          data: {
+            client_action: "generate_pdf",
+            title: parsed.title,
+            subtitle,
+            filename,
+            sections: parsed.sections,
+            page_count_estimate: parsed.sections.length,
+            verbatim: true,
+          },
+        };
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -1560,7 +1626,13 @@ serve(async (req) => {
         const fnArgs = JSON.parse(tc.function.arguments || "{}");
         console.log(`Executing tool: ${fnName}`, fnArgs);
 
-        const result = await executeTool(fnName, fnArgs, user.id, supabaseAdmin);
+        const result = await executeTool(
+          fnName,
+          fnArgs,
+          user.id,
+          supabaseAdmin,
+          (requestBody.messages as Array<{ role: string; content: string }>) || [],
+        );
         toolResults.push({ tool_call_id: tc.id, name: fnName, result });
       }
 
