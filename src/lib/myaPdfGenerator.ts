@@ -105,18 +105,18 @@ function buildPdf(args: MyaPdfArgs): jsPDF {
   doc.setTextColor(...INK);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(FS_TITLE);
-  const titleLines = doc.splitTextToSize(args.title || "Untitled", contentWidth);
+  const titleLines = doc.splitTextToSize(safeTitle, contentWidth);
   const titleLineHeight = FS_TITLE * 1.2;
   titleLines.forEach((line: string, i: number) => {
     doc.text(line, PAGE_MARGIN_X, cursorY + titleLineHeight * (i + 0.8));
   });
   cursorY += titleLines.length * titleLineHeight + SPACE_AFTER_TITLE;
 
-  if (args.subtitle) {
+  if (safeSubtitle) {
     doc.setFont("helvetica", "normal");
     doc.setFontSize(FS_SUBTITLE);
     doc.setTextColor(...MUTED);
-    const subLines = doc.splitTextToSize(args.subtitle, contentWidth);
+    const subLines = doc.splitTextToSize(safeSubtitle, contentWidth);
     const subLineHeight = FS_SUBTITLE * LINE_HEIGHT;
     subLines.forEach((line: string, i: number) => {
       doc.text(line, PAGE_MARGIN_X, cursorY + subLineHeight * (i + 0.8));
