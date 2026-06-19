@@ -20,8 +20,25 @@ const RULE: [number, number, number] = [225, 228, 232];
 
 const PAGE_MARGIN_X = 56;
 const PAGE_MARGIN_TOP = 72;
-const PAGE_MARGIN_BOTTOM = 64;
-const LINE_HEIGHT = 1.45;
+const PAGE_MARGIN_BOTTOM = 72;
+const LINE_HEIGHT = 1.5;
+
+// Typography scale
+const FS_TITLE = 26;
+const FS_SUBTITLE = 13;
+const FS_H2 = 16;
+const FS_BODY = 11;
+const FS_FOOTER = 9;
+
+// Vertical rhythm (pts)
+const SPACE_AFTER_TITLE = 6;
+const SPACE_AFTER_SUBTITLE = 18;
+const SPACE_BEFORE_HEADING = 22;
+const SPACE_AFTER_HEADING_RULE = 14;
+const SPACE_AFTER_PARAGRAPH = 10;
+const SPACE_AFTER_LIST = 10;
+const SPACE_BETWEEN_LIST_ITEMS = 4;
+const SPACE_AFTER_SECTION = 18;
 
 function sanitizeFilename(name: string): string {
   const base = (name || "mya-document")
