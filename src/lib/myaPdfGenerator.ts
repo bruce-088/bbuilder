@@ -186,7 +186,7 @@ function buildPdf(args: MyaPdfArgs): jsPDF {
             cursorY,
             contentWidth - 18,
           );
-          cursorY = endY + SPACE_BETWEEN_LIST_ITEMS;
+          cursorY = endY + lineGap + SPACE_BETWEEN_LIST_ITEMS;
         }
         cursorY += SPACE_AFTER_LIST - SPACE_BETWEEN_LIST_ITEMS;
       } else {
@@ -197,7 +197,7 @@ function buildPdf(args: MyaPdfArgs): jsPDF {
         const lineGap = FS_BODY * LINE_HEIGHT;
         ensureSpace(lineGap * 2); // keep at least 2 lines together
         const endY = renderInlineBold(flat, PAGE_MARGIN_X, cursorY, contentWidth);
-        cursorY = endY + SPACE_AFTER_PARAGRAPH;
+        cursorY = endY + lineGap * 0.3 + SPACE_AFTER_PARAGRAPH;
       }
     }
   };
