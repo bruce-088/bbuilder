@@ -50,21 +50,30 @@ function sanitizeFilename(name: string): string {
   return `${base || "mya-document"}.pdf`;
 }
 
-// Strip glyphs Helvetica cannot render (emoji, pictographs, symbols, ZWJ, VS16).
-// Keeps Latin-1, common punctuation, en/em dashes, smart quotes, ellipsis.
+// Strip glyphs Helvetica/WinAnsi cannot render. Keeps Latin-1 plus a small
+// whitelist of common typographic punctuation (en/em dash, smart quotes,
+// ellipsis, bullet). Anything else above U+00FF is dropped (or replaced with
+// an ASCII approximation when possible) so it never renders as garbage glyphs.
 function stripUnsupportedGlyphs(input: string): string {
   if (!input) return input;
-  return input
-    // Emoji & pictograph ranges
-    .replace(/[\u{1F000}-\u{1FFFF}]/gu, "")
-    .replace(/[\u{2600}-\u{27BF}]/gu, "")
-    .replace(/[\u{2300}-\u{23FF}]/gu, "")
-    .replace(/[\u{2B00}-\u{2BFF}]/gu, "")
-    // Variation selectors & ZWJ
-    .replace(/[\u200D\uFE0F]/g, "")
-    // Collapse any whitespace runs created by removal
-    .replace(/[ \t]{2,}/g, " ")
-    .replace(/^\s+|\s+$/g, "");
+  const replacements: Record<string, string> = {
+    "\u2192": "->", // →
+    "\u2190": "<-", // ←
+    "\u2194": "<->", // ↔
+    "\u21D2": "=>", // ⇒
+    "\u00A0": " ", // nbsp
+  };
+  let out = input;
+  for (const [from, to] of Object.entries(replacements)) {
+    out = out.split(from).join(to);
+  }
+  // Strip ZWJ / variation selectors (emoji modifiers)
+  out = out.replace(/[\u200B-\u200F\u2028-\u202F\uFE00-\uFE0F]/g, "");
+  // Allow Latin-1 + small typographic whitelist; drop everything else.
+  out = out.replace(/[^\u0000-\u00FF\u2013\u2014\u2018\u2019\u201C\u201D\u2022\u2026]/g, "");
+  // Collapse whitespace runs created by removal.
+  out = out.replace(/[ \t]{2,}/g, " ").replace(/[ \t]+\n/g, "\n");
+  return out;
 }
 
 function buildPdf(args: MyaPdfArgs): jsPDF {
