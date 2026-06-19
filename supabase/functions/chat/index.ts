@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import {
+  findLatestPlanInMessages,
+  parseBusinessPlanMarkdown,
+} from "../_shared/parseBusinessPlanMarkdown.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -318,7 +322,7 @@ const COPILOT_TOOLS = [
     function: {
       name: "generate_pdf",
       description:
-        "Generate a polished, downloadable PDF document for the user. Use this whenever the user asks for a PDF, a document, a printable, a downloadable file, a one-pager, a proposal, a brief, a script, a checklist, or anything they want to save / share / print. The PDF is rendered in the user's browser and downloaded automatically — do not paste long-form content into chat when this tool is more appropriate.",
+        "Generate a polished, downloadable PDF document for the user. Use this whenever the user asks for a PDF, a document, a printable, a downloadable file, a one-pager, a proposal, a brief, a script, a checklist, or anything they want to save / share / print. The PDF is rendered in the user's browser and downloaded automatically — do not paste long-form content into chat when this tool is more appropriate. ⚠️ DO NOT use this for exporting a Business Plan — use `export_business_plan_pdf` instead so the export mirrors the original plan verbatim.",
       parameters: {
         type: "object",
         properties: {
@@ -348,6 +352,30 @@ const COPILOT_TOOLS = [
           },
         },
         required: ["title", "filename", "sections"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "export_business_plan_pdf",
+      description:
+        "Export the user's most recent Business Plan to a PDF — VERBATIM. Use this whenever the user asks to 'export', 'download', 'send me as PDF', 'save this as a PDF', or 'PDF this' for a Business Plan / business idea. The server reads the most recent Business Plan from the conversation and builds the PDF directly from it, so you DO NOT pass any section bodies — just call the tool with an optional filename. This guarantees zero paraphrasing, zero tool substitutions, and zero dropped sections.",
+      parameters: {
+        type: "object",
+        properties: {
+          filename: {
+            type: "string",
+            description:
+              "Optional filename without extension, kebab-case (e.g. 'lnkdn-architect-blueprint'). If omitted, the server derives it from the plan title.",
+          },
+          subtitle: {
+            type: "string",
+            description:
+              "Optional override for the PDF subtitle line. If omitted, the server uses the lede line from the original plan.",
+          },
+        },
         additionalProperties: false,
       },
     },
@@ -502,7 +530,8 @@ async function executeTool(
   toolName: string,
   args: Record<string, unknown>,
   userId: string,
-  supabaseAdmin: ReturnType<typeof createClient>
+  supabaseAdmin: ReturnType<typeof createClient>,
+  conversationMessages: Array<{ role: string; content: string }> = [],
 ): Promise<{ success: boolean; data?: unknown; error?: string }> {
   try {
     switch (toolName) {
@@ -1226,6 +1255,72 @@ async function executeTool(
         };
       }
 
+      case "export_business_plan_pdf": {
+        // 🔒 Deterministic verbatim export: server reads the most recent
+        // Business Plan from the conversation, parses it section-by-section,
+        // and emits a generate_pdf payload with byte-for-byte body strings.
+        // The model never gets to paraphrase, drop, or invent sections.
+        const planText = findLatestPlanInMessages(conversationMessages);
+        if (!planText) {
+          console.warn("[pdf_export_debug] no business plan found in conversation", {
+            user_id: userId,
+            message_count: conversationMessages.length,
+          });
+          return {
+            success: false,
+            error:
+              "No Business Plan found in this conversation. Generate one first, then export.",
+          };
+        }
+        const parsed = parseBusinessPlanMarkdown(planText);
+        if (!parsed || parsed.sections.length === 0) {
+          console.warn("[pdf_export_debug] plan parse failed", {
+            user_id: userId,
+            sample: planText.slice(0, 120),
+          });
+          return {
+            success: false,
+            error: "Could not parse the Business Plan into sections.",
+          };
+        }
+
+        const rawFilename =
+          typeof args.filename === "string" && args.filename.trim()
+            ? args.filename.trim()
+            : parsed.title;
+        const filename = rawFilename
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 80) || "business-plan";
+
+        const subtitle =
+          typeof args.subtitle === "string" && args.subtitle.trim()
+            ? args.subtitle.trim()
+            : parsed.subtitle;
+
+        console.log("[pdf_export_debug] verbatim export built", {
+          user_id: userId,
+          title: parsed.title,
+          section_count: parsed.sections.length,
+          headings: parsed.sections.map((s) => s.heading),
+          filename,
+        });
+
+        return {
+          success: true,
+          data: {
+            client_action: "generate_pdf",
+            title: parsed.title,
+            subtitle,
+            filename,
+            sections: parsed.sections,
+            page_count_estimate: parsed.sections.length,
+            verbatim: true,
+          },
+        };
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -1381,21 +1476,9 @@ If \`check_system_health\` reveals failed events, interrupt your normal response
 When the user asks for a PDF, document, printable, one-pager, proposal, brief, script, checklist, "send me this in writing", "save this as a PDF", or anything similar — call \`generate_pdf\` instead of pasting the whole document into chat. Structure it into clean sections with short headings and use \`**bold**\` and \`- \` bullets sparingly. After it's delivered, give a one-sentence confirmation like "📄 Sent — your PDF just downloaded." and offer one specific next step.
 
 ### 🔒 BUSINESS PLAN EXPORT FIDELITY (CRITICAL)
-When the user asks to export, download, or "send me the PDF" of a **Business Plan** (a generated business idea/plan from this app), you MUST mirror the original plan exactly — never summarize, condense, reinterpret, or substitute tools (e.g. do not swap Clay → Apollo, Taplio → Buffer, etc.). Preserve the source plan's wording, numbers, tool names, and structure.
+When the user asks to export, download, or "send me the PDF" of a **Business Plan** (a generated business idea/plan), you MUST call \`export_business_plan_pdf\` — NOT \`generate_pdf\`. The server reads the most recent Business Plan from this conversation and builds the PDF verbatim, so you must NOT pass any section bodies, summaries, or rewritten content. Just call \`export_business_plan_pdf\` with an optional \`filename\` (kebab-case) and let the server do the rest. This is the ONLY way to guarantee zero paraphrasing, zero tool substitutions (Clay vs. Apollo, Taplio vs. Buffer, etc.), and zero dropped sections.
 
-The PDF MUST contain ALL 10 sections in this exact order, each as its own \`generate_pdf\` section with a matching heading, even if a section is short:
-1. 🎯 The Niche
-2. 👥 Target Audience
-3. ✨ Value Proposition
-4. 📦 Service/Product Offering
-5. 💰 Revenue Math (Path to $10K/month) — include full math, tiers, and scaling path
-6. 🚀 Fast Validation Path (2-4 weeks) — include the full week-by-week / outreach plan
-7. 🤖 AI Automation Strategy
-8. 🛠️ Tech Stack Recommendation — list every tool named in the source plan
-9. ⚠️ Potential Challenges & Solutions — include every challenge + its solution
-10. 🗺️ First Steps / Quest
-
-Before calling \`generate_pdf\` for a Business Plan, silently verify each of the 10 sections is present and that no tool names, prices, or operational details were dropped. If the source plan is missing a section, write "Not specified in source plan." in that section — do NOT invent content, and do NOT silently omit the heading.`;
+After the export tool returns, give a one-sentence confirmation like "📄 Sent — your Business Plan just downloaded, verbatim." and offer one specific next step.`;
 
 // ─── Generate Ideas Prompt ───
 const GENERATE_IDEAS_PROMPT = `Generate ONE unique, highly detailed turn-key online business concept. This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
@@ -1531,7 +1614,13 @@ serve(async (req) => {
         const fnArgs = JSON.parse(tc.function.arguments || "{}");
         console.log(`Executing tool: ${fnName}`, fnArgs);
 
-        const result = await executeTool(fnName, fnArgs, user.id, supabaseAdmin);
+        const result = await executeTool(
+          fnName,
+          fnArgs,
+          user.id,
+          supabaseAdmin,
+          (requestBody.messages as Array<{ role: string; content: string }>) || [],
+        );
         toolResults.push({ tool_call_id: tc.id, name: fnName, result });
       }
 
