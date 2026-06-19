@@ -35,6 +35,7 @@ const TOOL_META: Record<string, { label: string; icon: React.ReactNode; color: s
   get_pipeline_stats: { label: "Pipeline Stats", icon: <BarChart3 className="h-4 w-4" />, color: "text-violet-400" },
   get_business_summary: { label: "Business Summary", icon: <Brain className="h-4 w-4" />, color: "text-pink-400" },
   generate_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
+  export_business_plan_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
 };
 
 export default function CopilotActionCard({ toolResult }: CopilotActionCardProps) {
@@ -176,7 +177,7 @@ export default function CopilotActionCard({ toolResult }: CopilotActionCardProps
             <p>💡 {d.message}</p>
           )}
 
-          {name === "generate_pdf" && d.client_action === "generate_pdf" && (
+          {(name === "generate_pdf" || name === "export_business_plan_pdf") && d.client_action === "generate_pdf" && (
             <div className="space-y-1.5">
               <p className="flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5 text-emerald-400" />
