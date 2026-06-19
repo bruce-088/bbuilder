@@ -1,6 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { z } from "https://deno.land/x/zod@v3.22.4/mod.ts";
+import {
+  findLatestPlanInMessages,
+  parseBusinessPlanMarkdown,
+} from "../_shared/parseBusinessPlanMarkdown.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -318,7 +322,7 @@ const COPILOT_TOOLS = [
     function: {
       name: "generate_pdf",
       description:
-        "Generate a polished, downloadable PDF document for the user. Use this whenever the user asks for a PDF, a document, a printable, a downloadable file, a one-pager, a proposal, a brief, a script, a checklist, or anything they want to save / share / print. The PDF is rendered in the user's browser and downloaded automatically — do not paste long-form content into chat when this tool is more appropriate.",
+        "Generate a polished, downloadable PDF document for the user. Use this whenever the user asks for a PDF, a document, a printable, a downloadable file, a one-pager, a proposal, a brief, a script, a checklist, or anything they want to save / share / print. The PDF is rendered in the user's browser and downloaded automatically — do not paste long-form content into chat when this tool is more appropriate. ⚠️ DO NOT use this for exporting a Business Plan — use `export_business_plan_pdf` instead so the export mirrors the original plan verbatim.",
       parameters: {
         type: "object",
         properties: {
@@ -348,6 +352,30 @@ const COPILOT_TOOLS = [
           },
         },
         required: ["title", "filename", "sections"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "export_business_plan_pdf",
+      description:
+        "Export the user's most recent Business Plan to a PDF — VERBATIM. Use this whenever the user asks to 'export', 'download', 'send me as PDF', 'save this as a PDF', or 'PDF this' for a Business Plan / business idea. The server reads the most recent Business Plan from the conversation and builds the PDF directly from it, so you DO NOT pass any section bodies — just call the tool with an optional filename. This guarantees zero paraphrasing, zero tool substitutions, and zero dropped sections.",
+      parameters: {
+        type: "object",
+        properties: {
+          filename: {
+            type: "string",
+            description:
+              "Optional filename without extension, kebab-case (e.g. 'lnkdn-architect-blueprint'). If omitted, the server derives it from the plan title.",
+          },
+          subtitle: {
+            type: "string",
+            description:
+              "Optional override for the PDF subtitle line. If omitted, the server uses the lede line from the original plan.",
+          },
+        },
         additionalProperties: false,
       },
     },
