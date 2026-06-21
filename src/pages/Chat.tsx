@@ -401,6 +401,12 @@ export default function Chat() {
         };
       });
 
+      // Treat all messages loaded from history as already-downloaded so a
+      // page refresh never re-triggers a PDF download. Only NEW assistant
+      // messages received after this point should auto-download.
+      for (const m of formattedMessages) {
+        pdfDownloadedRef.current.add(m.id);
+      }
       setMessages(formattedMessages);
     } catch (error) {
       console.error("Error loading messages:", error);
