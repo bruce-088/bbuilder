@@ -1223,6 +1223,22 @@ async function executeTool(
       }
 
       case "generate_pdf": {
+        // 🔒 Server-side coercion: if there's a Business Plan in this
+        // conversation, the user almost certainly wants the verbatim export.
+        // Force the model to retry with `export_business_plan_pdf` so it
+        // can't paraphrase the plan by accident (e.g. "blueprint", "full plan").
+        const planInConversation = findLatestPlanInMessages(conversationMessages);
+        if (planInConversation) {
+          console.warn("[pdf_export_debug] generate_pdf blocked — plan present", {
+            user_id: userId,
+            arg_title: typeof args.title === "string" ? args.title : null,
+          });
+          return {
+            success: false,
+            error:
+              "A Business Plan exists in this conversation. To export it as a PDF you MUST call `export_business_plan_pdf` (not `generate_pdf`) so the export is verbatim and nothing is paraphrased or dropped. Retry the tool call now with `export_business_plan_pdf` and only an optional `filename`.",
+          };
+        }
         // Client-resolved: the browser renders & downloads the PDF.
         // We return the args under `data` so the existing TOOL_RESULT marker
         // stream carries them through to the frontend handler.
