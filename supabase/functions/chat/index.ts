@@ -1358,6 +1358,39 @@ async function executeTool(
         };
       }
 
+      case "ingest_youtube_url": {
+        const url = typeof args.url === "string" ? args.url.trim() : "";
+        if (!url) return { success: false, error: "ingest_youtube_url requires a YouTube URL." };
+        const intent = typeof args.intent === "string" ? args.intent : "summarize";
+        try {
+          const ingestion = await ingestYoutubeUrl(url);
+          // Hard cap transcript size returned to the model to keep context lean.
+          const MAX_CHARS = 18000;
+          const transcript =
+            ingestion.transcript.length > MAX_CHARS
+              ? ingestion.transcript.slice(0, MAX_CHARS) + "\n…[truncated]"
+              : ingestion.transcript;
+          return {
+            success: true,
+            data: {
+              intent,
+              source: ingestion.source,
+              video_id: ingestion.meta.video_id,
+              url: ingestion.meta.url,
+              title: ingestion.meta.title,
+              author: ingestion.meta.author,
+              thumbnail: ingestion.meta.thumbnail,
+              duration_sec: ingestion.meta.duration_sec,
+              transcript_chars: transcript.length,
+              transcript,
+              warning: ingestion.warning,
+            },
+          };
+        } catch (e: any) {
+          return { success: false, error: e?.message || "YouTube ingestion failed." };
+        }
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
