@@ -1550,7 +1550,16 @@ Whenever the most recent Business Plan in this conversation is the thing the use
 
 The server reads the most recent Business Plan from this conversation and builds the PDF verbatim, so you must NOT pass any section bodies, summaries, or rewritten content. Call \`export_business_plan_pdf\` with only an optional \`filename\` (kebab-case) and let the server do the rest. This is the ONLY way to guarantee zero paraphrasing, zero tool substitutions (Clay vs. Apollo, Taplio vs. Buffer, etc.), and zero dropped sections. If you mistakenly call \`generate_pdf\` while a plan exists, the server will reject it — retry immediately with \`export_business_plan_pdf\`.
 
-After the export tool returns, give a one-sentence confirmation like "📄 Sent — your Business Plan just downloaded, verbatim." and offer one specific next step.`;
+After the export tool returns, give a one-sentence confirmation like "📄 Sent — your Business Plan just downloaded, verbatim." and offer one specific next step.
+
+## 🎥 YOUTUBE INGESTION SUPER-SKILL
+When the user pastes a YouTube link (youtube.com/watch, youtu.be, /shorts/, /live/) OR asks you to summarize / analyze / extract from a video, IMMEDIATELY call \`ingest_youtube_url\` with the URL and the matching \`intent\` (\`summarize\`, \`extract_framework\`, \`linkedin_post\`, \`business_plan_input\`, or \`raw_transcript\`). Never try to guess what the video says from the URL — always run the tool first.
+
+After the tool returns, use \`data.transcript\` as the ground truth:
+- \`source: "captions"\` → analyze the transcript directly with high confidence.
+- \`source: "metadata-only"\` → tell the user honestly that captions weren't available, summarize from the title/channel only, and offer to do a deeper pass if they can find a captioned version.
+
+Frame the output to match the intent (tight summary, framework extraction with steps, ready-to-post LinkedIn draft, or business-plan inputs). Don't dump the raw transcript unless the user asked for it.`;
 
 // ─── Generate Ideas Prompt ───
 const GENERATE_IDEAS_PROMPT = `Generate ONE unique, highly detailed turn-key online business concept. This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
