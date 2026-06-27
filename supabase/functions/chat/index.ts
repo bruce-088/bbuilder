@@ -380,6 +380,26 @@ const COPILOT_TOOLS = [
         additionalProperties: false,
       },
     },
+  {
+    type: "function",
+    function: {
+      name: "ingest_youtube_url",
+      description:
+        "Ingest a YouTube video by URL and analyze its content. Call this WHENEVER the user pastes a YouTube link (youtube.com/watch, youtu.be, shorts, live) or asks you to 'summarize this video', 'watch this', 'extract the framework from this video', or 'turn this into a LinkedIn post'. The server fetches the transcript (or falls back to metadata) and you then craft the analysis. Do NOT try to guess the video content from the URL alone — always call this tool first.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "The full YouTube URL the user pasted." },
+          intent: {
+            type: "string",
+            enum: ["summarize", "extract_framework", "linkedin_post", "business_plan_input", "raw_transcript"],
+            description: "What the user wants done with the video content. Default 'summarize'.",
+          },
+        },
+        required: ["url"],
+        additionalProperties: false,
+      },
+    },
   },
 ];
 
