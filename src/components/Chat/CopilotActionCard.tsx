@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, Download } from "lucide-react";
+import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, Download, Youtube, ExternalLink } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -36,6 +36,7 @@ const TOOL_META: Record<string, { label: string; icon: React.ReactNode; color: s
   get_business_summary: { label: "Business Summary", icon: <Brain className="h-4 w-4" />, color: "text-pink-400" },
   generate_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
   export_business_plan_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
+  ingest_youtube_url: { label: "YouTube Ingested", icon: <Youtube className="h-4 w-4" />, color: "text-red-400" },
 };
 
 export default function CopilotActionCard({ toolResult }: CopilotActionCardProps) {
@@ -204,6 +205,53 @@ export default function CopilotActionCard({ toolResult }: CopilotActionCardProps
                 <Download className="h-3 w-3 mr-1" />
                 Download again
               </Button>
+            </div>
+          )}
+
+          {name === "ingest_youtube_url" && (
+            <div className="space-y-1.5">
+              <div className="flex gap-2 items-start">
+                {d.thumbnail && (
+                  <img
+                    src={d.thumbnail}
+                    alt=""
+                    className="h-12 w-20 object-cover rounded border border-border/50 flex-shrink-0"
+                  />
+                )}
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground truncate">{d.title || "YouTube video"}</p>
+                  {d.author && <p className="text-[10px] text-muted-foreground truncate">{d.author}</p>}
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <span
+                      className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                        d.source === "captions"
+                          ? "bg-emerald-500/20 text-emerald-400"
+                          : "bg-amber-500/20 text-amber-400"
+                      }`}
+                    >
+                      {d.source === "captions" ? "✅ Captions" : "⚠️ Metadata only"}
+                    </span>
+                    {typeof d.duration_sec === "number" && d.duration_sec > 0 && (
+                      <span className="text-[10px] text-muted-foreground">
+                        {Math.floor(d.duration_sec / 60)}m {d.duration_sec % 60}s
+                      </span>
+                    )}
+                    {typeof d.transcript_chars === "number" && (
+                      <span className="text-[10px] text-muted-foreground">
+                        · {d.transcript_chars.toLocaleString()} chars
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <a
+                href={String(d.url || "#")}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                <ExternalLink className="h-3 w-3" /> Open on YouTube
+              </a>
             </div>
           )}
         </div>

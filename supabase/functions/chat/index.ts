@@ -5,6 +5,7 @@ import {
   findLatestPlanInMessages,
   parseBusinessPlanMarkdown,
 } from "../_shared/parseBusinessPlanMarkdown.ts";
+import { ingestYoutubeUrl } from "../_shared/youtube.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -376,6 +377,26 @@ const COPILOT_TOOLS = [
               "Optional override for the PDF subtitle line. If omitted, the server uses the lede line from the original plan.",
           },
         },
+        additionalProperties: false,
+      },
+    },
+  {
+    type: "function",
+    function: {
+      name: "ingest_youtube_url",
+      description:
+        "Ingest a YouTube video by URL and analyze its content. Call this WHENEVER the user pastes a YouTube link (youtube.com/watch, youtu.be, shorts, live) or asks you to 'summarize this video', 'watch this', 'extract the framework from this video', or 'turn this into a LinkedIn post'. The server fetches the transcript (or falls back to metadata) and you then craft the analysis. Do NOT try to guess the video content from the URL alone — always call this tool first.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "The full YouTube URL the user pasted." },
+          intent: {
+            type: "string",
+            enum: ["summarize", "extract_framework", "linkedin_post", "business_plan_input", "raw_transcript"],
+            description: "What the user wants done with the video content. Default 'summarize'.",
+          },
+        },
+        required: ["url"],
         additionalProperties: false,
       },
     },
@@ -1337,6 +1358,39 @@ async function executeTool(
         };
       }
 
+      case "ingest_youtube_url": {
+        const url = typeof args.url === "string" ? args.url.trim() : "";
+        if (!url) return { success: false, error: "ingest_youtube_url requires a YouTube URL." };
+        const intent = typeof args.intent === "string" ? args.intent : "summarize";
+        try {
+          const ingestion = await ingestYoutubeUrl(url);
+          // Hard cap transcript size returned to the model to keep context lean.
+          const MAX_CHARS = 18000;
+          const transcript =
+            ingestion.transcript.length > MAX_CHARS
+              ? ingestion.transcript.slice(0, MAX_CHARS) + "\n…[truncated]"
+              : ingestion.transcript;
+          return {
+            success: true,
+            data: {
+              intent,
+              source: ingestion.source,
+              video_id: ingestion.meta.video_id,
+              url: ingestion.meta.url,
+              title: ingestion.meta.title,
+              author: ingestion.meta.author,
+              thumbnail: ingestion.meta.thumbnail,
+              duration_sec: ingestion.meta.duration_sec,
+              transcript_chars: transcript.length,
+              transcript,
+              warning: ingestion.warning,
+            },
+          };
+        } catch (e: any) {
+          return { success: false, error: e?.message || "YouTube ingestion failed." };
+        }
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -1496,7 +1550,16 @@ Whenever the most recent Business Plan in this conversation is the thing the use
 
 The server reads the most recent Business Plan from this conversation and builds the PDF verbatim, so you must NOT pass any section bodies, summaries, or rewritten content. Call \`export_business_plan_pdf\` with only an optional \`filename\` (kebab-case) and let the server do the rest. This is the ONLY way to guarantee zero paraphrasing, zero tool substitutions (Clay vs. Apollo, Taplio vs. Buffer, etc.), and zero dropped sections. If you mistakenly call \`generate_pdf\` while a plan exists, the server will reject it — retry immediately with \`export_business_plan_pdf\`.
 
-After the export tool returns, give a one-sentence confirmation like "📄 Sent — your Business Plan just downloaded, verbatim." and offer one specific next step.`;
+After the export tool returns, give a one-sentence confirmation like "📄 Sent — your Business Plan just downloaded, verbatim." and offer one specific next step.
+
+## 🎥 YOUTUBE INGESTION SUPER-SKILL
+When the user pastes a YouTube link (youtube.com/watch, youtu.be, /shorts/, /live/) OR asks you to summarize / analyze / extract from a video, IMMEDIATELY call \`ingest_youtube_url\` with the URL and the matching \`intent\` (\`summarize\`, \`extract_framework\`, \`linkedin_post\`, \`business_plan_input\`, or \`raw_transcript\`). Never try to guess what the video says from the URL — always run the tool first.
+
+After the tool returns, use \`data.transcript\` as the ground truth:
+- \`source: "captions"\` → analyze the transcript directly with high confidence.
+- \`source: "metadata-only"\` → tell the user honestly that captions weren't available, summarize from the title/channel only, and offer to do a deeper pass if they can find a captioned version.
+
+Frame the output to match the intent (tight summary, framework extraction with steps, ready-to-post LinkedIn draft, or business-plan inputs). Don't dump the raw transcript unless the user asked for it.`;
 
 // ─── Generate Ideas Prompt ───
 const GENERATE_IDEAS_PROMPT = `Generate ONE unique, highly detailed turn-key online business concept. This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
