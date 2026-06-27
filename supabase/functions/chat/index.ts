@@ -5,6 +5,7 @@ import {
   findLatestPlanInMessages,
   parseBusinessPlanMarkdown,
 } from "../_shared/parseBusinessPlanMarkdown.ts";
+import { ingestYoutubeUrl } from "../_shared/youtube.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
