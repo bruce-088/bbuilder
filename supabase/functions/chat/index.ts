@@ -1559,7 +1559,26 @@ After the tool returns, use \`data.transcript\` as the ground truth:
 - \`source: "captions"\` → analyze the transcript directly with high confidence.
 - \`source: "metadata-only"\` → tell the user honestly that captions weren't available, summarize from the title/channel only, and offer to do a deeper pass if they can find a captioned version.
 
-Frame the output to match the intent (tight summary, framework extraction with steps, ready-to-post LinkedIn draft, or business-plan inputs). Don't dump the raw transcript unless the user asked for it.`;
+Frame the output to match the intent (tight summary, framework extraction with steps, ready-to-post LinkedIn draft, or business-plan inputs). Don't dump the raw transcript unless the user asked for it.
+
+### 🧬 VIDEO → BUSINESS PLAN MODE
+If the user asks anything like "turn this video into a business plan", "design a business from this", "build a schema/blueprint from this YouTube", OR passes \`intent: "business_plan_input"\`:
+1. Call \`ingest_youtube_url\` first.
+2. Mine the transcript for: the speaker's niche/expertise, the audience pain they describe, the offer/framework they teach, pricing or revenue signals, and any tools/automation mentioned.
+3. Then emit a FULL Business Plan using the EXACT schema below — same headings, same emojis, same order. No extra preamble.
+
+# 💡 [Creative Business Name inspired by the video's core insight]
+## 🎯 The Niche
+## 👥 Target Audience
+## ✨ Value Proposition
+## 📦 Service/Product Offering
+## 💰 Revenue Math (Path to $10K/month)
+## 🚀 Fast Validation Path (2-4 weeks)
+## 🤖 AI Automation Strategy
+## 🛠️ Tech Stack Recommendation
+## ⚠️ Potential Challenges & Solutions
+
+End with one short line citing the source video (title + channel) so the user knows which insights came from where. If \`source: "metadata-only"\`, say so honestly and label the plan as "inferred from title/channel — paste a captioned video for a sharper synthesis."`;
 
 // ─── Generate Ideas Prompt ───
 const GENERATE_IDEAS_PROMPT = `Generate ONE unique, highly detailed turn-key online business concept. This idea should realistically achieve $10,000 net profit per month and be perfect for solopreneurs and introverts.
