@@ -36,6 +36,7 @@ const TOOL_META: Record<string, { label: string; icon: React.ReactNode; color: s
   get_business_summary: { label: "Business Summary", icon: <Brain className="h-4 w-4" />, color: "text-pink-400" },
   generate_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
   export_business_plan_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
+  ingest_youtube_url: { label: "YouTube Ingested", icon: <Youtube className="h-4 w-4" />, color: "text-red-400" },
 };
 
 export default function CopilotActionCard({ toolResult }: CopilotActionCardProps) {
