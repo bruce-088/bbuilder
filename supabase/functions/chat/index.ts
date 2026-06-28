@@ -1436,6 +1436,40 @@ async function executeTool(
         }
       }
 
+      case "save_system_blueprint": {
+        const title = typeof args.title === "string" ? args.title.trim() : "";
+        const blueprint = (args.blueprint && typeof args.blueprint === "object") ? args.blueprint as Record<string, unknown> : null;
+        if (!title || !blueprint) return { success: false, error: "save_system_blueprint requires title and blueprint." };
+        const row = {
+          user_id: userId,
+          title,
+          summary: typeof args.summary === "string" ? args.summary : null,
+          source_type: typeof args.source_type === "string" ? args.source_type : "manual",
+          source_url: typeof args.source_url === "string" ? args.source_url : null,
+          source_metadata: (args.source_metadata && typeof args.source_metadata === "object") ? args.source_metadata : {},
+          blueprint,
+          tags: Array.isArray(args.tags) ? args.tags.filter((t) => typeof t === "string") : [],
+          facets: (args.facets && typeof args.facets === "object") ? args.facets : {},
+          handoff_package: (args.handoff_package && typeof args.handoff_package === "object") ? args.handoff_package : {},
+          status: "ready",
+        };
+        const { data, error } = await supabaseAdmin
+          .from("system_blueprints")
+          .insert(row)
+          .select("id, title")
+          .single();
+        if (error) return { success: false, error: error.message };
+        return {
+          success: true,
+          data: {
+            blueprint_id: (data as any).id,
+            title: (data as any).title,
+            section_count: Object.keys(blueprint).length,
+            library_url: "/library",
+          },
+        };
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
