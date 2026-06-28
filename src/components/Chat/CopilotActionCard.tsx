@@ -255,6 +255,15 @@ export default function CopilotActionCard({ toolResult }: CopilotActionCardProps
               </a>
             </div>
           )}
+
+          {name === "save_system_blueprint" && (
+            <div className="space-y-1">
+              <p>📚 <strong>{d.title}</strong> — {d.section_count} sections saved</p>
+              <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary" onClick={() => navigate("/library")}>
+                Open Library →
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
