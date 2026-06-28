@@ -1512,6 +1512,116 @@ async function executeTool(
         };
       }
 
+      case "web_research": {
+        const queries: string[] = Array.isArray(args.queries)
+          ? (args.queries as unknown[]).filter((q): q is string => typeof q === "string" && q.trim().length > 0).slice(0, 5)
+          : [];
+        const focus = typeof args.focus === "string" ? args.focus : "tactics, frameworks, tech stack, pricing, audience";
+        if (queries.length === 0) return { success: false, error: "web_research requires at least one query." };
+
+        const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+        if (!lovableKey) return { success: false, error: "Research engine not configured." };
+
+        const researchPrompt =
+          `You are a research synthesizer for a Systems Architect. For the queries below, surface every concrete tactical detail you have ` +
+          `(frameworks, named steps, tech stack, pricing, audience, distribution playbook, common results). Avoid generic advice. ` +
+          `If you have little or no information about a query, say so explicitly for that query — do NOT fabricate. ` +
+          `Focus: ${focus}\n\nQueries:\n${queries.map((q, i) => `${i + 1}. ${q}`).join("\n")}\n\n` +
+          `Return markdown with one section per query. End each section with a single line: "Confidence: high | medium | low".`;
+
+        try {
+          const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Lovable-API-Key": lovableKey,
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                { role: "system", content: "You are a precise research synthesizer. Cite confidence honestly; never invent specifics." },
+                { role: "user", content: researchPrompt },
+              ],
+            }),
+          });
+          if (!resp.ok) {
+            const txt = await resp.text();
+            return { success: false, error: `Research engine ${resp.status}: ${txt.slice(0, 200)}` };
+          }
+          const data = await resp.json();
+          const synthesis = data?.choices?.[0]?.message?.content ?? "";
+          return {
+            success: true,
+            data: {
+              queries,
+              focus,
+              synthesis,
+              evidence_tag: "Synthesized",
+              note: "Tag every blueprint claim drawn from this with [Evidence: Synthesized].",
+            },
+          };
+        } catch (e: any) {
+          return { success: false, error: e?.message || "web_research failed." };
+        }
+      }
+
+      case "query_blueprint_library": {
+        const newTags: string[] = Array.isArray(args.tags)
+          ? (args.tags as unknown[]).filter((t): t is string => typeof t === "string").map((t) => t.toLowerCase())
+          : [];
+        const newRevenue = typeof args.revenue_model === "string" ? args.revenue_model : null;
+        const newAuto = typeof args.automation_potential === "number" ? args.automation_potential : null;
+
+        const { data: rows, error } = await supabaseAdmin
+          .from("system_blueprints")
+          .select("id, title, tags, facets")
+          .eq("user_id", userId);
+        if (error) return { success: false, error: error.message };
+
+        const list = (rows as Array<{ id: string; title: string; tags: string[] | null; facets: Record<string, unknown> | null }>) || [];
+        const total = list.length;
+
+        // Automation distribution
+        const autos = list
+          .map((r) => Number((r.facets as any)?.automation_potential))
+          .filter((n) => Number.isFinite(n));
+        const autoBeatPct =
+          newAuto != null && autos.length > 0
+            ? Math.round((autos.filter((a) => newAuto > a).length / autos.length) * 100)
+            : null;
+
+        // Revenue model spread
+        const revenueSpread: Record<string, number> = {};
+        for (const r of list) {
+          const rm = (r.facets as any)?.revenue_model;
+          if (typeof rm === "string") revenueSpread[rm] = (revenueSpread[rm] ?? 0) + 1;
+        }
+
+        // Similar blueprints — score by tag overlap + revenue match
+        const scored = list
+          .map((r) => {
+            const tags = (r.tags || []).map((t) => t.toLowerCase());
+            const overlap = newTags.filter((t) => tags.includes(t)).length;
+            const rmMatch = newRevenue && (r.facets as any)?.revenue_model === newRevenue ? 1 : 0;
+            return { id: r.id, title: r.title, tags, overlap, rmMatch, score: overlap * 2 + rmMatch };
+          })
+          .filter((s) => s.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3);
+
+        return {
+          success: true,
+          data: {
+            library_size: total,
+            automation_potential_beats_pct: autoBeatPct,
+            revenue_model_spread: revenueSpread,
+            similar_blueprints: scored,
+            evidence_tag: "Direct",
+            note: "Use these numbers verbatim in the `comparative_intelligence` section. Tag with [Evidence: Direct].",
+          },
+        };
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
