@@ -917,6 +917,63 @@ export type Database = {
         }
         Relationships: []
       }
+      system_blueprints: {
+        Row: {
+          blueprint: Json
+          created_at: string
+          facets: Json
+          handoff_package: Json
+          id: string
+          is_favorite: boolean
+          mutation_log: Json
+          source_metadata: Json
+          source_type: string
+          source_url: string | null
+          status: string
+          summary: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          blueprint?: Json
+          created_at?: string
+          facets?: Json
+          handoff_package?: Json
+          id?: string
+          is_favorite?: boolean
+          mutation_log?: Json
+          source_metadata?: Json
+          source_type?: string
+          source_url?: string | null
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          blueprint?: Json
+          created_at?: string
+          facets?: Json
+          handoff_package?: Json
+          id?: string
+          is_favorite?: boolean
+          mutation_log?: Json
+          source_metadata?: Json
+          source_type?: string
+          source_url?: string | null
+          status?: string
+          summary?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       triad_events: {
         Row: {
           created_at: string | null
