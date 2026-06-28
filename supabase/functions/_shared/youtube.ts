@@ -18,6 +18,8 @@ export interface YoutubeMeta {
   author?: string;
   thumbnail?: string;
   duration_sec?: number;
+  description?: string;
+  keywords?: string[];
 }
 
 export interface YoutubeIngestionResult {
@@ -25,6 +27,10 @@ export interface YoutubeIngestionResult {
   transcript: string; // full text (Tier 1) or "[metadata only] Title / Channel / Description" (Tier 2)
   meta: YoutubeMeta;
   warning?: string;
+  /** When true, the caller (Mya) should invoke `web_research` to enrich the blueprint. */
+  needs_web_research?: boolean;
+  /** Suggested web-search queries the caller can use immediately. */
+  research_queries?: string[];
 }
 
 const VIDEO_ID_RE =
