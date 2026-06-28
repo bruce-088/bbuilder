@@ -21,6 +21,7 @@ import WorkflowEditor from "./pages/WorkflowEditor";
 import Strategy from "./pages/Strategy";
 import Conversations from "./pages/Conversations";
 import Plans from "./pages/Plans";
+import Library from "./pages/Library";
 import DangerZone from "./pages/DangerZone";
 
 const queryClient = new QueryClient();
@@ -49,6 +50,7 @@ const App = () => (
                 <Route path="/strategy" element={<Strategy />} />
                 <Route path="/conversations" element={<Conversations />} />
                 <Route path="/plans" element={<Plans />} />
+                <Route path="/library" element={<Library />} />
                 <Route path="/settings/danger-zone" element={<DangerZone />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

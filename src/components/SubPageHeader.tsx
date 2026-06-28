@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Sparkles, Users, Workflow, MessagesSquare, FileText, Map as MapIcon, HelpCircle, LogOut } from "lucide-react";
+import { ArrowLeft, Sparkles, Users, Workflow, MessagesSquare, FileText, Map as MapIcon, HelpCircle, LogOut, BookOpen } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import ExportSpecButton from "@/components/ExportSpecButton";
@@ -47,6 +47,9 @@ export default function SubPageHeader({ title, description }: SubPageHeaderProps
             </Button>
             <Button onClick={() => navigate("/plans")} variant="ghost" size="sm">
               <FileText className="w-4 h-4 mr-2" /> Plans
+            </Button>
+            <Button onClick={() => navigate("/library")} variant="ghost" size="sm">
+              <BookOpen className="w-4 h-4 mr-2" /> Library
             </Button>
             <Button onClick={() => navigate("/strategy")} variant="ghost" size="sm">
               <MapIcon className="w-4 h-4 mr-2" /> Strategy

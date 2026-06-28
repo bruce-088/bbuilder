@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, Download, Youtube, ExternalLink } from "lucide-react";
+import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, Download, Youtube, ExternalLink, BookOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ const TOOL_META: Record<string, { label: string; icon: React.ReactNode; color: s
   generate_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
   export_business_plan_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
   ingest_youtube_url: { label: "YouTube Ingested", icon: <Youtube className="h-4 w-4" />, color: "text-red-400" },
+  save_system_blueprint: { label: "Blueprint Saved", icon: <BookOpen className="h-4 w-4" />, color: "text-emerald-400" },
 };
 
 export default function CopilotActionCard({ toolResult }: CopilotActionCardProps) {
@@ -252,6 +253,15 @@ export default function CopilotActionCard({ toolResult }: CopilotActionCardProps
               >
                 <ExternalLink className="h-3 w-3" /> Open on YouTube
               </a>
+            </div>
+          )}
+
+          {name === "save_system_blueprint" && (
+            <div className="space-y-1">
+              <p>📚 <strong>{d.title}</strong> — {d.section_count} sections saved</p>
+              <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary" onClick={() => navigate("/library")}>
+                Open Library →
+              </Button>
             </div>
           )}
         </div>

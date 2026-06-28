@@ -29,6 +29,7 @@ import {
   Workflow,
   MessagesSquare,
   FileText,
+  BookOpen,
   Map as MapIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -269,6 +270,9 @@ export default function Dashboard() {
             </Button>
             <Button onClick={() => navigate("/plans")} variant="ghost" size="sm">
               <FileText className="w-4 h-4 mr-2" /> Plans
+            </Button>
+            <Button onClick={() => navigate("/library")} variant="ghost" size="sm">
+              <BookOpen className="w-4 h-4 mr-2" /> Library
             </Button>
             <Button onClick={() => navigate("/strategy")} variant="ghost" size="sm">
               <MapIcon className="w-4 h-4 mr-2" /> Strategy
