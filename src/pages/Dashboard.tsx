@@ -29,6 +29,7 @@ import {
   Workflow,
   MessagesSquare,
   FileText,
+  BookOpen,
   Map as MapIcon,
 } from "lucide-react";
 import { motion } from "framer-motion";
