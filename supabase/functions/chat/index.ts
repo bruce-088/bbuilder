@@ -448,6 +448,47 @@ const COPILOT_TOOLS = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "web_research",
+      description:
+        "Fail-Soft Research Mode. Call this whenever the user gives you a source (video, article, name, framework) where your primary ingestion is thin — missing transcript, sparse description, or unknown creator. Returns synthesized intelligence (summaries, frameworks, tactics, pricing, stack hints) drawn from the broader web/knowledge base so you can build a HIGH-FIDELITY blueprint instead of inferring silently. Use the queries returned by `ingest_youtube_url.research_queries` when available.",
+      parameters: {
+        type: "object",
+        properties: {
+          queries: {
+            type: "array",
+            items: { type: "string" },
+            description: "1-5 specific search queries (e.g. '[Video Title] summary', '[Creator] [Topic] framework', '[Creator] pricing').",
+          },
+          focus: {
+            type: "string",
+            description: "What you're trying to learn (e.g. 'tactical framework + tech stack', 'business model + pricing', 'audience + offer').",
+          },
+        },
+        required: ["queries"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_blueprint_library",
+      description:
+        "Comparative Intelligence. Query the user's existing Systems Library to compare a new blueprint against what's already saved. Returns aggregate facets (automation_potential distribution, revenue_model spread, niche/tag overlap) plus the top 3 most similar blueprints. ALWAYS call this before saving a new blueprint so the `comparative_intelligence` section can be populated with real numbers, not guesses.",
+      parameters: {
+        type: "object",
+        properties: {
+          tags: { type: "array", items: { type: "string" }, description: "Tags of the new blueprint (for niche overlap)." },
+          revenue_model: { type: "string", description: "Revenue model of the new blueprint." },
+          automation_potential: { type: "number", description: "Automation potential 0-100 of the new blueprint." },
+        },
+        additionalProperties: false,
+      },
+    },
+  },
 ];
 
 // ─── Helper: find lead by name or ID ───
@@ -1472,6 +1513,116 @@ async function executeTool(
         };
       }
 
+      case "web_research": {
+        const queries: string[] = Array.isArray(args.queries)
+          ? (args.queries as unknown[]).filter((q): q is string => typeof q === "string" && q.trim().length > 0).slice(0, 5)
+          : [];
+        const focus = typeof args.focus === "string" ? args.focus : "tactics, frameworks, tech stack, pricing, audience";
+        if (queries.length === 0) return { success: false, error: "web_research requires at least one query." };
+
+        const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+        if (!lovableKey) return { success: false, error: "Research engine not configured." };
+
+        const researchPrompt =
+          `You are a research synthesizer for a Systems Architect. For the queries below, surface every concrete tactical detail you have ` +
+          `(frameworks, named steps, tech stack, pricing, audience, distribution playbook, common results). Avoid generic advice. ` +
+          `If you have little or no information about a query, say so explicitly for that query — do NOT fabricate. ` +
+          `Focus: ${focus}\n\nQueries:\n${queries.map((q, i) => `${i + 1}. ${q}`).join("\n")}\n\n` +
+          `Return markdown with one section per query. End each section with a single line: "Confidence: high | medium | low".`;
+
+        try {
+          const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Lovable-API-Key": lovableKey,
+            },
+            body: JSON.stringify({
+              model: "google/gemini-2.5-flash",
+              messages: [
+                { role: "system", content: "You are a precise research synthesizer. Cite confidence honestly; never invent specifics." },
+                { role: "user", content: researchPrompt },
+              ],
+            }),
+          });
+          if (!resp.ok) {
+            const txt = await resp.text();
+            return { success: false, error: `Research engine ${resp.status}: ${txt.slice(0, 200)}` };
+          }
+          const data = await resp.json();
+          const synthesis = data?.choices?.[0]?.message?.content ?? "";
+          return {
+            success: true,
+            data: {
+              queries,
+              focus,
+              synthesis,
+              evidence_tag: "Synthesized",
+              note: "Tag every blueprint claim drawn from this with [Evidence: Synthesized].",
+            },
+          };
+        } catch (e: any) {
+          return { success: false, error: e?.message || "web_research failed." };
+        }
+      }
+
+      case "query_blueprint_library": {
+        const newTags: string[] = Array.isArray(args.tags)
+          ? (args.tags as unknown[]).filter((t): t is string => typeof t === "string").map((t) => t.toLowerCase())
+          : [];
+        const newRevenue = typeof args.revenue_model === "string" ? args.revenue_model : null;
+        const newAuto = typeof args.automation_potential === "number" ? args.automation_potential : null;
+
+        const { data: rows, error } = await supabaseAdmin
+          .from("system_blueprints")
+          .select("id, title, tags, facets")
+          .eq("user_id", userId);
+        if (error) return { success: false, error: error.message };
+
+        const list = (rows as Array<{ id: string; title: string; tags: string[] | null; facets: Record<string, unknown> | null }>) || [];
+        const total = list.length;
+
+        // Automation distribution
+        const autos = list
+          .map((r) => Number((r.facets as any)?.automation_potential))
+          .filter((n) => Number.isFinite(n));
+        const autoBeatPct =
+          newAuto != null && autos.length > 0
+            ? Math.round((autos.filter((a) => newAuto > a).length / autos.length) * 100)
+            : null;
+
+        // Revenue model spread
+        const revenueSpread: Record<string, number> = {};
+        for (const r of list) {
+          const rm = (r.facets as any)?.revenue_model;
+          if (typeof rm === "string") revenueSpread[rm] = (revenueSpread[rm] ?? 0) + 1;
+        }
+
+        // Similar blueprints — score by tag overlap + revenue match
+        const scored = list
+          .map((r) => {
+            const tags = (r.tags || []).map((t) => t.toLowerCase());
+            const overlap = newTags.filter((t) => tags.includes(t)).length;
+            const rmMatch = newRevenue && (r.facets as any)?.revenue_model === newRevenue ? 1 : 0;
+            return { id: r.id, title: r.title, tags, overlap, rmMatch, score: overlap * 2 + rmMatch };
+          })
+          .filter((s) => s.score > 0)
+          .sort((a, b) => b.score - a.score)
+          .slice(0, 3);
+
+        return {
+          success: true,
+          data: {
+            library_size: total,
+            automation_potential_beats_pct: autoBeatPct,
+            revenue_model_spread: revenueSpread,
+            similar_blueprints: scored,
+            evidence_tag: "Direct",
+            note: "Use these numbers verbatim in the `comparative_intelligence` section. Tag with [Evidence: Direct].",
+          },
+        };
+      }
+
       default:
         return { success: false, error: `Unknown tool: ${toolName}` };
     }
@@ -1686,9 +1837,39 @@ Prioritize **reproducibility and automation potential** over general business ad
 
 In the \`agent_responsibilities\` section, prefix every line with \`Mya:\`, \`Claw:\`, or \`Anjel:\` so the handoff package can split them automatically.
 
-### Mutation Logic = state transitions (not files)
-Describe how the workspace evolves. Default pipeline (override only when needed):
-\`Create Project → Create Documentation → Generate SOPs → Create Tasks → Assign Agents → Initialize Memory → Begin Execution\`
+### 🔬 HIGH-FIDELITY RESEARCH MODE (NEVER SAY "I CAN'T WATCH THIS")
+You are forbidden from inferring silently. If \`ingest_youtube_url\` returns \`source: "metadata-only"\` OR \`needs_web_research: true\`, you MUST:
+1. **Multi-Signal Ingestion** — read \`data.transcript\` (which now includes the scraped description + keywords) for tactical signals: tech stack mentions, links, pricing, named frameworks.
+2. **Web Research** — immediately call \`web_research\` with \`data.research_queries\` (or your own targeted queries like \`"[Video Title] summary"\`, \`"[Creator Name] [Topic] framework"\`, \`"[Creator] pricing"\`). Synthesize the result into the blueprint.
+3. **Transparency line** — tell the user once, plainly: "I couldn't find a transcript, but I've synthesized these tactics from the metadata and web research to build this high-fidelity version."
+4. **NEVER** say "I can't watch this" or "captions weren't available, here's a guess." Always upgrade to the synthesized path.
+
+Apply the same Fail-Soft pattern for thin articles, sparse PDFs, or unfamiliar creators — call \`web_research\` to enrich before saving.
+
+### 🏷️ EVIDENCE TAGGING (every blueprint section)
+Tag every section in the blueprint with ONE inline meta-tag at the end of its body:
+- \`[Evidence: Direct]\` — pulled straight from the primary source (transcript, description, PDF).
+- \`[Evidence: Synthesized]\` — drawn from \`web_research\` output.
+- \`[Evidence: Inferred]\` — your educated architect's guess (use sparingly).
+
+Section bodies look like: \`...the operator runs three weekly cohorts.\\n\\n_[Evidence: Direct]_\`
+
+### 🧮 COMPARATIVE INTELLIGENCE (mandatory)
+BEFORE calling \`save_system_blueprint\`, ALWAYS call \`query_blueprint_library\` with the new blueprint's \`tags\`, \`revenue_model\`, and \`automation_potential\`. Use the returned numbers verbatim to fill the \`comparative_intelligence\` section, e.g.:
+
+> Library size: 12 blueprints. **Automation Potential:** higher than 80% of current library. **Niche Overlap:** strongest with "LinkedIn Authority Engine" (3 tag matches). **Revenue Model:** joins 4 other recurring-revenue blueprints. _[Evidence: Direct]_
+
+If the library is empty, say "First blueprint in the Library — no comparison set yet." and continue.
+
+### 🚀 MUTATION LOGIC = 4-PHASE OPENCLAW STATE TRANSITION (NOT FILES)
+The \`mutation_logic\` section is a SYSTEM STATE TRANSITION plan for OpenClaw — not a file list. ALWAYS structure it as these 4 phases (override only when truly justified):
+
+1. **Phase 1 — Zero-State** (Claw): workspace init, project shell, channel/folder scaffolding.
+2. **Phase 2 — Data Seeding** (Mya): docs + memory injection (SOPs, brand voice, ICP, offer doc).
+3. **Phase 3 — Tactical Scaffolding** (Claw): create project files, tasks, role assignments.
+4. **Phase 4 — Agent Activation** (Anjel): n8n workflows / task handoff goes live and the system starts running autonomously.
+
+Under each phase, list the concrete moves (2–5 bullets). This becomes the OpenClaw runbook.
 
 ### Facets (for future semantic search)
 Always populate \`facets\` with what you can infer: \`revenue_model\`, \`business_model_type\`, \`startup_cost_usd\`, \`automation_potential\` (0–100), \`outbound_required\`, \`inbound_dependent\`. Add lowercase \`tags\` so the user can later ask "show me every recurring revenue business."
