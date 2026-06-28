@@ -447,6 +447,46 @@ const COPILOT_TOOLS = [
         additionalProperties: false,
       },
     },
+  {
+    type: "function",
+    function: {
+      name: "web_research",
+      description:
+        "Fail-Soft Research Mode. Call this whenever the user gives you a source (video, article, name, framework) where your primary ingestion is thin — missing transcript, sparse description, or unknown creator. Returns synthesized intelligence (summaries, frameworks, tactics, pricing, stack hints) drawn from the broader web/knowledge base so you can build a HIGH-FIDELITY blueprint instead of inferring silently. Use the queries returned by `ingest_youtube_url.research_queries` when available.",
+      parameters: {
+        type: "object",
+        properties: {
+          queries: {
+            type: "array",
+            items: { type: "string" },
+            description: "1-5 specific search queries (e.g. '[Video Title] summary', '[Creator] [Topic] framework', '[Creator] pricing').",
+          },
+          focus: {
+            type: "string",
+            description: "What you're trying to learn (e.g. 'tactical framework + tech stack', 'business model + pricing', 'audience + offer').",
+          },
+        },
+        required: ["queries"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_blueprint_library",
+      description:
+        "Comparative Intelligence. Query the user's existing Systems Library to compare a new blueprint against what's already saved. Returns aggregate facets (automation_potential distribution, revenue_model spread, niche/tag overlap) plus the top 3 most similar blueprints. ALWAYS call this before saving a new blueprint so the `comparative_intelligence` section can be populated with real numbers, not guesses.",
+      parameters: {
+        type: "object",
+        properties: {
+          tags: { type: "array", items: { type: "string" }, description: "Tags of the new blueprint (for niche overlap)." },
+          revenue_model: { type: "string", description: "Revenue model of the new blueprint." },
+          automation_potential: { type: "number", description: "Automation potential 0-100 of the new blueprint." },
+        },
+        additionalProperties: false,
+      },
+    },
   },
 ];
 
