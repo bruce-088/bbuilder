@@ -400,6 +400,51 @@ const COPILOT_TOOLS = [
         additionalProperties: false,
       },
     },
+  {
+    type: "function",
+    function: {
+      name: "save_system_blueprint",
+      description:
+        "Persist a Systems Blueprint to the user's Library. Call this whenever the user wants to deconstruct a resource (YouTube video, article, PDF, podcast, case study) into a reusable Business Blueprint, OR says things like 'add this to my library', 'save this as a blueprint', 'deconstruct this', 'design a system from this'. Build the FULL structured blueprint object using every relevant section — this is the PRODUCT, not a summary. Mya is a Systems Architect; every blueprint answers: 'How would we build, automate, and operate this business?'",
+      parameters: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Short, distinctive blueprint title (e.g. 'The LinkedIn Authority Engine')." },
+          summary: { type: "string", description: "2-4 sentence executive summary." },
+          source_type: {
+            type: "string",
+            enum: ["youtube", "pdf", "article", "podcast", "book", "case_study", "internal_doc", "manual"],
+            description: "Where this blueprint came from."
+          },
+          source_url: { type: "string", description: "URL of the source if applicable." },
+          source_metadata: {
+            type: "object",
+            description: "Source-specific metadata (title, author, channel, duration, etc.). Open-ended object.",
+            additionalProperties: true,
+          },
+          tags: { type: "array", items: { type: "string" }, description: "Lowercase short tags for filter/search (e.g. 'recurring', 'b2b', 'outbound', 'ai-native')." },
+          facets: {
+            type: "object",
+            description: "Structured filters for future semantic search. Keys: revenue_model (one_time|recurring|productized|marketplace|ads|service|hybrid), business_model_type, startup_cost_usd (number), automation_potential (0-100), outbound_required (bool), inbound_dependent (bool).",
+            additionalProperties: true,
+          },
+          blueprint: {
+            type: "object",
+            description:
+              "The blueprint sections, keyed by section id. Fill EVERY section you can. Section ids: executive_summary, system_dna, revenue_model, offer, target_customer, customer_journey, business_workflow, required_automations, ai_opportunities, human_responsibilities, agent_responsibilities, technology_stack, empty_lane_analysis, competitive_advantage, risks, kpis, thirty_day_mvp, ninety_day_scale, execution_checklist, mutation_logic, openclaw_handoff. Each value is markdown text. For agent_responsibilities, use lines prefixed 'Mya:', 'Claw:', 'Anjel:' so the handoff package can split them.",
+            additionalProperties: true,
+          },
+          handoff_package: {
+            type: "object",
+            description:
+              "Optional structured override for the OpenClaw handoff. Keys: agents {mya:[], claw:[], anjel:[]}, mutation_pipeline (array of {state,label,agent}), required_automations[], tech_stack[], kpis[]. If omitted, the server derives it from the blueprint.",
+            additionalProperties: true,
+          },
+        },
+        required: ["title", "blueprint"],
+        additionalProperties: false,
+      },
+    },
   },
 ];
 
