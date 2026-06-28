@@ -50,7 +50,8 @@ export const BLUEPRINT_SECTIONS: BlueprintSection[] = [
   { id: "thirty_day_mvp",          label: "30-Day MVP",                hint: "What ships in the first 30 days. No fluff." },
   { id: "ninety_day_scale",        label: "90-Day Scale Plan",         hint: "How it scales after MVP traction." },
   { id: "execution_checklist",     label: "Execution Checklist",       hint: "Ordered, atomic to-dos. Each item assignable to an agent." },
-  { id: "mutation_logic",          label: "Mutation Logic",            hint: "State-transition graph: Create Project → Docs → SOPs → Tasks → Assign → Memory → Execute." },
+  { id: "comparative_intelligence",label: "Comparative Intelligence",  hint: "How this blueprint compares to others in the Library (automation %, niche overlap, revenue model peers). Populated via query_blueprint_library." },
+  { id: "mutation_logic",          label: "Mutation Logic",            hint: "4-phase state transition plan for OpenClaw: Zero-State → Data Seeding → Tactical Scaffolding → Agent Activation." },
   { id: "openclaw_handoff",        label: "OpenClaw Handoff Package",  hint: "Structured payload Claw ingests to spin this business up." },
 ];
 
