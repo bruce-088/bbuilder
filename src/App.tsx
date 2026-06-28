@@ -21,6 +21,7 @@ import WorkflowEditor from "./pages/WorkflowEditor";
 import Strategy from "./pages/Strategy";
 import Conversations from "./pages/Conversations";
 import Plans from "./pages/Plans";
+import Library from "./pages/Library";
 import DangerZone from "./pages/DangerZone";
 
 const queryClient = new QueryClient();
