@@ -447,6 +447,7 @@ const COPILOT_TOOLS = [
         additionalProperties: false,
       },
     },
+  },
   {
     type: "function",
     function: {
