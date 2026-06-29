@@ -380,7 +380,6 @@ const COPILOT_TOOLS = [
         additionalProperties: false,
       },
     },
-  },
   {
     type: "function",
     function: {
@@ -401,7 +400,6 @@ const COPILOT_TOOLS = [
         additionalProperties: false,
       },
     },
-  },
   {
     type: "function",
     function: {
