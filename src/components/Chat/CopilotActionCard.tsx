@@ -38,8 +38,6 @@ const TOOL_META: Record<string, { label: string; icon: React.ReactNode; color: s
   export_business_plan_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
   ingest_youtube_url: { label: "YouTube Ingested", icon: <Youtube className="h-4 w-4" />, color: "text-red-400" },
   save_system_blueprint: { label: "Blueprint Saved", icon: <BookOpen className="h-4 w-4" />, color: "text-emerald-400" },
-  web_research: { label: "Web Research", icon: <Brain className="h-4 w-4" />, color: "text-amber-400" },
-  query_blueprint_library: { label: "Library Compared", icon: <BarChart3 className="h-4 w-4" />, color: "text-violet-400" },
 };
 
 export default function CopilotActionCard({ toolResult }: CopilotActionCardProps) {

@@ -50,8 +50,7 @@ export const BLUEPRINT_SECTIONS: BlueprintSection[] = [
   { id: "thirty_day_mvp",          label: "30-Day MVP",                hint: "What ships in the first 30 days. No fluff." },
   { id: "ninety_day_scale",        label: "90-Day Scale Plan",         hint: "How it scales after MVP traction." },
   { id: "execution_checklist",     label: "Execution Checklist",       hint: "Ordered, atomic to-dos. Each item assignable to an agent." },
-  { id: "comparative_intelligence",label: "Comparative Intelligence",  hint: "How this blueprint compares to others in the Library (automation %, niche overlap, revenue model peers). Populated via query_blueprint_library." },
-  { id: "mutation_logic",          label: "Mutation Logic",            hint: "4-phase state transition plan for OpenClaw: Zero-State → Data Seeding → Tactical Scaffolding → Agent Activation." },
+  { id: "mutation_logic",          label: "Mutation Logic",            hint: "State-transition graph: Create Project → Docs → SOPs → Tasks → Assign → Memory → Execute." },
   { id: "openclaw_handoff",        label: "OpenClaw Handoff Package",  hint: "Structured payload Claw ingests to spin this business up." },
 ];
 
@@ -99,19 +98,17 @@ export interface MutationStep {
 }
 
 /**
- * Canonical default mutation pipeline — 4 phases for OpenClaw.
- * Each phase is a WORKSPACE STATE TRANSITION, not files to create.
- *
- * Phase 1: Zero-State        → workspace init
- * Phase 2: Data Seeding      → docs + memory injection
- * Phase 3: Tactical Scaffolding → project file + task creation
- * Phase 4: Agent Activation  → n8n / task handoff goes live
+ * Canonical default mutation pipeline. Blueprints can override or extend.
+ * This represents WORKSPACE STATE TRANSITIONS, not files to create.
  */
 export const DEFAULT_MUTATION_PIPELINE: MutationStep[] = [
-  { state: "phase_1_zero_state",            label: "Phase 1 — Zero-State (Workspace Init)",                agent: "claw" },
-  { state: "phase_2_data_seeding",          label: "Phase 2 — Data Seeding (Docs & Memory Injection)",      agent: "mya" },
-  { state: "phase_3_tactical_scaffolding",  label: "Phase 3 — Tactical Scaffolding (Project Files & Tasks)", agent: "claw" },
-  { state: "phase_4_agent_activation",      label: "Phase 4 — Agent Activation (n8n / Task Handoff)",       agent: "anjel" },
+  { state: "create_project",       label: "Create Project",         agent: "claw" },
+  { state: "create_documentation", label: "Create Documentation",   agent: "mya" },
+  { state: "generate_sops",        label: "Generate SOPs",          agent: "mya" },
+  { state: "create_tasks",         label: "Create Tasks",           agent: "claw" },
+  { state: "assign_agents",        label: "Assign Agents",          agent: "claw" },
+  { state: "initialize_memory",    label: "Initialize Memory",      agent: "mya" },
+  { state: "begin_execution",      label: "Begin Execution",        agent: "anjel" },
 ];
 
 /**
