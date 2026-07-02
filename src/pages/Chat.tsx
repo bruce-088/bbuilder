@@ -1112,6 +1112,35 @@ export default function Chat() {
                     </div>
                   </div>
                 )}
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3 p-3 bg-muted/50 rounded-lg border border-border/50">
+                    {attachedFiles.map((f, index) => (
+                      <div key={index} className="relative group flex items-center gap-2 bg-background/80 border border-border rounded-md px-2 py-1 text-xs">
+                        <FileText className="w-3.5 h-3.5 text-primary" />
+                        <span className="max-w-[160px] truncate" title={f.name}>{f.name}</span>
+                        {f.error ? (
+                          <span className="text-destructive">⚠</span>
+                        ) : (
+                          <span className="text-muted-foreground">{Math.round(f.text.length / 1000)}k chars</span>
+                        )}
+                        <button
+                          onClick={() => removeFile(index)}
+                          className="ml-1 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.docx,.txt,.md,.csv,.json,.jsonl,.yaml,.yml,.xml,.html,.htm,.log,.js,.jsx,.ts,.tsx,.py,.rb,.go,.sql,.css,.scss"
+                  className="hidden"
+                  onChange={(e) => handleFilesSelected(e.target.files)}
+                />
                 <div className="flex gap-3">
                   <div className="relative flex-1">
                     {cowork.isActive && (
@@ -1127,11 +1156,21 @@ export default function Chat() {
                       }}
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
-                      placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"}
+                      placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots or attach files 📎)"}
                       className={`resize-none min-h-[48px] max-h-[200px] ${cowork.isActive ? "pl-9" : ""}`}
                       disabled={isStreaming}
                     />
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isStreaming || ingestingFiles}
+                    className="h-12 w-12 p-0"
+                    title="Attach files (PDF, DOCX, TXT, CSV, JSON, code)"
+                  >
+                    {ingestingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                  </Button>
               <VoiceInputButton
                     onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
                     onActivateVoiceMode={voiceMode.startVoiceMode}
@@ -1140,7 +1179,7 @@ export default function Chat() {
                   />
                   <Button
                     onClick={handleSend}
-                    disabled={(!input.trim() && pastedImages.length === 0) || isStreaming}
+                    disabled={(!input.trim() && pastedImages.length === 0 && attachedFiles.length === 0) || isStreaming}
                     className="bg-gradient-primary hover:opacity-90 btn-glow h-12 px-4"
                   >
                     {isStreaming ? (
