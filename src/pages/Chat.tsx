@@ -1686,11 +1686,21 @@ export default function Chat() {
                   }}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
-                  placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"}
+                  placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots or attach files 📎)"}
                   className={`resize-none min-h-[48px] max-h-[200px] ${cowork.isActive ? "pl-9" : ""}`}
                   disabled={isStreaming}
                 />
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => footerFileInputRef.current?.click()}
+                disabled={isStreaming || ingestingFiles}
+                className="h-12 w-12 p-0"
+                title="Attach files (PDF, DOCX, TXT, CSV, JSON, code)"
+              >
+                {ingestingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+              </Button>
               <VoiceInputButton
                 onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
                 onActivateVoiceMode={voiceMode.startVoiceMode}
@@ -1699,7 +1709,7 @@ export default function Chat() {
               />
               <Button
                 onClick={handleSend}
-                disabled={(!input.trim() && pastedImages.length === 0) || isStreaming}
+                disabled={(!input.trim() && pastedImages.length === 0 && attachedFiles.length === 0) || isStreaming}
                 className="bg-gradient-primary hover:opacity-90 btn-glow h-12 px-4"
               >
                 {isStreaming ? (
