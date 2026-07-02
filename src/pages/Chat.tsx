@@ -722,20 +722,25 @@ export default function Chat() {
   };
 
   const handleSend = async () => {
-    if ((!input.trim() && pastedImages.length === 0) || isStreaming || !user) return;
+    if ((!input.trim() && pastedImages.length === 0 && attachedFiles.length === 0) || isStreaming || !user) return;
 
     const userContent = input.trim();
     const hasImages = pastedImages.length > 0;
-    
-    // Build content with image descriptions
+    const hasFiles = attachedFiles.length > 0;
+
+    // Build content with image descriptions + attached-file context
     let messageContent = userContent;
     if (hasImages) {
       const imageDescriptions = pastedImages.map((_, i) => `[Screenshot ${i + 1}]`).join(" ");
       messageContent = userContent ? `${userContent}\n\n${imageDescriptions}` : imageDescriptions;
     }
+    if (hasFiles) {
+      messageContent = `${messageContent || "Please review the attached file(s)."}${formatFilesForPrompt(attachedFiles)}`;
+    }
 
     setInput("");
     setPastedImages([]);
+    setAttachedFiles([]);
 
     // Resize textarea
     if (textareaRef.current) {
