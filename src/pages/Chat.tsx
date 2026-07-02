@@ -99,6 +99,10 @@ export default function Chat() {
   const [businessIdeaDialogOpen, setBusinessIdeaDialogOpen] = useState(false);
   const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const [pastedImages, setPastedImages] = useState<{ file: File; preview: string }[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<IngestedFile[]>([]);
+  const [ingestingFiles, setIngestingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const footerFileInputRef = useRef<HTMLInputElement>(null);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [showPostSaveDialog, setShowPostSaveDialog] = useState(false);
