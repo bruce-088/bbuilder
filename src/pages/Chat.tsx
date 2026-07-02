@@ -859,7 +859,7 @@ export default function Chat() {
       });
     }
 
-    messagesForAI.push({ role: "user", content: userContent });
+    messagesForAI.push({ role: "user", content: messageContent });
 
     // Get n8n context if available
     const n8nContextForAI = workflowContext.getContextForAI();
