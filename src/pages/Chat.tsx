@@ -303,6 +303,35 @@ export default function Chat() {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const dragDepthRef = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  };
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.files || e.dataTransfer.files.length === 0) return;
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+    handleFilesSelected(e.dataTransfer.files);
+  };
+
+
   useEffect(() => {
     if (user && id) {
       loadMessages();
