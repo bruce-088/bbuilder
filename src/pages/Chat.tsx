@@ -281,6 +281,28 @@ export default function Chat() {
     });
   };
 
+  const handleFilesSelected = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIngestingFiles(true);
+    try {
+      const list = Array.from(files).slice(0, 5);
+      const results = await Promise.all(list.map(ingestFile));
+      setAttachedFiles((prev) => [...prev, ...results].slice(0, 5));
+      const failed = results.filter((r) => r.error);
+      const ok = results.length - failed.length;
+      if (ok > 0) toast.success(`📎 Ingested ${ok} file${ok > 1 ? "s" : ""}`);
+      failed.forEach((f) => toast.error(`${f.name}: ${f.error}`));
+    } finally {
+      setIngestingFiles(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (footerFileInputRef.current) footerFileInputRef.current.value = "";
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
   useEffect(() => {
     if (user && id) {
       loadMessages();
