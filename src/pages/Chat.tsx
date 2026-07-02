@@ -47,6 +47,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { downloadMyaPdf, type MyaPdfArgs } from "@/lib/myaPdfGenerator";
 import { parseAndStripToolResults } from "@/lib/parseToolResults";
+import { ingestFile, formatFilesForPrompt, type IngestedFile } from "@/lib/fileIngestion";
 import ReactMarkdown from "react-markdown";
 import myaAvatar from "@/assets/mya-avatar.png";
 import { celebrateSave, celebrateFirstIdea } from "@/lib/confetti";
