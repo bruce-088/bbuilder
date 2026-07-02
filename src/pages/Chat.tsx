@@ -30,6 +30,8 @@ import {
   ArrowUp,
   ArrowDown,
   RefreshCw,
+  Paperclip,
+  FileText,
 } from "lucide-react";
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import UnifiedSetupGuide from "@/components/UnifiedSetupGuide";
@@ -45,6 +47,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "sonner";
 import { downloadMyaPdf, type MyaPdfArgs } from "@/lib/myaPdfGenerator";
 import { parseAndStripToolResults } from "@/lib/parseToolResults";
+import { ingestFile, formatFilesForPrompt, type IngestedFile } from "@/lib/fileIngestion";
 import ReactMarkdown from "react-markdown";
 import myaAvatar from "@/assets/mya-avatar.png";
 import { celebrateSave, celebrateFirstIdea } from "@/lib/confetti";
@@ -96,6 +99,10 @@ export default function Chat() {
   const [businessIdeaDialogOpen, setBusinessIdeaDialogOpen] = useState(false);
   const [toolbarExpanded, setToolbarExpanded] = useState(false);
   const [pastedImages, setPastedImages] = useState<{ file: File; preview: string }[]>([]);
+  const [attachedFiles, setAttachedFiles] = useState<IngestedFile[]>([]);
+  const [ingestingFiles, setIngestingFiles] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const footerFileInputRef = useRef<HTMLInputElement>(null);
   const [showScrollToTop, setShowScrollToTop] = useState(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [showPostSaveDialog, setShowPostSaveDialog] = useState(false);
@@ -272,6 +279,28 @@ export default function Chat() {
       if (removed) URL.revokeObjectURL(removed.preview);
       return prev.filter((_, i) => i !== index);
     });
+  };
+
+  const handleFilesSelected = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setIngestingFiles(true);
+    try {
+      const list = Array.from(files).slice(0, 5);
+      const results = await Promise.all(list.map(ingestFile));
+      setAttachedFiles((prev) => [...prev, ...results].slice(0, 5));
+      const failed = results.filter((r) => r.error);
+      const ok = results.length - failed.length;
+      if (ok > 0) toast.success(`📎 Ingested ${ok} file${ok > 1 ? "s" : ""}`);
+      failed.forEach((f) => toast.error(`${f.name}: ${f.error}`));
+    } finally {
+      setIngestingFiles(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      if (footerFileInputRef.current) footerFileInputRef.current.value = "";
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   useEffect(() => {
@@ -693,20 +722,25 @@ export default function Chat() {
   };
 
   const handleSend = async () => {
-    if ((!input.trim() && pastedImages.length === 0) || isStreaming || !user) return;
+    if ((!input.trim() && pastedImages.length === 0 && attachedFiles.length === 0) || isStreaming || !user) return;
 
     const userContent = input.trim();
     const hasImages = pastedImages.length > 0;
-    
-    // Build content with image descriptions
+    const hasFiles = attachedFiles.length > 0;
+
+    // Build content with image descriptions + attached-file context
     let messageContent = userContent;
     if (hasImages) {
       const imageDescriptions = pastedImages.map((_, i) => `[Screenshot ${i + 1}]`).join(" ");
       messageContent = userContent ? `${userContent}\n\n${imageDescriptions}` : imageDescriptions;
     }
+    if (hasFiles) {
+      messageContent = `${messageContent || "Please review the attached file(s)."}${formatFilesForPrompt(attachedFiles)}`;
+    }
 
     setInput("");
     setPastedImages([]);
+    setAttachedFiles([]);
 
     // Resize textarea
     if (textareaRef.current) {
@@ -1078,6 +1112,35 @@ export default function Chat() {
                     </div>
                   </div>
                 )}
+                {attachedFiles.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-3 p-3 bg-muted/50 rounded-lg border border-border/50">
+                    {attachedFiles.map((f, index) => (
+                      <div key={index} className="relative group flex items-center gap-2 bg-background/80 border border-border rounded-md px-2 py-1 text-xs">
+                        <FileText className="w-3.5 h-3.5 text-primary" />
+                        <span className="max-w-[160px] truncate" title={f.name}>{f.name}</span>
+                        {f.error ? (
+                          <span className="text-destructive">⚠</span>
+                        ) : (
+                          <span className="text-muted-foreground">{Math.round(f.text.length / 1000)}k chars</span>
+                        )}
+                        <button
+                          onClick={() => removeFile(index)}
+                          className="ml-1 text-muted-foreground hover:text-destructive"
+                        >
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".pdf,.docx,.txt,.md,.csv,.json,.jsonl,.yaml,.yml,.xml,.html,.htm,.log,.js,.jsx,.ts,.tsx,.py,.rb,.go,.sql,.css,.scss"
+                  className="hidden"
+                  onChange={(e) => handleFilesSelected(e.target.files)}
+                />
                 <div className="flex gap-3">
                   <div className="relative flex-1">
                     {cowork.isActive && (
@@ -1093,11 +1156,21 @@ export default function Chat() {
                       }}
                       onKeyDown={handleKeyDown}
                       onPaste={handlePaste}
-                      placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"}
+                      placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots or attach files 📎)"}
                       className={`resize-none min-h-[48px] max-h-[200px] ${cowork.isActive ? "pl-9" : ""}`}
                       disabled={isStreaming}
                     />
                   </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isStreaming || ingestingFiles}
+                    className="h-12 w-12 p-0"
+                    title="Attach files (PDF, DOCX, TXT, CSV, JSON, code)"
+                  >
+                    {ingestingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+                  </Button>
               <VoiceInputButton
                     onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
                     onActivateVoiceMode={voiceMode.startVoiceMode}
@@ -1106,7 +1179,7 @@ export default function Chat() {
                   />
                   <Button
                     onClick={handleSend}
-                    disabled={(!input.trim() && pastedImages.length === 0) || isStreaming}
+                    disabled={(!input.trim() && pastedImages.length === 0 && attachedFiles.length === 0) || isStreaming}
                     className="bg-gradient-primary hover:opacity-90 btn-glow h-12 px-4"
                   >
                     {isStreaming ? (
@@ -1547,6 +1620,35 @@ export default function Chat() {
                 </div>
               </div>
             )}
+            {attachedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-3 p-3 bg-muted/50 rounded-lg border border-border/50">
+                {attachedFiles.map((f, index) => (
+                  <div key={index} className="relative group flex items-center gap-2 bg-background/80 border border-border rounded-md px-2 py-1 text-xs">
+                    <FileText className="w-3.5 h-3.5 text-primary" />
+                    <span className="max-w-[160px] truncate" title={f.name}>{f.name}</span>
+                    {f.error ? (
+                      <span className="text-destructive">⚠</span>
+                    ) : (
+                      <span className="text-muted-foreground">{Math.round(f.text.length / 1000)}k chars</span>
+                    )}
+                    <button
+                      onClick={() => removeFile(index)}
+                      className="ml-1 text-muted-foreground hover:text-destructive"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <input
+              ref={footerFileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.txt,.md,.csv,.json,.jsonl,.yaml,.yml,.xml,.html,.htm,.log,.js,.jsx,.ts,.tsx,.py,.rb,.go,.sql,.css,.scss"
+              className="hidden"
+              onChange={(e) => handleFilesSelected(e.target.files)}
+            />
             {/* Quick action chips */}
             {!isStreaming && (
               <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1584,11 +1686,21 @@ export default function Chat() {
                   }}
                   onKeyDown={handleKeyDown}
                   onPaste={handlePaste}
-                  placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots with Ctrl+V)"}
+                  placeholder={cowork.isActive ? "Tell Mya what to do in n8n..." : "I'm here to help! Ask me anything... (Paste screenshots or attach files 📎)"}
                   className={`resize-none min-h-[48px] max-h-[200px] ${cowork.isActive ? "pl-9" : ""}`}
                   disabled={isStreaming}
                 />
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => footerFileInputRef.current?.click()}
+                disabled={isStreaming || ingestingFiles}
+                className="h-12 w-12 p-0"
+                title="Attach files (PDF, DOCX, TXT, CSV, JSON, code)"
+              >
+                {ingestingFiles ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+              </Button>
               <VoiceInputButton
                 onTranscript={(text) => setInput((prev) => prev ? `${prev} ${text}` : text)}
                 onActivateVoiceMode={voiceMode.startVoiceMode}
@@ -1597,7 +1709,7 @@ export default function Chat() {
               />
               <Button
                 onClick={handleSend}
-                disabled={(!input.trim() && pastedImages.length === 0) || isStreaming}
+                disabled={(!input.trim() && pastedImages.length === 0 && attachedFiles.length === 0) || isStreaming}
                 className="bg-gradient-primary hover:opacity-90 btn-glow h-12 px-4"
               >
                 {isStreaming ? (
