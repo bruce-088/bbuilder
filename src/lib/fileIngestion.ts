@@ -25,10 +25,10 @@ function truncate(text: string): string {
 async function extractPdf(file: File): Promise<string> {
   // Dynamic import keeps pdfjs out of the main bundle.
   const pdfjs = await import("pdfjs-dist");
-  // Vite worker bundling
-  // @ts-expect-error - worker query import
-  const workerSrc = (await import("pdfjs-dist/build/pdf.worker.min.mjs?url")).default;
-  pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
+  const workerMod = (await import(
+    /* @vite-ignore */ "pdfjs-dist/build/pdf.worker.min.mjs?url"
+  )) as { default: string };
+  pdfjs.GlobalWorkerOptions.workerSrc = workerMod.default;
 
   const buf = await file.arrayBuffer();
   const doc = await pdfjs.getDocument({ data: buf }).promise;
@@ -37,7 +37,9 @@ async function extractPdf(file: File): Promise<string> {
   for (let i = 1; i <= pageLimit; i++) {
     const page = await doc.getPage(i);
     const content = await page.getTextContent();
-    const strings = content.items.map((it: { str?: string }) => it.str || "");
+    const strings = content.items.map((it) =>
+      "str" in it && typeof it.str === "string" ? it.str : ""
+    );
     parts.push(strings.join(" "));
   }
   if (doc.numPages > pageLimit) {
