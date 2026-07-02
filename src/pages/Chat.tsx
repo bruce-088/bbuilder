@@ -30,6 +30,8 @@ import {
   ArrowUp,
   ArrowDown,
   RefreshCw,
+  Paperclip,
+  FileText,
 } from "lucide-react";
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import UnifiedSetupGuide from "@/components/UnifiedSetupGuide";
