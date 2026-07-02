@@ -303,6 +303,35 @@ export default function Chat() {
     setAttachedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  const dragDepthRef = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  };
+  const handleDragOver = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+  };
+  const handleDragLeave = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    e.preventDefault();
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+  };
+  const handleDrop = (e: React.DragEvent) => {
+    if (!e.dataTransfer?.files || e.dataTransfer.files.length === 0) return;
+    e.preventDefault();
+    dragDepthRef.current = 0;
+    setIsDraggingFiles(false);
+    handleFilesSelected(e.dataTransfer.files);
+  };
+
+
   useEffect(() => {
     if (user && id) {
       loadMessages();
@@ -938,9 +967,25 @@ export default function Chat() {
   }
 
   return (
-    <div className="h-screen bg-background flex flex-col overflow-hidden">
+    <div
+      className="h-screen bg-background flex flex-col overflow-hidden relative"
+      onDragEnter={handleDragEnter}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       {/* Background glow effect */}
       <div className="fixed inset-0 bg-gradient-glow opacity-50 pointer-events-none" />
+
+      {isDraggingFiles && (
+        <div className="fixed inset-0 z-50 pointer-events-none flex items-center justify-center bg-emerald-500/10 backdrop-blur-sm border-4 border-dashed border-emerald-400/70">
+          <div className="bg-background/90 border border-emerald-500/50 rounded-xl px-8 py-6 text-center shadow-2xl">
+            <div className="text-2xl font-semibold text-emerald-400 mb-1">Drop to attach</div>
+            <div className="text-sm text-muted-foreground">Mya will read your files (PDF, DOCX, TXT, code, and more)</div>
+          </div>
+        </div>
+      )}
+
 
       {/* Header */}
       <header className="relative z-10 border-b border-border/50 backdrop-blur-xl">
