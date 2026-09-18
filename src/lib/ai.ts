@@ -24,6 +24,8 @@ export interface StreamChatOptions {
   messages: Message[];
   type?: "chat" | "generate_ideas";
   industry?: string;
+  /** "polsia" → Mya applies Polsia-ready constraints and appends handoff sections. */
+  platform?: "standalone" | "polsia";
   n8nContext?: N8nContext;
   onDelta: (deltaText: string) => void;
   onDone: () => void;
@@ -34,6 +36,7 @@ export async function streamChat({
   messages,
   type = "chat",
   industry,
+  platform,
   n8nContext,
   onDelta,
   onDone,
@@ -52,7 +55,7 @@ export async function streamChat({
         "Content-Type": "application/json",
         Authorization: `Bearer ${authToken}`,
       },
-      body: JSON.stringify({ messages, type, industry, n8nContext }),
+      body: JSON.stringify({ messages, type, industry, platform, n8nContext }),
     });
 
     if (!response.ok) {

@@ -31,6 +31,7 @@ import {
   FileText,
   BookOpen,
   Map as MapIcon,
+  Building2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -87,6 +88,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showIndustryDialog, setShowIndustryDialog] = useState(false);
   const [selectedIndustry, setSelectedIndustry] = useState<string>("");
+  const [selectedPlatform, setSelectedPlatform] = useState<"standalone" | "polsia">("standalone");
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
@@ -184,6 +186,7 @@ export default function Dashboard() {
 
   const openIndustryDialog = () => {
     setSelectedIndustry("");
+    setSelectedPlatform("standalone");
     setShowIndustryDialog(true);
   };
 
@@ -198,7 +201,8 @@ export default function Dashboard() {
     if (error) return toast.error("Failed to start idea generation");
     const industryParam =
       selectedIndustry && selectedIndustry !== "any" ? `&industry=${encodeURIComponent(selectedIndustry)}` : "";
-    navigate(`/chat/${data.id}?generate=true${industryParam}`);
+    const platformParam = selectedPlatform === "polsia" ? "&platform=polsia" : "";
+    navigate(`/chat/${data.id}?generate=true${industryParam}${platformParam}`);
   };
 
   if (authLoading) {
@@ -361,14 +365,37 @@ export default function Dashboard() {
             <DialogTitle className="font-display">Choose an Industry</DialogTitle>
             <DialogDescription>Select an industry to focus your business idea, or let us surprise you.</DialogDescription>
           </DialogHeader>
-          <div className="py-4">
-            <Label htmlFor="industry" className="mb-2 block">Industry</Label>
-            <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
-              <SelectTrigger id="industry"><SelectValue placeholder="Select an industry..." /></SelectTrigger>
-              <SelectContent>
-                {industries.map((i) => (<SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>))}
-              </SelectContent>
-            </Select>
+          <div className="py-4 space-y-4">
+            <div>
+              <Label htmlFor="industry" className="mb-2 block">Industry</Label>
+              <Select value={selectedIndustry} onValueChange={setSelectedIndustry}>
+                <SelectTrigger id="industry"><SelectValue placeholder="Select an industry..." /></SelectTrigger>
+                <SelectContent>
+                  {industries.map((i) => (<SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="mb-2 block">Who will run it?</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlatform("standalone")}
+                  className={`rounded-lg border p-3 text-left transition-colors ${selectedPlatform === "standalone" ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-muted/50"}`}
+                >
+                  <p className="text-sm font-medium">You + n8n</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Classic solopreneur plan with n8n automations.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlatform("polsia")}
+                  className={`rounded-lg border p-3 text-left transition-colors ${selectedPlatform === "polsia" ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-muted/50"}`}
+                >
+                  <p className="text-sm font-medium flex items-center gap-1"><Building2 className="w-3.5 h-3.5" /> Polsia-ready</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Designed for Polsia's autonomous agent fleet, with a company brief for polsia.com/new.</p>
+                </button>
+              </div>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowIndustryDialog(false)}>Cancel</Button>

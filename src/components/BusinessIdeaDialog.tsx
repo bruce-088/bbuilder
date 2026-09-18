@@ -49,6 +49,7 @@ import {
   Package,
   LayoutList,
   GitBranchPlus,
+  Building2,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -58,6 +59,13 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { generateBusinessPlanPDF } from "@/lib/pdfGenerator";
 import { generateBusinessPlanBundle } from "@/lib/bundleGenerator";
+import {
+  buildPolsiaBriefFromIdea,
+  downloadPolsiaBrief,
+  copyPolsiaOnboardingPrompt,
+  fitLabel,
+  POLSIA_NEW_COMPANY_URL,
+} from "@/lib/polsiaHandoff";
 import FixDiagnosisDialog from "./FixDiagnosisDialog";
 import N8nAutomationGuideDialog from "./N8nAutomationGuideDialog";
 import BusinessIdeaMasterPromptDialog from "./BusinessIdeaMasterPromptDialog";
@@ -752,6 +760,30 @@ export default function BusinessIdeaDialog({
     }
   };
 
+  // Polsia handoff: map the saved idea onto Polsia's CompanyConfig, download
+  // the JSON, copy the paste-ready description and open polsia.com/new.
+  const handleSendToPolsia = async () => {
+    if (!idea) return;
+    try {
+      const brief = buildPolsiaBriefFromIdea(idea);
+      const filename = downloadPolsiaBrief(brief);
+      const copied = await copyPolsiaOnboardingPrompt(brief);
+      const fit = fitLabel(brief.fit.score);
+      const fitMsg = `${fit.label} (${brief.fit.score}/100)`;
+      if (fit.tone === "bad") {
+        toast.warning(`${fitMsg}: ${brief.fit.warnings.join(", ") || "reshape before handing to Polsia"}`);
+      } else if (fit.tone === "warn") {
+        toast.info(`${fitMsg}: ${brief.fit.warnings.join(", ")}`);
+      } else {
+        toast.success(`${fitMsg} — ${filename} downloaded${copied ? ", onboarding text copied" : ""}.`);
+      }
+      window.open(POLSIA_NEW_COMPANY_URL, "_blank", "noopener,noreferrer");
+    } catch (error) {
+      console.error("Error building Polsia brief:", error);
+      toast.error("Failed to build the Polsia brief. Please try again.");
+    }
+  };
+
   const handleDownloadBundle = async () => {
     if (!idea) return;
     
@@ -828,6 +860,10 @@ export default function BusinessIdeaDialog({
                       <DropdownMenuItem onClick={downloadMasterWorkflowJson} disabled={generatingMasterJson}>
                         <Bot className="w-4 h-4 mr-2" />
                         n8n Master Workflow (JSON only)
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={handleSendToPolsia}>
+                        <Building2 className="w-4 h-4 mr-2" />
+                        Polsia Company Brief (JSON)
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -1271,6 +1307,14 @@ export default function BusinessIdeaDialog({
                   <Download className="w-4 h-4" />
                 )}
                 {generatingMasterJson ? "Generating..." : "Download Master JSON"}
+              </Button>
+              <Button
+                variant="ghost"
+                className="w-full gap-2 text-muted-foreground"
+                onClick={handleSendToPolsia}
+              >
+                <Building2 className="w-4 h-4" />
+                Send to Polsia (autonomous agents)
               </Button>
               <BusinessIdeaMasterPromptDialog
                 businessIdea={{
