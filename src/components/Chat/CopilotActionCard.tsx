@@ -209,6 +209,35 @@ export default function CopilotActionCard({ toolResult }: CopilotActionCardProps
             </div>
           )}
 
+          {name === "ingest_website_url" && (
+            <div className="space-y-1">
+              <p className="font-medium text-foreground truncate">{d.title || d.url || "Web page"}</p>
+              {d.description && (
+                <p className="text-[10px] text-muted-foreground line-clamp-2">{d.description}</p>
+              )}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span
+                  className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                    typeof d.text_chars === "number" && d.text_chars > 1500
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-amber-500/20 text-amber-400"
+                  }`}
+                >
+                  {typeof d.text_chars === "number" && d.text_chars > 1500
+                    ? "✅ Page read"
+                    : "⚠️ Limited content"}
+                </span>
+                {typeof d.text_chars === "number" && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {d.text_chars.toLocaleString()} chars
+                  </span>
+                )}
+              </div>
+              {d.warning && <p className="text-[10px] text-amber-400/80">{d.warning}</p>}
+            </div>
+          )}
+
+
           {name === "ingest_youtube_url" && (
             <div className="space-y-1.5">
               <div className="flex gap-2 items-start">
