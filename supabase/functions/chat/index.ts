@@ -12,6 +12,10 @@ import {
   buildPolsiaKnowledgeBlock,
   POLSIA_IDEA_ADDENDUM,
 } from "../_shared/polsia.ts";
+import {
+  buildTcreiKnowledgeBlock,
+  TCREI_IDEA_SYSTEM_ADDENDUM,
+} from "../_shared/tcrei.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -37,8 +41,8 @@ const ChatRequestSchema = z.object({
   messages: z.array(ChatMessageSchema).max(100).optional(),
   type: z.string().max(50).optional(),
   industry: z.string().max(100).optional(),
-  /** Target platform the idea must fit. "polsia" → Polsia-ready constraints + handoff sections. */
-  platform: z.enum(["standalone", "polsia"]).optional(),
+  /** Target platform the idea must fit. "polsia" → Polsia-ready constraints; "tcrei" → structured TCREI intake flow. */
+  platform: z.enum(["standalone", "polsia", "tcrei"]).optional(),
   n8nContext: N8nContextSchema,
 });
 
@@ -1796,6 +1800,8 @@ ${buildPolsiaKnowledgeBlock()}
 - After the tool returns, report \`brief.fit.score\` honestly: ≥75 → "Polsia-ready ✅"; 50–74 → list the \`fit.warnings\` and offer to reshape the plan; <50 → say it does not fit Polsia yet and propose the specific pivot. Then give the one-line next step: "Open polsia.com/new → Create a new company → paste the onboarding description."
 - If the user pastes a polsia.com URL, use \`ingest_website_url\` as usual, but interpret the result through this knowledge block instead of guessing.
 
+${buildTcreiKnowledgeBlock()}
+
 ## 🎥 YOUTUBE INGESTION SUPER-SKILL
 When the user pastes a YouTube link (youtube.com/watch, youtu.be, /shorts/, /live/) OR asks you to summarize / analyze / extract from a video, IMMEDIATELY call \`ingest_youtube_url\` with the URL and the matching \`intent\` (\`summarize\`, \`extract_framework\`, \`linkedin_post\`, \`business_plan_input\`, or \`raw_transcript\`). Never try to guess what the video says from the URL — always run the tool first.
 
@@ -1924,7 +1930,12 @@ serve(async (req) => {
 
     console.log(`Processing ${type || 'chat'} request with ${messages?.length || 0} messages, user: ${user.id}`);
 
-    let enhancedSystemPrompt = SYSTEM_PROMPT;
+    // When the conversation is in TCREI mode, the full questionnaire addendum
+    // must ride along on every turn — not just the initial generate_ideas call —
+    // so Mya retains the intake/compile/evaluate/iterate instructions.
+    let enhancedSystemPrompt = platform === "tcrei"
+      ? `${SYSTEM_PROMPT}\n\n${TCREI_IDEA_SYSTEM_ADDENDUM}`
+      : SYSTEM_PROMPT;
     if (n8nContext) {
       const contextParts = [];
       if (n8nContext.workflowName) contextParts.push(`**Current Workflow:** ${n8nContext.workflowName}`);
@@ -1953,14 +1964,30 @@ serve(async (req) => {
         ? `specifically in the **${industry.replace(/-/g, ' ').toUpperCase()}** industry.`
         : `in any promising industry.`;
 
+      const isTcrei = platform === "tcrei";
       const polsiaMode = platform === "polsia";
-      const ideaPrompt = polsiaMode
-        ? `${GENERATE_IDEAS_PROMPT}\n${POLSIA_IDEA_ADDENDUM}\n\nFocus ${industryContext}`
-        : `${GENERATE_IDEAS_PROMPT}\n\nFocus ${industryContext}`;
-      console.log(`generate_ideas mode: ${polsiaMode ? "polsia-ready" : "standalone"}`);
+
+      let ideaPrompt: string;
+      if (isTcrei) {
+        // TCREI mode: Mya starts a structured intake questionnaire instead of
+        // immediately generating an idea.  The TCREI_IDEA_SYSTEM_ADDENDUM
+        // contains the full questionnaire logic; the user prompt just kicks it off.
+        ideaPrompt = `The user wants to build a custom business idea using the TCREI framework. ${industryContext ? `They are interested ${industryContext}` : ""}\n\nStart the TCREI intake flow now. Greet the user briefly, explain the three depth options (Quick 5 / Standard 10 / Deep 15), and ask them to choose. Keep it concise and friendly.`;
+      } else if (polsiaMode) {
+        ideaPrompt = `${GENERATE_IDEAS_PROMPT}\n${POLSIA_IDEA_ADDENDUM}\n\nFocus ${industryContext}`;
+      } else {
+        ideaPrompt = `${GENERATE_IDEAS_PROMPT}\n\nFocus ${industryContext}`;
+      }
+      console.log(`generate_ideas mode: ${isTcrei ? "tcrei-custom" : polsiaMode ? "polsia-ready" : "standalone"}`);
+
+      // For TCREI, inject the full addendum into the system prompt so Mya
+      // knows the questionnaire structure and rules.
+      const systemForIdeas = isTcrei
+        ? `${SYSTEM_PROMPT}\n\n${TCREI_IDEA_SYSTEM_ADDENDUM}`
+        : SYSTEM_PROMPT;
 
       requestBody.messages = [
-        { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: systemForIdeas },
         { role: "user", content: ideaPrompt },
         ...(messages || []),
       ];
