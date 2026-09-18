@@ -6,6 +6,7 @@ import {
   parseBusinessPlanMarkdown,
 } from "../_shared/parseBusinessPlanMarkdown.ts";
 import { ingestYoutubeUrl } from "../_shared/youtube.ts";
+import { ingestWebsiteUrl } from "../_shared/website.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
