@@ -271,6 +271,16 @@ export async function ingestWebsiteUrl(input: string): Promise<WebsiteIngestionR
   let finalUrl = url;
   let directError: string | null = null;
 
+  // ── Tier 0: premium reading service (handles JS-rendered + bot-blocked pages) ──
+  const premium = await fetchViaFirecrawl(url);
+  if (premium && premium.text.length >= 400) {
+    return {
+      source: "firecrawl",
+      text: truncate(premium.text),
+      meta: { url, final_url: premium.meta.final_url || url, ...premium.meta },
+    };
+  }
+
   // ── Tier 1: direct fetch ──
   try {
     const res = await fetchWithTimeout(url, {
