@@ -1467,6 +1467,41 @@ async function executeTool(
         }
       }
 
+      case "ingest_website_url": {
+        const url = typeof args.url === "string" ? args.url.trim() : "";
+        if (!url) return { success: false, error: "ingest_website_url requires a URL." };
+        const intent = typeof args.intent === "string" ? args.intent : "summarize";
+        console.log("[ingest_website_url] start", { url, intent });
+        try {
+          const ingestion = await ingestWebsiteUrl(url);
+          console.log("[ingest_website_url] ok", {
+            url,
+            source: ingestion.source,
+            chars: ingestion.text.length,
+          });
+          return {
+            success: true,
+            data: {
+              intent,
+              source: ingestion.source,
+              url: ingestion.meta.url,
+              final_url: ingestion.meta.final_url,
+              title: ingestion.meta.title,
+              description: ingestion.meta.description,
+              site_name: ingestion.meta.site_name,
+              text_chars: ingestion.text.length,
+              text: ingestion.text,
+              warning: ingestion.warning,
+            },
+          };
+        } catch (e: any) {
+          const message = e?.message || "Website ingestion failed.";
+          console.error("[ingest_website_url] failed", { url, message });
+          return { success: false, error: message };
+        }
+      }
+
+
       case "save_system_blueprint": {
         const title = typeof args.title === "string" ? args.title.trim() : "";
         const blueprint = (args.blueprint && typeof args.blueprint === "object") ? args.blueprint as Record<string, unknown> : null;
