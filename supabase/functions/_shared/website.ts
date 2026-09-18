@@ -27,10 +27,26 @@ const FETCH_TIMEOUT_MS = 20_000;
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36";
 
+/**
+ * Repairs the malformed protocols models commonly emit
+ * ("httpss//x.com", "https//x.com", "http:/x.com", "https:://x.com")
+ * so a typo never becomes a DNS lookup for "httpss//x.com".
+ */
+export function repairProtocol(raw: string): string {
+  let s = raw.trim().replace(/^[<("'\s]+|[>)"'\s.,]+$/g, "");
+  // Strip any leading protocol-ish prefix, however mangled, then re-add a clean one.
+  const m = s.match(/^\s*h?t{0,2}p{1,2}s{0,2}\s*:{0,2}\s*\/{0,3}/i);
+  if (m && m[0].length > 0 && /^h/i.test(m[0])) {
+    const secure = /s\s*:?\s*\/*$/i.test(m[0]) || /^https/i.test(m[0].replace(/\s/g, ""));
+    s = `${secure ? "https" : "http"}://${s.slice(m[0].length)}`;
+  }
+  return s;
+}
+
 export function normalizeUrl(input: string): string {
-  const trimmed = (input || "").trim();
+  const trimmed = repairProtocol(input || "");
   if (!trimmed) throw new Error("No URL provided.");
-  const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  const withProto = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed.replace(/^\/+/, "")}`;
   let parsed: URL;
   try {
     parsed = new URL(withProto);
