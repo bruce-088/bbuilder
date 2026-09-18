@@ -257,9 +257,22 @@ export async function ingestWebsiteUrl(input: string): Promise<WebsiteIngestionR
     }
   }
 
+  // ── Tier 4: metadata-only fallback for fully JS-rendered pages ──
+  if (best.length < 400) {
+    const metaFallback = await fetchMetadataSummary(url);
+    if (metaFallback.text) {
+      Object.assign(meta, metaFallback.meta);
+      best = best ? `${metaFallback.text}\n\n${best}` : metaFallback.text;
+      warning =
+        (warning ? warning + " " : "") +
+        "Only the page's public metadata was readable (its content is rendered by JavaScript). Say so before drawing conclusions, and ask for key copy if more depth is needed.";
+    }
+  }
+
   if (best.length > 0) {
     return { source, text: truncate(best), meta, warning };
   }
+
 
 
   throw new Error(
