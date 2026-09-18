@@ -381,6 +381,7 @@ const COPILOT_TOOLS = [
         additionalProperties: false,
       },
     },
+  },
   {
     type: "function",
     function: {
@@ -401,6 +402,35 @@ const COPILOT_TOOLS = [
         additionalProperties: false,
       },
     },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ingest_website_url",
+      description:
+        "Read a live website or web page and return its actual text content. Call this WHENEVER the user pastes any non-YouTube URL, or says 'look at this site', 'check out my website', 'review this page', 'what do you think of this', 'design a business that fits this system', 'analyze this landing page', or 'deconstruct this article'. The server fetches the page (with a text-proxy fallback for JavaScript-rendered sites). NEVER guess what a site says from its URL or domain name — always call this tool first.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "The full website URL the user pasted." },
+          intent: {
+            type: "string",
+            enum: [
+              "summarize",
+              "analyze_offer",
+              "business_plan_input",
+              "blueprint_input",
+              "competitor_analysis",
+              "raw_text",
+            ],
+            description: "What the user wants done with the page content. Default 'summarize'.",
+          },
+        },
+        required: ["url"],
+        additionalProperties: false,
+      },
+    },
+  },
   {
     type: "function",
     function: {
