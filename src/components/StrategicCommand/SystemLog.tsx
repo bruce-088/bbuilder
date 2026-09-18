@@ -72,7 +72,7 @@ export function SystemLog() {
       <motion.button
         initial={{ x: 300 }}
         animate={{ x: 0 }}
-        onClick={() => setIsOpen(true)}
+        onClick={() => toggleOpen(true)}
         className="fixed right-0 top-1/2 -translate-y-1/2 bg-emerald-900 hover:bg-emerald-800 text-emerald-100 px-2 py-4 rounded-l-lg shadow-lg z-40 border-l border-t border-b border-emerald-700"
       >
         <Terminal className="h-5 w-5" />
@@ -95,7 +95,7 @@ export function SystemLog() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => setIsOpen(false)}
+          onClick={() => toggleOpen(false)}
           className="h-6 w-6 text-emerald-400 hover:text-emerald-100 hover:bg-emerald-800"
         >
           <X className="h-4 w-4" />
