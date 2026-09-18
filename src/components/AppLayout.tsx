@@ -16,8 +16,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <LivePulseDashboard />
+    <div className="min-h-screen bg-background pb-12">
       {/* Global StatusPill — visible on every authenticated page */}
       <div className="fixed top-3 right-4 z-[60] pointer-events-auto">
         <StatusPill />
@@ -26,6 +25,7 @@ export function AppLayout({ children }: AppLayoutProps) {
         {children}
         <SystemLog />
       </div>
+      <LivePulseDashboard />
       <MyaCelebrationPopup />
     </div>
   );

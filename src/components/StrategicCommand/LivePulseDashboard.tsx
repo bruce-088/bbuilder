@@ -85,24 +85,14 @@ export function LivePulseDashboard() {
   }, [user]);
 
   if (isLoading) {
-    return (
-      <div className="bg-gradient-to-r from-emerald-950 to-emerald-900 border-b border-emerald-800 px-6 py-3">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-8">
-            <div className="h-6 w-32 bg-emerald-800/50 animate-pulse rounded" />
-            <div className="h-6 w-24 bg-emerald-800/50 animate-pulse rounded" />
-            <div className="h-6 w-24 bg-emerald-800/50 animate-pulse rounded" />
-          </div>
-        </div>
-      </div>
-    );
+    return null;
   }
 
   return (
     <motion.div
-      initial={{ y: -20, opacity: 0 }}
+      initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
-      className="bg-gradient-to-r from-emerald-950 to-emerald-900 border-b border-emerald-800 px-6 py-3 sticky top-0 z-50 shadow-lg"
+      className="bg-gradient-to-r from-emerald-950 to-emerald-900 border-t border-emerald-800 px-6 py-2 fixed bottom-0 left-0 right-0 z-50 shadow-lg"
     >
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <div className="flex items-center gap-8 flex-wrap">
