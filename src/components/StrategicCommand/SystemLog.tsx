@@ -18,7 +18,14 @@ interface LogEvent {
 export function SystemLog() {
   const { user } = useAuth();
   const [events, setEvents] = useState<LogEvent[]>([]);
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState<boolean>(
+    () => localStorage.getItem("systemLogOpen") === "true"
+  );
+
+  const toggleOpen = (open: boolean) => {
+    setIsOpen(open);
+    localStorage.setItem("systemLogOpen", String(open));
+  };
 
   useEffect(() => {
     if (!user) return;
