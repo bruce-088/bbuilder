@@ -32,7 +32,19 @@ import {
   RefreshCw,
   Paperclip,
   FileText,
+  ClipboardList,
+  Building2,
+  Rocket,
 } from "lucide-react";
+
+type IdeaMode = "standalone" | "polsia" | "tcrei" | "tcrei-polsia";
+
+const IDEA_MODES: Array<{ value: IdeaMode; label: string; description: string; icon?: typeof ClipboardList }> = [
+  { value: "standalone", label: "⚡ Quick idea", description: "Mya generates a full plan instantly." },
+  { value: "tcrei", label: "Custom (TCREI)", description: "Guided questionnaire → deeply personalised idea.", icon: ClipboardList },
+  { value: "polsia", label: "Polsia-ready", description: "Autonomous agent fleet via polsia.com/new.", icon: Building2 },
+  { value: "tcrei-polsia", label: "Custom + Polsia", description: "TCREI deep-dive with Polsia-ready output.", icon: Rocket },
+];
 import N8nWorkflowDialog from "@/components/N8nWorkflowDialog";
 import UnifiedSetupGuide from "@/components/UnifiedSetupGuide";
 import BusinessIdeaDialog from "@/components/BusinessIdeaDialog";
@@ -78,10 +90,16 @@ export default function Chat() {
   const shouldGenerate = searchParams.get("generate") === "true";
   const industry = searchParams.get("industry") || "";
   const platformParam = searchParams.get("platform");
-  const platform: "polsia" | "tcrei" | "tcrei-polsia" | undefined =
+  // Mode from the URL (set by the Dashboard dialog) seeds the selector; the
+  // user can still change it in the empty state before generating.
+  const urlMode: IdeaMode =
     platformParam === "polsia" || platformParam === "tcrei" || platformParam === "tcrei-polsia"
       ? platformParam
-      : undefined;
+      : "standalone";
+  const [selectedMode, setSelectedMode] = useState<IdeaMode>(urlMode);
+  // Effective platform sent to the edge function ("standalone" → omitted).
+  const platform: Exclude<IdeaMode, "standalone"> | undefined =
+    selectedMode === "standalone" ? undefined : selectedMode;
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   
@@ -1265,7 +1283,30 @@ export default function Chat() {
               </div>
               
               <p className="text-muted-foreground text-sm mb-3">or get a complete idea instantly</p>
-              
+
+              <div className="w-full max-w-xl mx-auto mb-4 text-left">
+                <p className="text-xs font-medium text-muted-foreground mb-2">How do you want to build it?</p>
+                <div className="grid grid-cols-2 gap-2">
+                  {IDEA_MODES.map((mode) => {
+                    const Icon = mode.icon;
+                    return (
+                      <button
+                        key={mode.value}
+                        type="button"
+                        onClick={() => setSelectedMode(mode.value)}
+                        aria-pressed={selectedMode === mode.value}
+                        className={`rounded-lg border p-3 text-left transition-colors ${selectedMode === mode.value ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-muted/50"}`}
+                      >
+                        <p className="text-sm font-medium flex items-center gap-1">
+                          {Icon && <Icon className="w-3.5 h-3.5" />} {mode.label}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{mode.description}</p>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <Button
                 onClick={handleGenerateIdeas}
                 className="bg-gradient-accent text-accent-foreground hover:opacity-90 btn-glow"
