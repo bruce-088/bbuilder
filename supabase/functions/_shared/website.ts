@@ -120,12 +120,15 @@ async function fetchWithTimeout(url: string, headers: Record<string, string>): P
 
 async function fetchViaReaderProxy(url: string, attempts = 3): Promise<string> {
   let lastError = "unknown";
+  const jinaKey = Deno.env.get("JINA_API_KEY");
   for (let i = 0; i < attempts; i++) {
     try {
-      const res = await fetchWithTimeout(`https://r.jina.ai/${url}`, {
+      const headers: Record<string, string> = {
         "User-Agent": UA,
         Accept: "text/plain",
-      });
+      };
+      if (jinaKey) headers.Authorization = `Bearer ${jinaKey}`;
+      const res = await fetchWithTimeout(`https://r.jina.ai/${url}`, headers);
       if (res.ok) return (await res.text()).trim();
       lastError = `Reader proxy returned ${res.status}`;
     } catch (err) {
@@ -135,6 +138,34 @@ async function fetchViaReaderProxy(url: string, attempts = 3): Promise<string> {
   }
   throw new Error(lastError);
 }
+
+/** Last resort: public metadata (title, description, publisher) for JS-only pages. */
+async function fetchMetadataSummary(url: string): Promise<{ text: string; meta: Partial<WebsiteMeta> }> {
+  try {
+    const res = await fetchWithTimeout(
+      `https://api.microlink.io/?url=${encodeURIComponent(url)}&meta=true&palette=false&insights=false`,
+      { "User-Agent": UA, Accept: "application/json" },
+    );
+    if (!res.ok) return { text: "", meta: {} };
+    const json = await res.json();
+    const d = json?.data ?? {};
+    const lines = [
+      d.title ? `Title: ${d.title}` : null,
+      d.description ? `Description: ${d.description}` : null,
+      d.publisher ? `Publisher: ${d.publisher}` : null,
+      d.author ? `Author: ${d.author}` : null,
+      `URL: ${url}`,
+    ].filter(Boolean);
+    if (lines.length <= 1) return { text: "", meta: {} };
+    return {
+      text: `[METADATA ONLY — the page renders its content with JavaScript]\n${lines.join("\n")}`,
+      meta: { title: d.title, description: d.description, site_name: d.publisher },
+    };
+  } catch {
+    return { text: "", meta: {} };
+  }
+}
+
 
 /** Pull a few sitemap-listed pages so thin SPA routes still yield real context. */
 async function fetchSupplementaryPages(url: string, limit = 4): Promise<string> {
