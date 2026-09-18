@@ -62,7 +62,7 @@ This project is built with:
 
 ## Polsia integration
 
-Mya can generate **Polsia-ready** business ideas (pick *Polsia-ready* under "Who will run it?" when generating) and export any plan as a Polsia Company Brief for [polsia.com/new](https://polsia.com/new). See [docs/POLSIA_INTEGRATION.md](docs/POLSIA_INTEGRATION.md).
+Mya can generate **Polsia-ready** business ideas (pick *Polsia-ready* or *Custom + Polsia* — TCREI questionnaire with Polsia constraints — when generating) and export any plan as a Polsia Company Brief for [polsia.com/new](https://polsia.com/new). See [docs/POLSIA_INTEGRATION.md](docs/POLSIA_INTEGRATION.md).
 
 ## How can I deploy this project?
 

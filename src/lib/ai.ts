@@ -24,8 +24,8 @@ export interface StreamChatOptions {
   messages: Message[];
   type?: "chat" | "generate_ideas";
   industry?: string;
-  /** "polsia" → Polsia-ready constraints; "tcrei" → structured TCREI intake flow. */
-  platform?: "standalone" | "polsia" | "tcrei";
+  /** "polsia" → Polsia-ready constraints; "tcrei" → structured TCREI intake flow; "tcrei-polsia" → TCREI intake with Polsia constraints baked in. */
+  platform?: "standalone" | "polsia" | "tcrei" | "tcrei-polsia";
   n8nContext?: N8nContext;
   onDelta: (deltaText: string) => void;
   onDone: () => void;

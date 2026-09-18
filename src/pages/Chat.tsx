@@ -78,8 +78,10 @@ export default function Chat() {
   const shouldGenerate = searchParams.get("generate") === "true";
   const industry = searchParams.get("industry") || "";
   const platformParam = searchParams.get("platform");
-  const platform: "polsia" | "tcrei" | undefined =
-    platformParam === "polsia" ? "polsia" : platformParam === "tcrei" ? "tcrei" : undefined;
+  const platform: "polsia" | "tcrei" | "tcrei-polsia" | undefined =
+    platformParam === "polsia" || platformParam === "tcrei" || platformParam === "tcrei-polsia"
+      ? platformParam
+      : undefined;
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   
@@ -706,7 +708,12 @@ export default function Chat() {
       ? decodeURIComponent(industry).replace(/-/g, ' ')
       : "";
     let industryText: string;
-    if (platform === "tcrei") {
+    if (platform === "tcrei-polsia") {
+      const base = industryLabel
+        ? `I want to build a custom, Polsia-ready business idea in the ${industryLabel} industry.`
+        : "I want to build a custom, Polsia-ready business idea.";
+      industryText = `${base} Let's use the TCREI framework, but shape every question around what Polsia's autonomous agent fleet (polsia.com) can run — digital-only, self-serve monetisation, no employees — and finish with a Polsia Company Brief I can export.`;
+    } else if (platform === "tcrei") {
       industryText = industryLabel
         ? `I want to build a custom business idea in the ${industryLabel} industry. Let's use the TCREI framework to figure out exactly what fits me.`
         : "I want to build a custom business idea. Let's use the TCREI framework to figure out exactly what fits me.";

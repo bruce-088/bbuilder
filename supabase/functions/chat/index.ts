@@ -15,7 +15,27 @@ import {
 import {
   buildTcreiKnowledgeBlock,
   TCREI_IDEA_SYSTEM_ADDENDUM,
+  TCREI_POLSIA_BRIDGE_ADDENDUM,
 } from "../_shared/tcrei.ts";
+
+/** Platforms the idea must fit / the intake flow to use. */
+type IdeaPlatform = "standalone" | "polsia" | "tcrei" | "tcrei-polsia";
+
+/**
+ * System prompt for a given platform. "tcrei-polsia" prepends a bridging
+ * instruction and injects BOTH the TCREI and Polsia addenda so Polsia
+ * constraints are baked into every questionnaire step.
+ */
+function systemPromptForPlatform(platform: IdeaPlatform | undefined): string {
+  switch (platform) {
+    case "tcrei":
+      return `${SYSTEM_PROMPT}\n\n${TCREI_IDEA_SYSTEM_ADDENDUM}`;
+    case "tcrei-polsia":
+      return `${SYSTEM_PROMPT}\n\n${TCREI_POLSIA_BRIDGE_ADDENDUM}\n\n${TCREI_IDEA_SYSTEM_ADDENDUM}\n\n${POLSIA_IDEA_ADDENDUM}`;
+    default:
+      return SYSTEM_PROMPT;
+  }
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -41,8 +61,8 @@ const ChatRequestSchema = z.object({
   messages: z.array(ChatMessageSchema).max(100).optional(),
   type: z.string().max(50).optional(),
   industry: z.string().max(100).optional(),
-  /** Target platform the idea must fit. "polsia" → Polsia-ready constraints; "tcrei" → structured TCREI intake flow. */
-  platform: z.enum(["standalone", "polsia", "tcrei"]).optional(),
+  /** Target platform the idea must fit. "polsia" → Polsia-ready constraints; "tcrei" → structured TCREI intake flow; "tcrei-polsia" → TCREI intake with Polsia constraints baked in. */
+  platform: z.enum(["standalone", "polsia", "tcrei", "tcrei-polsia"]).optional(),
   n8nContext: N8nContextSchema,
 });
 
@@ -1933,9 +1953,7 @@ serve(async (req) => {
     // When the conversation is in TCREI mode, the full questionnaire addendum
     // must ride along on every turn — not just the initial generate_ideas call —
     // so Mya retains the intake/compile/evaluate/iterate instructions.
-    let enhancedSystemPrompt = platform === "tcrei"
-      ? `${SYSTEM_PROMPT}\n\n${TCREI_IDEA_SYSTEM_ADDENDUM}`
-      : SYSTEM_PROMPT;
+    let enhancedSystemPrompt = systemPromptForPlatform(platform);
     if (n8nContext) {
       const contextParts = [];
       if (n8nContext.workflowName) contextParts.push(`**Current Workflow:** ${n8nContext.workflowName}`);
@@ -1965,10 +1983,16 @@ serve(async (req) => {
         : `in any promising industry.`;
 
       const isTcrei = platform === "tcrei";
+      const isTcreiPolsia = platform === "tcrei-polsia";
       const polsiaMode = platform === "polsia";
 
       let ideaPrompt: string;
-      if (isTcrei) {
+      if (isTcreiPolsia) {
+        // TCREI + Polsia: structured intake, but every question is constrained
+        // to what Polsia's autonomous agents can run, and the final output must
+        // be Polsia-ready with a CompanyConfig export.
+        ideaPrompt = `The user wants to build a custom, Polsia-ready business idea using the TCREI framework. ${industryContext ? `They are interested ${industryContext}` : ""}\n\nThis is TCREI + Polsia mode: every intake question and every answer option must respect Polsia's constraints (digital-only, autonomous agent teams, self-serve monetisation). Start the TCREI intake flow now. Greet the user briefly, mention in one sentence that the idea will be shaped to run on Polsia's agent fleet, explain the three depth options (Quick 5 / Standard 10 / Deep 15), and ask them to choose. Keep it concise and friendly.`;
+      } else if (isTcrei) {
         // TCREI mode: Mya starts a structured intake questionnaire instead of
         // immediately generating an idea.  The TCREI_IDEA_SYSTEM_ADDENDUM
         // contains the full questionnaire logic; the user prompt just kicks it off.
@@ -1978,13 +2002,11 @@ serve(async (req) => {
       } else {
         ideaPrompt = `${GENERATE_IDEAS_PROMPT}\n\nFocus ${industryContext}`;
       }
-      console.log(`generate_ideas mode: ${isTcrei ? "tcrei-custom" : polsiaMode ? "polsia-ready" : "standalone"}`);
+      console.log(`generate_ideas mode: ${isTcreiPolsia ? "tcrei-polsia" : isTcrei ? "tcrei-custom" : polsiaMode ? "polsia-ready" : "standalone"}`);
 
-      // For TCREI, inject the full addendum into the system prompt so Mya
-      // knows the questionnaire structure and rules.
-      const systemForIdeas = isTcrei
-        ? `${SYSTEM_PROMPT}\n\n${TCREI_IDEA_SYSTEM_ADDENDUM}`
-        : SYSTEM_PROMPT;
+      // For TCREI / TCREI+Polsia, inject the full addenda into the system
+      // prompt so Mya knows the questionnaire structure and constraints.
+      const systemForIdeas = systemPromptForPlatform(platform);
 
       requestBody.messages = [
         { role: "system", content: systemForIdeas },

@@ -162,6 +162,29 @@ If at any point the user says they want the idea to be "Polsia-ready", or wants 
 - \`/show-prompt\` → display the compiled prompt to the user
 `;
 
+// ── Combined mode: TCREI intake + Polsia constraints baked in from the start ──
+
+/**
+ * Bridging instruction for platform = "tcrei-polsia". Prepended BEFORE the
+ * TCREI and Polsia addenda so Mya treats Polsia fit as a hard constraint on
+ * every questionnaire step — not as a reactive reshaping at the end.
+ */
+export const TCREI_POLSIA_BRIDGE_ADDENDUM = `
+## 🚀 TCREI + POLSIA MODE (platform = "tcrei-polsia") — READ FIRST
+
+This is TCREI + Polsia mode. Every question in the structured intake must factor Polsia's constraints (digital-only, autonomous agent teams, self-serve monetisation). The final idea MUST be Polsia-ready with CompanyConfig export.
+
+Rules that override anything more permissive below:
+1. **Intake is Polsia-constrained.** Every multiple-choice option you offer (Quick 5 / Standard 10 / Deep 15) must be something Polsia's agent fleet can execute: digital-only products, self-serve Stripe-style checkout, acquisition via X/Twitter, cold email, Google/Meta ads, SEO or landing pages, async email support, and daily-trackable KPIs (MRR, signups, churn, CAC). Never offer options that imply physical fulfilment, in-person delivery, sales calls, agency/retainer hours, or regulated verticals (HIPAA, legal, licensed financial advice).
+2. **Frame questions around agent ownership.** Where natural, phrase questions as "which Polsia agent will own this?" (e.g. "How should customers be acquired? A. Email Outreach agent (cold email) B. Social Media agent (X/Twitter) C. Ads Management agent (Google/Meta) D. Mix").
+3. **Compile against Polsia.** When you build the internal brief from the answers, add a "Polsia constraints" line and reject/redirect any answer that breaks fit before generating.
+4. **Output MUST include** the canonical Mya sections AND the "## 🏢 Polsia Agent Plan" and "## 🧾 Polsia Company Brief" sections described in the Polsia addendum. Do not skip them.
+5. **Close the loop.** After the idea is generated and the user is happy (or after /evaluate passes), proactively call the \`export_polsia_company_brief\` tool so the CompanyConfig JSON and onboarding text are ready for polsia.com/new.
+6. If the user answers with something that cannot run on Polsia, say so in one sentence, offer the closest Polsia-fit alternative, and continue.
+
+The "Combining with Polsia" clause in the TCREI addendum below is reactive; in this mode it is ALWAYS active from the first question.
+`;
+
 // ── Helper: build a knowledge block for the system prompt (always present) ──
 
 export function buildTcreiKnowledgeBlock(): string {
@@ -179,5 +202,9 @@ When the user asks to "customise an idea", "build a custom idea", "use the quest
 
 TCREI ideas use the SAME output sections as standard Mya ideas (💡 Name, 🎯 Niche, etc.)
 so they remain fully compatible with the save, export, and Polsia handoff features.
+
+A combined mode, "Custom + Polsia" (platform = "tcrei-polsia"), runs the same questionnaire
+but with Polsia constraints applied to every question from the start and always ends with a
+Polsia-ready idea plus a CompanyConfig export.
 `;
 }
