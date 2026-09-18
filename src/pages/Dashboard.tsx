@@ -32,6 +32,8 @@ import {
   BookOpen,
   Map as MapIcon,
   Building2,
+  Rocket,
+  ClipboardList,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { toast } from "sonner";
@@ -88,7 +90,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [showIndustryDialog, setShowIndustryDialog] = useState(false);
   const [selectedIndustry, setSelectedIndustry] = useState<string>("");
-  const [selectedPlatform, setSelectedPlatform] = useState<"standalone" | "polsia">("standalone");
+  const [selectedPlatform, setSelectedPlatform] = useState<"standalone" | "polsia" | "tcrei" | "tcrei-polsia">("standalone");
   const [selectedIdeaId, setSelectedIdeaId] = useState<string | null>(null);
   const [showHowToUse, setShowHowToUse] = useState(false);
   const [showSetupGuide, setShowSetupGuide] = useState(false);
@@ -201,7 +203,7 @@ export default function Dashboard() {
     if (error) return toast.error("Failed to start idea generation");
     const industryParam =
       selectedIndustry && selectedIndustry !== "any" ? `&industry=${encodeURIComponent(selectedIndustry)}` : "";
-    const platformParam = selectedPlatform === "polsia" ? "&platform=polsia" : "";
+    const platformParam = selectedPlatform === "standalone" ? "" : `&platform=${selectedPlatform}`;
     navigate(`/chat/${data.id}?generate=true${industryParam}${platformParam}`);
   };
 
@@ -376,15 +378,23 @@ export default function Dashboard() {
               </Select>
             </div>
             <div>
-              <Label className="mb-2 block">Who will run it?</Label>
+              <Label className="mb-2 block">How do you want to build it?</Label>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
                   onClick={() => setSelectedPlatform("standalone")}
                   className={`rounded-lg border p-3 text-left transition-colors ${selectedPlatform === "standalone" ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-muted/50"}`}
                 >
-                  <p className="text-sm font-medium">You + n8n</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Classic solopreneur plan with n8n automations.</p>
+                  <p className="text-sm font-medium">⚡ Quick idea</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Mya generates a full plan instantly.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlatform("tcrei")}
+                  className={`rounded-lg border p-3 text-left transition-colors ${selectedPlatform === "tcrei" ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-muted/50"}`}
+                >
+                  <p className="text-sm font-medium flex items-center gap-1"><ClipboardList className="w-3.5 h-3.5" /> Custom (TCREI)</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Guided questionnaire → deeply personalised idea.</p>
                 </button>
                 <button
                   type="button"
@@ -392,7 +402,15 @@ export default function Dashboard() {
                   className={`rounded-lg border p-3 text-left transition-colors ${selectedPlatform === "polsia" ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-muted/50"}`}
                 >
                   <p className="text-sm font-medium flex items-center gap-1"><Building2 className="w-3.5 h-3.5" /> Polsia-ready</p>
-                  <p className="text-xs text-muted-foreground mt-0.5">Designed for Polsia's autonomous agent fleet, with a company brief for polsia.com/new.</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Autonomous agent fleet via polsia.com/new.</p>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPlatform("tcrei-polsia")}
+                  className={`rounded-lg border p-3 text-left transition-colors ${selectedPlatform === "tcrei-polsia" ? "border-emerald-500 bg-emerald-500/10" : "border-border hover:bg-muted/50"}`}
+                >
+                  <p className="text-sm font-medium flex items-center gap-1"><Rocket className="w-3.5 h-3.5" /> Custom + Polsia</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">TCREI deep-dive with Polsia-ready output.</p>
                 </button>
               </div>
             </div>

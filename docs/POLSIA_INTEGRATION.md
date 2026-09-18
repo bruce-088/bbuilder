@@ -80,6 +80,18 @@ polsia.com/new  →  paste onboarding text / use the JSON to fill CompanyConfig
     regex parser in `Chat.tsx` (`parseBusinessIdea`) and
     `_shared/parseBusinessPlanMarkdown.ts` keep working.
 
+### 1b. Custom + Polsia mode (`platform=tcrei-polsia`)
+
+The fourth option under *Who will run it?* combines the TCREI structured
+questionnaire (`_shared/tcrei.ts`) with Polsia constraints baked in from the
+first question. The edge function builds the system prompt as
+`SYSTEM_PROMPT + TCREI_POLSIA_BRIDGE_ADDENDUM + TCREI_IDEA_SYSTEM_ADDENDUM +
+POLSIA_IDEA_ADDENDUM` on every turn (`systemPromptForPlatform`). The bridge
+tells Mya that every intake option must be runnable by Polsia's agents, that
+the compiled brief must be checked against Polsia fit before generation, and
+that the final idea must include the Polsia sections and end with an
+`export_polsia_company_brief` call.
+
 ### 2. Mya knows Polsia in every conversation
 
 `SYSTEM_PROMPT` now includes a **POLSIA HANDOFF SUPER-SKILL** section built
