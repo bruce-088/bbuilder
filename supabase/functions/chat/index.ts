@@ -6,6 +6,7 @@ import {
   parseBusinessPlanMarkdown,
 } from "../_shared/parseBusinessPlanMarkdown.ts";
 import { ingestYoutubeUrl } from "../_shared/youtube.ts";
+import { ingestWebsiteUrl } from "../_shared/website.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -380,6 +381,7 @@ const COPILOT_TOOLS = [
         additionalProperties: false,
       },
     },
+  },
   {
     type: "function",
     function: {
@@ -400,6 +402,35 @@ const COPILOT_TOOLS = [
         additionalProperties: false,
       },
     },
+  },
+  {
+    type: "function",
+    function: {
+      name: "ingest_website_url",
+      description:
+        "Read a live website or web page and return its actual text content. Call this WHENEVER the user pastes any non-YouTube URL, or says 'look at this site', 'check out my website', 'review this page', 'what do you think of this', 'design a business that fits this system', 'analyze this landing page', or 'deconstruct this article'. The server fetches the page (with a text-proxy fallback for JavaScript-rendered sites). NEVER guess what a site says from its URL or domain name — always call this tool first.",
+      parameters: {
+        type: "object",
+        properties: {
+          url: { type: "string", description: "The full website URL the user pasted." },
+          intent: {
+            type: "string",
+            enum: [
+              "summarize",
+              "analyze_offer",
+              "business_plan_input",
+              "blueprint_input",
+              "competitor_analysis",
+              "raw_text",
+            ],
+            description: "What the user wants done with the page content. Default 'summarize'.",
+          },
+        },
+        required: ["url"],
+        additionalProperties: false,
+      },
+    },
+  },
   {
     type: "function",
     function: {
@@ -1436,6 +1467,41 @@ async function executeTool(
         }
       }
 
+      case "ingest_website_url": {
+        const url = typeof args.url === "string" ? args.url.trim() : "";
+        if (!url) return { success: false, error: "ingest_website_url requires a URL." };
+        const intent = typeof args.intent === "string" ? args.intent : "summarize";
+        console.log("[ingest_website_url] start", { url, intent });
+        try {
+          const ingestion = await ingestWebsiteUrl(url);
+          console.log("[ingest_website_url] ok", {
+            url,
+            source: ingestion.source,
+            chars: ingestion.text.length,
+          });
+          return {
+            success: true,
+            data: {
+              intent,
+              source: ingestion.source,
+              url: ingestion.meta.url,
+              final_url: ingestion.meta.final_url,
+              title: ingestion.meta.title,
+              description: ingestion.meta.description,
+              site_name: ingestion.meta.site_name,
+              text_chars: ingestion.text.length,
+              text: ingestion.text,
+              warning: ingestion.warning,
+            },
+          };
+        } catch (e: any) {
+          const message = e?.message || "Website ingestion failed.";
+          console.error("[ingest_website_url] failed", { url, message });
+          return { success: false, error: message };
+        }
+      }
+
+
       case "save_system_blueprint": {
         const title = typeof args.title === "string" ? args.title.trim() : "";
         const blueprint = (args.blueprint && typeof args.blueprint === "object") ? args.blueprint as Record<string, unknown> : null;
@@ -1630,6 +1696,21 @@ Whenever the most recent Business Plan in this conversation is the thing the use
 The server reads the most recent Business Plan from this conversation and builds the PDF verbatim, so you must NOT pass any section bodies, summaries, or rewritten content. Call \`export_business_plan_pdf\` with only an optional \`filename\` (kebab-case) and let the server do the rest. This is the ONLY way to guarantee zero paraphrasing, zero tool substitutions (Clay vs. Apollo, Taplio vs. Buffer, etc.), and zero dropped sections. If you mistakenly call \`generate_pdf\` while a plan exists, the server will reject it — retry immediately with \`export_business_plan_pdf\`.
 
 After the export tool returns, give a one-sentence confirmation like "📄 Sent — your Business Plan just downloaded, verbatim." and offer one specific next step.
+
+## 🌐 WEBSITE INGESTION SUPER-SKILL
+Whenever the user pastes ANY non-YouTube URL — a homepage, landing page, article, docs page, competitor site — or says "look at this site", "review this page", "what do you think of this", "design a business that fits this system", "deconstruct this article": IMMEDIATELY call \`ingest_website_url\` with the URL and the matching \`intent\` (\`summarize\`, \`analyze_offer\`, \`business_plan_input\`, \`blueprint_input\`, \`competitor_analysis\`, \`raw_text\`). NEVER infer what a site does from its domain name or ask the user to paste the copy manually — run the tool first, every time.
+
+After it returns, treat \`data.text\` as ground truth:
+- \`source: "direct"\` or \`"reader-proxy"\` → analyze confidently and quote specifics (positioning, offers, pricing, audience language, stack signals) so the user can tell you actually read it.
+- If a \`warning\` came back, mention the limitation in one short line, then proceed with what you did read.
+- If the tool fails, say exactly why in one line and ask for the key copy or a different URL.
+
+### 🧬 WEBSITE → BUSINESS PLAN / BLUEPRINT
+If the user wants a business idea, plan, or blueprint designed to FIT the site's system ("design a business idea that fits this", \`intent: "business_plan_input"\` or \`"blueprint_input"\`):
+1. Call \`ingest_website_url\` first.
+2. Mine the page for: what the system/platform actually does, who it serves, its revenue model, the gaps or "empty lanes" it leaves open, and where automation or AI could plug in.
+3. Then emit a FULL Business Plan using the exact schema in the YouTube section below (same headings, same emojis, same order), explicitly tying each section back to how it plugs into the ingested system.
+4. If they asked to save or deconstruct it, follow with \`save_system_blueprint\` (\`source_type: "article"\`, \`source_url\` = the page).
 
 ## 🎥 YOUTUBE INGESTION SUPER-SKILL
 When the user pastes a YouTube link (youtube.com/watch, youtu.be, /shorts/, /live/) OR asks you to summarize / analyze / extract from a video, IMMEDIATELY call \`ingest_youtube_url\` with the URL and the matching \`intent\` (\`summarize\`, \`extract_framework\`, \`linkedin_post\`, \`business_plan_input\`, or \`raw_transcript\`). Never try to guess what the video says from the URL — always run the tool first.

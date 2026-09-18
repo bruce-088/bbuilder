@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, Download, Youtube, ExternalLink, BookOpen } from "lucide-react";
+import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, Download, Youtube, ExternalLink, BookOpen, Globe } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,7 @@ const TOOL_META: Record<string, { label: string; icon: React.ReactNode; color: s
   generate_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
   export_business_plan_pdf: { label: "PDF Generated", icon: <FileText className="h-4 w-4" />, color: "text-emerald-400" },
   ingest_youtube_url: { label: "YouTube Ingested", icon: <Youtube className="h-4 w-4" />, color: "text-red-400" },
+  ingest_website_url: { label: "Website Read", icon: <Globe className="h-4 w-4" />, color: "text-sky-400" },
   save_system_blueprint: { label: "Blueprint Saved", icon: <BookOpen className="h-4 w-4" />, color: "text-emerald-400" },
 };
 
@@ -208,6 +209,35 @@ export default function CopilotActionCard({ toolResult }: CopilotActionCardProps
               </Button>
             </div>
           )}
+
+          {name === "ingest_website_url" && (
+            <div className="space-y-1">
+              <p className="font-medium text-foreground truncate">{d.title || d.url || "Web page"}</p>
+              {d.description && (
+                <p className="text-[10px] text-muted-foreground line-clamp-2">{d.description}</p>
+              )}
+              <div className="flex items-center gap-1.5 flex-wrap">
+                <span
+                  className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
+                    typeof d.text_chars === "number" && d.text_chars > 1500
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-amber-500/20 text-amber-400"
+                  }`}
+                >
+                  {typeof d.text_chars === "number" && d.text_chars > 1500
+                    ? "✅ Page read"
+                    : "⚠️ Limited content"}
+                </span>
+                {typeof d.text_chars === "number" && (
+                  <span className="text-[10px] text-muted-foreground">
+                    {d.text_chars.toLocaleString()} chars
+                  </span>
+                )}
+              </div>
+              {d.warning && <p className="text-[10px] text-amber-400/80">{d.warning}</p>}
+            </div>
+          )}
+
 
           {name === "ingest_youtube_url" && (
             <div className="space-y-1.5">
