@@ -118,13 +118,52 @@ async function fetchWithTimeout(url: string, headers: Record<string, string>): P
   }
 }
 
-async function fetchViaReaderProxy(url: string): Promise<string> {
-  const res = await fetchWithTimeout(`https://r.jina.ai/${url}`, {
-    "User-Agent": UA,
-    Accept: "text/plain",
-  });
-  if (!res.ok) throw new Error(`Reader proxy returned ${res.status}`);
-  return (await res.text()).trim();
+async function fetchViaReaderProxy(url: string, attempts = 3): Promise<string> {
+  let lastError = "unknown";
+  for (let i = 0; i < attempts; i++) {
+    try {
+      const res = await fetchWithTimeout(`https://r.jina.ai/${url}`, {
+        "User-Agent": UA,
+        Accept: "text/plain",
+      });
+      if (res.ok) return (await res.text()).trim();
+      lastError = `Reader proxy returned ${res.status}`;
+    } catch (err) {
+      lastError = String(err instanceof Error ? err.message : err);
+    }
+    if (i < attempts - 1) await new Promise((r) => setTimeout(r, 900 * (i + 1)));
+  }
+  throw new Error(lastError);
+}
+
+/** Pull a few sitemap-listed pages so thin SPA routes still yield real context. */
+async function fetchSupplementaryPages(url: string, limit = 4): Promise<string> {
+  try {
+    const origin = new URL(url).origin;
+    const res = await fetchWithTimeout(`${origin}/sitemap.xml`, { "User-Agent": UA });
+    if (!res.ok) return "";
+    const xml = await res.text();
+    const locs = [...xml.matchAll(/<loc>([^<]+)<\/loc>/gi)]
+      .map((m) => m[1].trim())
+      .filter((loc) => loc.startsWith(origin) && loc !== url)
+      .slice(0, limit);
+    if (locs.length === 0) return "";
+
+    const pages = await Promise.all(
+      locs.map(async (loc) => {
+        try {
+          const text = await fetchViaReaderProxy(loc, 1);
+          if (text.length < 200) return "";
+          return `\n\n--- Additional page: ${loc} ---\n${text.slice(0, 4000)}`;
+        } catch {
+          return "";
+        }
+      }),
+    );
+    return pages.filter(Boolean).join("");
+  } catch {
+    return "";
+  }
 }
 
 export async function ingestWebsiteUrl(input: string): Promise<WebsiteIngestionResult> {
@@ -152,35 +191,45 @@ export async function ingestWebsiteUrl(input: string): Promise<WebsiteIngestionR
   const directText = html ? htmlToText(html) : "";
 
   // Enough real content? Ship it.
-  if (directText.length >= 600) {
+  if (directText.length >= 1500) {
     return { source: "direct", text: truncate(directText), meta };
   }
 
   // ── Tier 2: reader proxy (handles JS-rendered SPAs and bot-blocked pages) ──
+  let best = directText;
+  let source: WebsiteSource = "direct";
+  let warning: string | undefined = directError
+    ? `Direct fetch failed (${directError}).`
+    : undefined;
+
   try {
     const proxyText = await fetchViaReaderProxy(url);
-    if (proxyText.length > directText.length && proxyText.length > 100) {
-      return {
-        source: "reader-proxy",
-        text: truncate(proxyText),
-        meta,
-        warning: directError
-          ? `Direct fetch failed (${directError}); content read via text proxy.`
-          : "Page is JavaScript-rendered; content read via text proxy.",
-      };
+    if (proxyText.length > best.length && proxyText.length > 100) {
+      best = proxyText;
+      source = "reader-proxy";
+      warning = directError
+        ? `Direct fetch failed (${directError}); content read via text proxy.`
+        : "Page is JavaScript-rendered; content read via text proxy.";
     }
   } catch (err) {
     console.warn("[website] reader proxy failed", { url, error: String(err) });
   }
 
-  if (directText.length > 0) {
-    return {
-      source: "direct",
-      text: truncate(directText),
-      meta,
-      warning: "Only a thin amount of text was readable on this page.",
-    };
+  // ── Tier 3: thin page → pull a few sibling pages from the sitemap ──
+  if (best.length < 1500) {
+    const extra = await fetchSupplementaryPages(url);
+    if (extra) {
+      best = `${best}${extra}`;
+      warning =
+        (warning ? warning + " " : "") +
+        "This page itself was thin, so related pages from the site were read for context.";
+    }
   }
+
+  if (best.length > 0) {
+    return { source, text: truncate(best), meta, warning };
+  }
+
 
   throw new Error(
     `Couldn't read any content from ${url}${directError ? ` (${directError})` : ""}. The site may block automated access — paste the key copy instead.`,
