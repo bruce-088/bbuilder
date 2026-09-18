@@ -5,7 +5,7 @@
 // Returns a normalized { source, text, meta } shape so any edge function can
 // feed real page content into Gemini instead of guessing from the URL.
 
-export type WebsiteSource = "direct" | "reader-proxy";
+export type WebsiteSource = "firecrawl" | "direct" | "reader-proxy";
 
 export interface WebsiteMeta {
   url: string;
@@ -118,6 +118,74 @@ async function fetchWithTimeout(url: string, headers: Record<string, string>): P
   }
 }
 
+/**
+ * Premium page reading service (Firecrawl, gateway-backed).
+ * Renders JavaScript-heavy pages in a real browser and returns clean markdown.
+ * Returns null when not configured or when the service can't read the page.
+ */
+async function fetchViaFirecrawl(
+  url: string,
+): Promise<{ text: string; meta: Partial<WebsiteMeta> } | null> {
+  const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+  const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+  if (!lovableKey || !firecrawlKey) {
+    console.warn("[website] firecrawl not configured — skipping premium reader");
+    return null;
+  }
+
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 45_000);
+    let res: Response;
+    try {
+      res = await fetch("https://connector-gateway.lovable.dev/firecrawl/v2/scrape", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${lovableKey}`,
+          "X-Connection-Api-Key": firecrawlKey,
+        },
+        body: JSON.stringify({
+          url,
+          formats: ["markdown"],
+          onlyMainContent: true,
+          waitFor: 2500,
+        }),
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timer);
+    }
+
+    if (!res.ok) {
+      const body = await res.text();
+      console.error(`[website] firecrawl scrape failed [${res.status}]: ${body}`);
+      return null;
+    }
+
+    const json = await res.json();
+    const doc = json?.data ?? json ?? {};
+    const text: string = (doc.markdown || "").trim();
+    if (text.length < 100) {
+      console.warn("[website] firecrawl returned thin content", { url, length: text.length });
+      return null;
+    }
+    const m = doc.metadata ?? {};
+    return {
+      text,
+      meta: {
+        title: m.title,
+        description: m.description,
+        site_name: m.ogSiteName,
+        final_url: m.sourceURL || url,
+      },
+    };
+  } catch (err) {
+    console.error("[website] firecrawl request error", { url, error: String(err) });
+    return null;
+  }
+}
+
 async function fetchViaReaderProxy(url: string, attempts = 3): Promise<string> {
   let lastError = "unknown";
   const jinaKey = Deno.env.get("JINA_API_KEY");
@@ -202,6 +270,16 @@ export async function ingestWebsiteUrl(input: string): Promise<WebsiteIngestionR
   let html = "";
   let finalUrl = url;
   let directError: string | null = null;
+
+  // ── Tier 0: premium reading service (handles JS-rendered + bot-blocked pages) ──
+  const premium = await fetchViaFirecrawl(url);
+  if (premium && premium.text.length >= 400) {
+    return {
+      source: "firecrawl",
+      text: truncate(premium.text),
+      meta: { url, final_url: premium.meta.final_url || url, ...premium.meta },
+    };
+  }
 
   // ── Tier 1: direct fetch ──
   try {
