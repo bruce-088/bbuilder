@@ -1,9 +1,11 @@
-import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, Download, Youtube, ExternalLink, BookOpen, Globe } from "lucide-react";
+import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, Download, Youtube, ExternalLink, BookOpen, Globe, Building2, Copy } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { downloadMyaPdf, type MyaPdfArgs } from "@/lib/myaPdfGenerator";
+import { downloadPolsiaBrief, copyPolsiaOnboardingPrompt, fitLabel, POLSIA_NEW_COMPANY_URL, type PolsiaCompanyBrief } from "@/lib/polsiaHandoff";
+import { toast } from "sonner";
 
 interface ToolResult {
   name: string;
@@ -39,6 +41,7 @@ const TOOL_META: Record<string, { label: string; icon: React.ReactNode; color: s
   ingest_youtube_url: { label: "YouTube Ingested", icon: <Youtube className="h-4 w-4" />, color: "text-red-400" },
   ingest_website_url: { label: "Website Read", icon: <Globe className="h-4 w-4" />, color: "text-sky-400" },
   save_system_blueprint: { label: "Blueprint Saved", icon: <BookOpen className="h-4 w-4" />, color: "text-emerald-400" },
+  export_polsia_company_brief: { label: "Polsia Company Brief", icon: <Building2 className="h-4 w-4" />, color: "text-emerald-400" },
 };
 
 export default function CopilotActionCard({ toolResult }: CopilotActionCardProps) {
@@ -209,6 +212,45 @@ export default function CopilotActionCard({ toolResult }: CopilotActionCardProps
               </Button>
             </div>
           )}
+
+          {name === "export_polsia_company_brief" && d.brief && (() => {
+            const brief = d.brief as PolsiaCompanyBrief;
+            const fit = fitLabel(Number(brief.fit?.score ?? 0));
+            const toneClass = fit.tone === "good"
+              ? "bg-emerald-500/20 text-emerald-400"
+              : fit.tone === "warn" ? "bg-amber-500/20 text-amber-400" : "bg-red-500/20 text-red-400";
+            return (
+              <div className="space-y-1.5">
+                <p className="font-medium text-foreground truncate">🏢 {brief.name}</p>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className={`inline-block px-1.5 py-0.5 rounded-full text-[10px] font-medium ${toneClass}`}>
+                    {fit.label} · {brief.fit?.score ?? 0}/100
+                  </span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {Object.keys(brief.agent_plan || {}).length} agents planned · {brief.pricing_model?.plans?.length || 0} price plan(s)
+                  </span>
+                </div>
+                {Array.isArray(brief.fit?.warnings) && brief.fit.warnings.length > 0 && (
+                  <p className="text-[10px] text-amber-400/80">⚠️ {brief.fit.warnings.join(" · ")}</p>
+                )}
+                <div className="flex flex-wrap gap-x-3 gap-y-1">
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary" onClick={() => downloadPolsiaBrief(brief, String(d.filename || undefined))}>
+                    <Download className="h-3 w-3 mr-1" /> Download JSON
+                  </Button>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary" onClick={async () => {
+                    const ok = await copyPolsiaOnboardingPrompt(brief);
+                    if (ok) toast.success("Onboarding description copied");
+                    else toast.error("Clipboard unavailable — download the JSON instead");
+                  }}>
+                    <Copy className="h-3 w-3 mr-1" /> Copy onboarding text
+                  </Button>
+                  <Button variant="link" size="sm" className="h-auto p-0 text-xs text-primary" onClick={() => window.open(String(d.polsia_new_url || POLSIA_NEW_COMPANY_URL), "_blank", "noopener,noreferrer")}>
+                    <ExternalLink className="h-3 w-3 mr-1" /> Open polsia.com/new
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
 
           {name === "ingest_website_url" && (
             <div className="space-y-1">

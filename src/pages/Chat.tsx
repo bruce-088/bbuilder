@@ -77,6 +77,7 @@ export default function Chat() {
   const [searchParams] = useSearchParams();
   const shouldGenerate = searchParams.get("generate") === "true";
   const industry = searchParams.get("industry") || "";
+  const platform = searchParams.get("platform") === "polsia" ? "polsia" : undefined;
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   
@@ -698,9 +699,12 @@ export default function Chat() {
     setIsStreaming(true);
 
     // Build the user message based on industry selection
-    const industryText = industry 
+    const baseText = industry 
       ? `Generate a unique, detailed $10K/month business idea in the ${decodeURIComponent(industry).replace(/-/g, ' ')} industry for solopreneurs and introverts.`
       : "Generate a unique, detailed $10K/month business idea for solopreneurs and introverts.";
+    const industryText = platform === "polsia"
+      ? `${baseText} Make it Polsia-ready: every function must map onto Polsia's autonomous agent fleet (polsia.com) so it can be built, marketed and operated without employees.`
+      : baseText;
 
     // Add a user message
     const userMessage: ChatMessage = {
@@ -720,6 +724,7 @@ export default function Chat() {
       messages: [],
       type: "generate_ideas",
       industry: industry ? decodeURIComponent(industry) : undefined,
+      platform,
       onDelta: (chunk) => {
         assistantContent += chunk;
         setMessages((prev) =>

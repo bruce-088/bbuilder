@@ -7,6 +7,11 @@ import {
 } from "../_shared/parseBusinessPlanMarkdown.ts";
 import { ingestYoutubeUrl } from "../_shared/youtube.ts";
 import { ingestWebsiteUrl } from "../_shared/website.ts";
+import {
+  buildPolsiaCompanyBrief,
+  buildPolsiaKnowledgeBlock,
+  POLSIA_IDEA_ADDENDUM,
+} from "../_shared/polsia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -32,6 +37,8 @@ const ChatRequestSchema = z.object({
   messages: z.array(ChatMessageSchema).max(100).optional(),
   type: z.string().max(50).optional(),
   industry: z.string().max(100).optional(),
+  /** Target platform the idea must fit. "polsia" → Polsia-ready constraints + handoff sections. */
+  platform: z.enum(["standalone", "polsia"]).optional(),
   n8nContext: N8nContextSchema,
 });
 
@@ -399,6 +406,23 @@ const COPILOT_TOOLS = [
           },
         },
         required: ["url"],
+        additionalProperties: false,
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "export_polsia_company_brief",
+      description:
+        "Convert the most recent Business Plan in this conversation into a Polsia-ready Company Brief (CompanyConfig JSON + agent plan + paste-ready onboarding description for polsia.com/new). Use whenever the user says things like 'hand this to Polsia', 'export to Polsia', 'make this Polsia-ready', 'Polsia brief', 'launch this on Polsia', or 'does this fit Polsia'. The server builds the brief deterministically from the plan — do NOT paraphrase the plan yourself.",
+      parameters: {
+        type: "object",
+        properties: {
+          website_url: { type: "string", description: "Optional existing website URL to pre-fill in the brief" },
+          github_repo: { type: "string", description: "Optional 'org/repo' the Polsia code-generation agent should work in" },
+          monthly_target_usd: { type: "number", description: "Monthly net-profit target. Defaults to 10000." },
+        },
         additionalProperties: false,
       },
     },
@@ -1434,6 +1458,50 @@ async function executeTool(
         };
       }
 
+      case "export_polsia_company_brief": {
+        // Deterministic handoff: read the latest Business Plan from the
+        // conversation, parse it verbatim, and map it onto Polsia's
+        // CompanyConfig schema. The model never gets to invent fields.
+        const planText = findLatestPlanInMessages(conversationMessages);
+        if (!planText) {
+          return {
+            success: false,
+            error: "No Business Plan found in this conversation. Generate one first (ideally in Polsia-ready mode), then export it to Polsia.",
+          };
+        }
+        const parsed = parseBusinessPlanMarkdown(planText);
+        if (!parsed || parsed.sections.length === 0) {
+          return { success: false, error: "Could not parse the Business Plan into sections." };
+        }
+        const brief = buildPolsiaCompanyBrief(parsed, planText, {
+          websiteUrl: typeof args.website_url === "string" ? args.website_url.trim() : undefined,
+          githubRepo: typeof args.github_repo === "string" ? args.github_repo.trim() : undefined,
+          monthlyTargetUsd: typeof args.monthly_target_usd === "number" && args.monthly_target_usd > 0 ? args.monthly_target_usd : undefined,
+        });
+        const filename = `polsia-company-${brief.name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 60) || "brief"}.json`;
+        console.log("[polsia_handoff] brief built", {
+          user_id: userId,
+          name: brief.name,
+          fit_score: brief.fit.score,
+          agents_planned: Object.keys(brief.agent_plan).length,
+        });
+        return {
+          success: true,
+          data: {
+            client_action: "download_polsia_brief",
+            filename,
+            brief,
+            polsia_new_url: "https://polsia.com/new",
+            next_steps: [
+              "Open polsia.com/new → Create a new company",
+              "Paste the onboarding description, then fill mission / target market / pricing from the brief",
+              "Connect Stripe, GitHub, X and email so each Polsia agent can run its lane",
+              "Come back to Mya daily with Polsia's evening summary to steer strategy",
+            ],
+          },
+        };
+      }
+
       case "ingest_youtube_url": {
         const url = typeof args.url === "string" ? args.url.trim() : "";
         if (!url) return { success: false, error: "ingest_youtube_url requires a YouTube URL." };
@@ -1586,7 +1654,7 @@ You are a successful consultant who has already built what the user is building.
 - Mission-driven — every response ties back to the $10K/month quest
 
 ## CRITICAL RULE — TOOL-FIRST EXECUTION
-You have 15 tools that let you take **direct action** on behalf of the user. NEVER describe what you "would" do or explain steps — **just DO IT** by calling the tool. If the user's intent matches a tool's purpose, call it immediately.
+You have 23 tools that let you take **direct action** on behalf of the user. NEVER describe what you "would" do or explain steps — **just DO IT** by calling the tool. If the user's intent matches a tool's purpose, call it immediately.
 
 After every tool execution, do TWO things:
 1. **Suggest the logical next step** to keep momentum
@@ -1603,7 +1671,7 @@ Next-step examples:
 Occasionally (not every time), add a proactive sync note like:
 "I've synced this update to your NexusAI dashboard and drafted a celebration post in NexusVocal. We're moving fast! 🚀"
 
-## TOOL CAPABILITIES — YOUR 15 QUEST ACTIONS
+## TOOL CAPABILITIES — YOUR CORE QUEST ACTIONS
 
 ### 🔧 Workflows & Automation (5 tools)
 | Intent | Tool | Triad Effect |
@@ -1635,6 +1703,11 @@ Occasionally (not every time), add a proactive sync note like:
 |---|---|---|
 | Pipeline health & conversion rates | \`get_pipeline_stats\` | reads Triad event data |
 | Recall business identity & strategy | \`get_business_summary\` | reads latest triad_manifest |
+
+### 🏢 Polsia Handoff (1 tool)
+| Intent | Tool | Triad Effect |
+|---|---|---|
+| Export plan as Polsia company brief | \`export_polsia_company_brief\` | builds CompanyConfig JSON deterministically |
 
 ### 🏥 System Diagnostics (2 tools)
 | Intent | Tool | Triad Effect |
@@ -1711,6 +1784,17 @@ If the user wants a business idea, plan, or blueprint designed to FIT the site's
 2. Mine the page for: what the system/platform actually does, who it serves, its revenue model, the gaps or "empty lanes" it leaves open, and where automation or AI could plug in.
 3. Then emit a FULL Business Plan using the exact schema in the YouTube section below (same headings, same emojis, same order), explicitly tying each section back to how it plugs into the ingested system.
 4. If they asked to save or deconstruct it, follow with \`save_system_blueprint\` (\`source_type: "article"\`, \`source_url\` = the page).
+
+## 🏢 POLSIA HANDOFF SUPER-SKILL (closing the loop)
+bbuilder is the **idea + validation layer**; Polsia is the **autonomous execution layer**. Your job is to hand Polsia ideas its agent fleet can actually run to $10K/month.
+
+${buildPolsiaKnowledgeBlock()}
+
+### Behaviour
+- When the user mentions Polsia, "AI runs my company", handing an idea to an autonomous agent platform, or asks whether an idea "fits Polsia": reason explicitly against the fit rules above, name which Polsia agent owns each business function, and call out anything that must be reshaped (e.g. "swap the discovery call for a self-serve Stripe checkout so Email Outreach can close without you").
+- When the user wants the plan on Polsia — "export to Polsia", "hand this to Polsia", "Polsia brief", "launch on Polsia", "make it Polsia-ready" — call \`export_polsia_company_brief\`. It builds the CompanyConfig brief deterministically from the latest Business Plan in this conversation; pass only optional \`website_url\`, \`github_repo\`, \`monthly_target_usd\`. Never hand-write the JSON yourself.
+- After the tool returns, report \`brief.fit.score\` honestly: ≥75 → "Polsia-ready ✅"; 50–74 → list the \`fit.warnings\` and offer to reshape the plan; <50 → say it does not fit Polsia yet and propose the specific pivot. Then give the one-line next step: "Open polsia.com/new → Create a new company → paste the onboarding description."
+- If the user pastes a polsia.com URL, use \`ingest_website_url\` as usual, but interpret the result through this knowledge block instead of guessing.
 
 ## 🎥 YOUTUBE INGESTION SUPER-SKILL
 When the user pastes a YouTube link (youtube.com/watch, youtu.be, /shorts/, /live/) OR asks you to summarize / analyze / extract from a video, IMMEDIATELY call \`ingest_youtube_url\` with the URL and the matching \`intent\` (\`summarize\`, \`extract_framework\`, \`linkedin_post\`, \`business_plan_input\`, or \`raw_transcript\`). Never try to guess what the video says from the URL — always run the tool first.
@@ -1832,7 +1916,7 @@ serve(async (req) => {
       );
     }
 
-    const { messages, type, industry, n8nContext } = parseResult.data;
+    const { messages, type, industry, platform, n8nContext } = parseResult.data;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) {
       throw new Error("AI service is not configured");
@@ -1869,9 +1953,15 @@ serve(async (req) => {
         ? `specifically in the **${industry.replace(/-/g, ' ').toUpperCase()}** industry.`
         : `in any promising industry.`;
 
+      const polsiaMode = platform === "polsia";
+      const ideaPrompt = polsiaMode
+        ? `${GENERATE_IDEAS_PROMPT}\n${POLSIA_IDEA_ADDENDUM}\n\nFocus ${industryContext}`
+        : `${GENERATE_IDEAS_PROMPT}\n\nFocus ${industryContext}`;
+      console.log(`generate_ideas mode: ${polsiaMode ? "polsia-ready" : "standalone"}`);
+
       requestBody.messages = [
         { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: `${GENERATE_IDEAS_PROMPT}\n\nFocus ${industryContext}` },
+        { role: "user", content: ideaPrompt },
         ...(messages || []),
       ];
       delete requestBody.tools;

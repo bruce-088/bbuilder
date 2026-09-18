@@ -60,6 +60,10 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Polsia integration
+
+Mya can generate **Polsia-ready** business ideas (pick *Polsia-ready* under "Who will run it?" when generating) and export any plan as a Polsia Company Brief for [polsia.com/new](https://polsia.com/new). See [docs/POLSIA_INTEGRATION.md](docs/POLSIA_INTEGRATION.md).
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
