@@ -1,9 +1,10 @@
-import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, Download, Youtube, ExternalLink, BookOpen, Globe, Building2, Copy } from "lucide-react";
+import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, FileCode, Download, Youtube, ExternalLink, BookOpen, Globe, Building2, Copy } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { downloadMyaPdf, type MyaPdfArgs } from "@/lib/myaPdfGenerator";
+import { downloadMyaMarkdown } from "@/lib/myaMarkdownGenerator";
 import { downloadPolsiaBrief, copyPolsiaOnboardingPrompt, fitLabel, POLSIA_NEW_COMPANY_URL, type PolsiaCompanyBrief } from "@/lib/polsiaHandoff";
 import { toast } from "sonner";
 
