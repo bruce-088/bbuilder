@@ -5,10 +5,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, Send, ExternalLink, Copy } from "lucide-react";
+import { Loader2, Send, ExternalLink, Copy, FileText, FileCode } from "lucide-react";
 import { toast } from "sonner";
 import { BLUEPRINT_SECTIONS, type SystemBlueprint } from "@/lib/blueprintSchema";
 import { ACTIVE_HANDOFF_TARGET, buildHandoffPackage, serializeHandoff } from "@/lib/handoff";
+import { downloadMyaPdf, type MyaPdfArgs } from "@/lib/myaPdfGenerator";
+import { downloadMyaMarkdown } from "@/lib/myaMarkdownGenerator";
 
 interface Props {
   blueprintId: string | null;
@@ -50,6 +52,46 @@ export default function BlueprintDialog({ blueprintId, open, onOpenChange }: Pro
     navigator.clipboard.writeText(JSON.stringify(b.blueprint, null, 2));
     toast.success("Blueprint JSON copied");
   };
+
+  const buildBlueprintDocArgs = (): MyaPdfArgs | null => {
+    if (!b) return null;
+    const bp = b.blueprint || {};
+    const known = BLUEPRINT_SECTIONS
+      .filter((s) => bp[s.id])
+      .map((s) => ({ heading: s.label, body: String(bp[s.id]) }));
+    const extra = Object.keys(bp)
+      .filter((k) => !BLUEPRINT_SECTIONS.find((s) => s.id === k) && bp[k])
+      .map((k) => ({ heading: k.replace(/_/g, " "), body: String(bp[k]) }));
+    return {
+      title: b.title,
+      subtitle: b.summary || undefined,
+      filename: b.title || "system-blueprint",
+      sections: [...known, ...extra],
+    };
+  };
+
+  const downloadMarkdown = () => {
+    const args = buildBlueprintDocArgs();
+    if (!args) return;
+    try {
+      const f = downloadMyaMarkdown(args);
+      toast.success(`📝 ${f} downloaded`);
+    } catch {
+      toast.error("Couldn't generate the Markdown file.");
+    }
+  };
+
+  const downloadPdf = () => {
+    const args = buildBlueprintDocArgs();
+    if (!args) return;
+    try {
+      const f = downloadMyaPdf(args);
+      toast.success(`📄 ${f} downloaded`);
+    } catch {
+      toast.error("Couldn't generate the PDF.");
+    }
+  };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -146,9 +188,16 @@ export default function BlueprintDialog({ blueprintId, open, onOpenChange }: Pro
                 <Send className="w-4 h-4 mr-1.5" />
                 {sending ? "Sending..." : "Handoff to OpenClaw"}
               </Button>
+              <Button variant="outline" size="sm" onClick={downloadPdf}>
+                <FileText className="w-4 h-4 mr-1.5" /> PDF
+              </Button>
+              <Button variant="outline" size="sm" onClick={downloadMarkdown}>
+                <FileCode className="w-4 h-4 mr-1.5" /> Markdown
+              </Button>
               <Button variant="outline" size="sm" onClick={copyJson}>
                 <Copy className="w-4 h-4 mr-1.5" /> Copy JSON
               </Button>
+
               {b.source_url && (
                 <Button variant="ghost" size="sm" asChild>
                   <a href={b.source_url} target="_blank" rel="noreferrer">

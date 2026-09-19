@@ -1,9 +1,10 @@
-import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, Download, Youtube, ExternalLink, BookOpen, Globe, Building2, Copy } from "lucide-react";
+import { CheckCircle, XCircle, Workflow, UserPlus, Play, List, Users, DollarSign, BarChart3, ArrowRightLeft, MessageSquare, Trash2, Clock, Brain, TrendingUp, FileText, FileCode, Download, Youtube, ExternalLink, BookOpen, Globe, Building2, Copy } from "lucide-react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { downloadMyaPdf, type MyaPdfArgs } from "@/lib/myaPdfGenerator";
+import { downloadMyaMarkdown } from "@/lib/myaMarkdownGenerator";
 import { downloadPolsiaBrief, copyPolsiaOnboardingPrompt, fitLabel, POLSIA_NEW_COMPANY_URL, type PolsiaCompanyBrief } from "@/lib/polsiaHandoff";
 import { toast } from "sonner";
 
@@ -183,35 +184,59 @@ export default function CopilotActionCard({ toolResult }: CopilotActionCardProps
             <p>💡 {d.message}</p>
           )}
 
-          {(name === "generate_pdf" || name === "export_business_plan_pdf") && d.client_action === "generate_pdf" && (
-            <div className="space-y-1.5">
-              <p className="flex items-center gap-1.5">
-                <FileText className="h-3.5 w-3.5 text-emerald-400" />
-                <strong>{d.filename}.pdf</strong>
-                <span className="text-muted-foreground">— {Array.isArray(d.sections) ? d.sections.length : 0} section(s)</span>
-              </p>
-              <Button
-                variant="link"
-                size="sm"
-                className="h-auto p-0 text-xs text-primary"
-                onClick={() => {
-                  try {
-                    downloadMyaPdf({
-                      title: String(d.title || "Untitled"),
-                      subtitle: d.subtitle ? String(d.subtitle) : undefined,
-                      filename: String(d.filename || "mya-document"),
-                      sections: (d.sections as MyaPdfArgs["sections"]) || [],
-                    });
-                  } catch (e) {
-                    console.error("PDF re-download failed:", e);
-                  }
-                }}
-              >
-                <Download className="h-3 w-3 mr-1" />
-                Download again
-              </Button>
-            </div>
-          )}
+          {(name === "generate_pdf" || name === "export_business_plan_pdf") && d.client_action === "generate_pdf" && (() => {
+            const docArgs: MyaPdfArgs = {
+              title: String(d.title || "Untitled"),
+              subtitle: d.subtitle ? String(d.subtitle) : undefined,
+              filename: String(d.filename || "mya-document"),
+              sections: (d.sections as MyaPdfArgs["sections"]) || [],
+            };
+            return (
+              <div className="space-y-1.5">
+                <p className="flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-emerald-400" />
+                  <strong>{d.filename}</strong>
+                  <span className="text-muted-foreground">— {Array.isArray(d.sections) ? d.sections.length : 0} section(s)</span>
+                </p>
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs text-primary"
+                    onClick={() => {
+                      try {
+                        downloadMyaPdf(docArgs);
+                      } catch (e) {
+                        console.error("PDF re-download failed:", e);
+                        toast.error("Couldn't generate the PDF.");
+                      }
+                    }}
+                  >
+                    <Download className="h-3 w-3 mr-1" />
+                    Download PDF
+                  </Button>
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-xs text-primary"
+                    onClick={() => {
+                      try {
+                        const f = downloadMyaMarkdown(docArgs);
+                        toast.success(`📝 ${f} downloaded`);
+                      } catch (e) {
+                        console.error("Markdown download failed:", e);
+                        toast.error("Couldn't generate the Markdown file.");
+                      }
+                    }}
+                  >
+                    <FileCode className="h-3 w-3 mr-1" />
+                    Download .md
+                  </Button>
+                </div>
+              </div>
+            );
+          })()}
+
 
           {name === "export_polsia_company_brief" && d.brief && (() => {
             const brief = d.brief as PolsiaCompanyBrief;
