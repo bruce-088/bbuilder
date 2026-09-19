@@ -51,6 +51,46 @@ export default function BlueprintDialog({ blueprintId, open, onOpenChange }: Pro
     toast.success("Blueprint JSON copied");
   };
 
+  const buildBlueprintDocArgs = (): MyaPdfArgs | null => {
+    if (!b) return null;
+    const bp = b.blueprint || {};
+    const known = BLUEPRINT_SECTIONS
+      .filter((s) => bp[s.id])
+      .map((s) => ({ heading: s.label, body: String(bp[s.id]) }));
+    const extra = Object.keys(bp)
+      .filter((k) => !BLUEPRINT_SECTIONS.find((s) => s.id === k) && bp[k])
+      .map((k) => ({ heading: k.replace(/_/g, " "), body: String(bp[k]) }));
+    return {
+      title: b.title,
+      subtitle: b.summary || undefined,
+      filename: b.title || "system-blueprint",
+      sections: [...known, ...extra],
+    };
+  };
+
+  const downloadMarkdown = () => {
+    const args = buildBlueprintDocArgs();
+    if (!args) return;
+    try {
+      const f = downloadMyaMarkdown(args);
+      toast.success(`📝 ${f} downloaded`);
+    } catch {
+      toast.error("Couldn't generate the Markdown file.");
+    }
+  };
+
+  const downloadPdf = () => {
+    const args = buildBlueprintDocArgs();
+    if (!args) return;
+    try {
+      const f = downloadMyaPdf(args);
+      toast.success(`📄 ${f} downloaded`);
+    } catch {
+      toast.error("Couldn't generate the PDF.");
+    }
+  };
+
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
